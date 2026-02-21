@@ -9,7 +9,6 @@ use wrevive_api::{input, HostFn};
 #[allow(unused_imports)]
 use wrevive_macro::{revive, revive_contract};
 
-
 #[revive_contract]
 mod contract {
     use super::*;
