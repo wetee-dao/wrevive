@@ -1,7 +1,13 @@
+//! # On-chain backend
+//!
+//! `ext` delegates to `pallet_revive_uapi::HostFnImpl`; compiled only for PolkaVM/RISC-V.
+//!
 //! On-chain 实现：委托 `pallet_revive_uapi::HostFnImpl`，仅 PolkaVM/RISC-V 目标。
 
 use pallet_revive_uapi::{HostFn, HostFnImpl, ReturnErrorCode, ReturnFlags, StorageFlags};
 
+/// Extension namespace for host calls; same names as off_chain::ext for a unified contract API.
+/// 链上 host 调用命名空间；与 off_chain::ext 同名，合约侧统一使用 ext::*。
 pub mod ext {
     use super::*;
 

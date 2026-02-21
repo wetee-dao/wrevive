@@ -1,19 +1,35 @@
 //! # wrevive-macro
 //!
+//! # wrevive-macro (English)
+//!
+//! ink!-style procedural macros for PolkaVM (pallet-revive) contracts:
+//! `#[revive(constructor)]` and `#[revive(message)]` / `#[revive(message, selector = 0x...)]`.
+//!
 //! 类似 ink! 的 `#[revive(constructor)]` / `#[revive(message)]` 宏，用于 PolkaVM（pallet-revive）合约。
 //!
-//! ## 用法
+//! ## Usage / 用法
 //!
+//! Apply `#[revive_contract]` on a module. The module must contain:
 //! 在模块上标注 `#[revive_contract]`，模块内包含：
-//! - **恰好一个** `#[revive(constructor)] fn deploy() { ... }`：合约部署时调用的构造函数；
-//! - **若干** `#[revive(message)]` 或 `#[revive(message, selector = 0x...)] fn name(args) -> ret { ... }`：
-//!   对外可调用的 message；未提供 selector 时自动用 BLAKE2b(函数名) 前 4 字节（与 ink! 一致）。
 //!
-//! ## 宏生成内容
+//! - **Exactly one** `#[revive(constructor)] fn deploy() { ... }` — called when the contract is instantiated.
+//!   **恰好一个** `#[revive(constructor)] fn deploy() { ... }`：合约部署时调用的构造函数；
 //!
-//! - **deploy()**：`extern "C"` 入口，供链上实例化时调用，内部转发到用户的 `deploy()`；
-//! - **call()**：`extern "C"` 入口，读取 call data 前 4 字节作为 selector，按 selector 分发到对应 message；
-//! - **ABI 文件**：在编译时生成到 `target/contract/abi.json`，ink! 风格，供前端/JS 编码与解码。
+//! - **Zero or more** `#[revive(message)]` or `#[revive(message, selector = 0x...)] fn name(args) -> ret { ... }` —
+//!   externally callable messages; if no selector is given, the first 4 bytes of BLAKE2s(function_name) are used (ink!-compatible).
+//!   **若干** `#[revive(message)]` 或 `#[revive(message, selector = 0x...)] fn name(args) -> ret { ... }`：
+//!   对外可调用的 message；未提供 selector 时自动用 BLAKE2s(函数名) 前 4 字节（与 ink! 一致）。
+//!
+//! ## Generated code / 宏生成内容
+//!
+//! - **deploy()** — `extern "C"` entry called by the chain on instantiation; forwards to the user's `deploy()`.
+//!   **deploy()**：`extern "C"` 入口，供链上实例化时调用，内部转发到用户的 `deploy()`；
+//!
+//! - **call()** — `extern "C"` entry that reads the first 4 bytes of call data as selector and dispatches to the matching message.
+//!   **call()**：`extern "C"` 入口，读取 call data 前 4 字节作为 selector，按 selector 分发到对应 message；
+//!
+//! - **ABI file** — written at compile time to `target/contract/abi.json` in ink!-style format for frontend/JS encoding and decoding.
+//!   **ABI 文件**：在编译时生成到 `target/contract/abi.json`，ink! 风格，供前端/JS 编码与解码。
 
 extern crate proc_macro;
 
@@ -32,15 +48,21 @@ use syn::{
 };
 
 // =============================================================================
+// Attribute parsing and type mapping (for ABI and codegen)
 // 属性解析与类型映射（供 ABI 与代码生成使用）
 // =============================================================================
 
-/// 从函数名生成 selector（与 ink! 一致）：BLAKE2(函数名)，取前 4 字节。
+/// Computes the 4-byte message selector from the function name (ink!-compatible):
+/// first 4 bytes of BLAKE2s256(name).
+/// 从函数名生成 selector（与 ink! 一致）：BLAKE2s(函数名)，取前 4 字节。
 fn selector_from_name(name: &str) -> [u8; 4] {
     let hash = Blake2s256::digest(name.as_bytes());
     [hash[0], hash[1], hash[2], hash[3]]
 }
 
+/// Parses the 4-byte selector from `#[revive(message, selector = 0x...)]`.
+/// E.g. `selector = 0x60fe47b1` → `[0x60, 0xfe, 0x47, 0xb1]` (big-endian).
+/// Returns `None` if no `revive(..., selector = ...)` is present.
 /// 从函数的 `#[revive(message, selector = 0x...)]` 属性中解析出 4 字节 selector。
 /// 例如 `selector = 0x60fe47b1` 解析为 `[0x60, 0xfe, 0x47, 0xb1]`（大端序）。
 /// 若没有 `revive(..., selector = ...)` 则返回 `None`。
@@ -65,6 +87,7 @@ fn parse_selector_from_attrs(attrs: &[Attribute]) -> Option<[u8; 4]> {
     None
 }
 
+/// Returns true if the function is marked with `#[revive(constructor)]` (contract constructor).
 /// 判断函数是否被标记为 `#[revive(constructor)]`（合约构造函数）。
 fn is_revive_constructor(attrs: &[Attribute]) -> bool {
     for attr in attrs {
@@ -79,6 +102,7 @@ fn is_revive_constructor(attrs: &[Attribute]) -> bool {
     false
 }
 
+/// Returns true if the function is marked with `#[revive(message)]` or `#[revive(message, selector = ...)]`.
 /// 判断函数是否被标记为 `#[revive(message)]` 或 `#[revive(message, selector = ...)]`。
 fn is_revive_message(attrs: &[Attribute]) -> bool {
     for attr in attrs {
@@ -93,6 +117,8 @@ fn is_revive_message(attrs: &[Attribute]) -> bool {
     false
 }
 
+/// Removes all `#[revive(...)]` attributes so they are not processed again by other macros or the compiler.
+/// After parsing, constructor and message functions no longer keep revive attributes.
 /// 去掉所有 `#[revive(...)]` 属性，避免这些属性被下游宏或编译器再次处理。
 /// 解析完成后，构造函数和 message 函数上不再保留 revive 属性。
 fn strip_revive_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
@@ -103,9 +129,10 @@ fn strip_revive_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
         .collect()
 }
 
+/// Maps a Rust type to an ABI type name and optional length for abi.json.
+/// - `u32` → `("u32", None)`
+/// - `[u8; 20]` → `("AccountId", Some(20))`
 /// 将 Rust 类型映射为 ABI 中的类型名及可选长度。
-/// - `u32` -> `("u32", None)`
-/// - `[u8; 20]` -> `("AccountId", Some(20))`
 /// 用于生成 abi.json 里 message 的 args/returnType。
 fn type_to_abi(ty: &syn::Type) -> Option<(String, Option<u32>)> {
     if let syn::Type::Path(p) = ty {
@@ -129,18 +156,22 @@ fn type_to_abi(ty: &syn::Type) -> Option<(String, Option<u32>)> {
     None
 }
 
+/// Formats the 4-byte selector as a hex string, e.g. `"0x60fe47b1"`, for the ABI selector field.
 /// 将 4 字节 selector 格式化为十六进制字符串，如 `"0x60fe47b1"`，用于 ABI 的 selector 字段。
 fn selector_hex(sel: [u8; 4]) -> String {
     format!("0x{:02x}{:02x}{:02x}{:02x}", sel[0], sel[1], sel[2], sel[3])
 }
 
+/// Generates ink!-style ABI JSON from contract name, constructor name, and message list.
+/// Writes to `{CARGO_TARGET_DIR}/contract/{contract_name}.json` at compile time (used by frontend/JS).
 /// 根据合约名、构造函数名与 message 列表，生成 ink! 风格的 ABI JSON，
-/// 写入 `{CARGO_TARGET_DIR}/contract/abi.json`（编译时由宏调用，供前端/JS 使用）。
+/// 写入 `{CARGO_TARGET_DIR}/contract/{contract_name}.json`（编译时由宏调用，供前端/JS 使用）。
 fn emit_abi(
     contract_name: &str,
     constructor_name: &str,
     message_fns: &[(ItemFn, [u8; 4])],
 ) {
+    // Resolve output dir: CARGO_TARGET_DIR first, else {CARGO_MANIFEST_DIR}/target
     // 确定输出目录：优先 CARGO_TARGET_DIR，否则 {CARGO_MANIFEST_DIR}/target
     let manifest_dir = match env::var("CARGO_MANIFEST_DIR") {
         Ok(d) => d,
@@ -154,6 +185,7 @@ fn emit_abi(
     }
     let out_path = contract_dir.join(format!("{}.json", contract_name));
 
+    // Constructor is always "deploy" in ABI with selector 0x00000000
     // 构造函数在 ABI 中固定为 deploy，selector 0x00000000
     let constructors = vec![serde_json::json!({
         "label": constructor_name,
@@ -165,12 +197,15 @@ fn emit_abi(
         "default": false
     })];
 
+    // One ABI message entry per #[revive(message, selector = ...)]
     // 为每个 #[revive(message, selector = ...)] 生成一条 message 条目
     let mut messages = Vec::new();
     for (f, sel) in message_fns {
         let label = f.sig.ident.to_string();
         let selector = selector_hex(*sel);
         let mut args = Vec::new();
+        // Build ABI args from function parameters (label + type/length)
+        // 从函数参数构建 ABI args（label + type/length）
         for arg in &f.sig.inputs {
             let FnArg::Typed(pt) = arg else { continue };
             let arg_name = match pt.pat.as_ref() {
@@ -185,6 +220,7 @@ fn emit_abi(
                 args.push(arg_obj);
             }
         }
+        // Return type: no return → Null; u32 / [u8;20] → displayName + optional length
         // 返回类型：无返回值 -> Null；u32 / [u8;20] -> displayName + 可选 length
         let (return_type, length) = match &f.sig.output {
             ReturnType::Default => (serde_json::Value::Null, None),
@@ -230,12 +266,16 @@ fn emit_abi(
 }
 
 // =============================================================================
+// Call data layout and decode/encode (aligned with ABI)
 // call() 内参数字节布局与解码/编码（与 ABI 约定一致）
 // =============================================================================
-// call data 布局： [ selector(4) | arg1 | arg2 | ... ]
-// - u32: 占 4 字节，小端序，即 __input[4..8]
-// - [u8; 20] (AccountId): 占 20 字节，即 __input[4..24]
+// Layout: [ selector(4) | arg1 | arg2 | ... ]
+// 布局： [ selector(4) | arg1 | arg2 | ... ]
+// - u32: 4 bytes, little-endian, i.e. __input[4..8]
+// - [u8; 20] (AccountId): 20 bytes, i.e. __input[4..24]
 
+/// Builds (byte size, type token for input!, call expression) for each message argument.
+/// For [u8; 20], input! parses as &[u8; 20]; at call site we use *name to get [u8; 20].
 /// 为官方 input! 生成参数：返回 (字节长, input! 中的类型 token, 调用 message 时的表达式)。
 /// [u8; 20] 在 input! 中用 &[u8; 20] 解析，调用时用 *name 转为 [u8; 20]。
 fn arg_for_input(arg_ty: &syn::Type, pat: &syn::Pat) -> Option<(usize, TokenStream2, TokenStream2)> {
@@ -282,12 +322,14 @@ fn arg_for_input(arg_ty: &syn::Type, pat: &syn::Pat) -> Option<(usize, TokenStre
     None
 }
 
+/// When feature "test" is on: parses arguments from __input[__off..] by hand, without input!
+/// (so we don't rely on HostFnImpl, which is not available on host during tests.)
 /// 当 feature "test" 时，从 __input[__off..] 手动解析参数，不依赖 input!（避免 HostFnImpl 在 host 上不可用）。
 fn manual_parse_from_input(
     input_vars: &[(syn::Ident, usize, TokenStream2)],
 ) -> TokenStream2 {
     let mut stmts = Vec::<TokenStream2>::new();
-    let mut off: usize = 4;
+    let mut off: usize = 4; // after 4-byte selector
     for (name, size, _call_expr) in input_vars {
         if *size == 4 {
             stmts.push(quote! {
@@ -311,6 +353,11 @@ fn manual_parse_from_input(
     }
 }
 
+/// Generates code that encodes the return value `__ret` and passes it to `ext::return_value`.
+/// - `()`: no return, pass empty slice;
+/// - `u32`: encode as 32-byte buffer (first 4 bytes LE), common ABI convention;
+/// - `[u8; 20]`: pass 20-byte reference directly;
+/// - other: currently treated as no return, empty slice (extensible later).
 /// 根据 message 的返回类型，生成将返回值 `__ret` 编码并通过 `ext::return_value` 返回的代码。
 /// - `()`：无返回值，传空切片；
 /// - `u32`：编码为 32 字节 buffer（前 4 字节小端），与常见 ABI 约定一致；
@@ -358,10 +405,15 @@ fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
 
 
 // =============================================================================
+// Procedural macro entry points
 // 过程宏入口
 // =============================================================================
 
-/// **主宏**：`#[revive_contract(...)]` 只能挂在 `mod` 上，展开后：
+/// **Main macro**: `#[revive_contract]` must be applied to a `mod`. It:
+/// 1. Keeps the mod and its items;
+/// 2. Emits `deploy()` and `call()` as `extern "C"` at crate root;
+/// 3. Writes ABI to target/contract/abi.json at compile time.
+/// **主宏**：`#[revive_contract]` 只能挂在 `mod` 上，展开后：
 /// 1. 保留该 mod 及其内部项；
 /// 2. 在 crate 根生成 `deploy()` 和 `call()` 两个 `extern "C"` 函数；
 /// 3. 编译时把 ABI 写入 target/contract/abi.json。
@@ -371,7 +423,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let item = parse_macro_input!(item as Item);
     let Item::Mod(mut module) = item else {
-        return syn::Error::new_spanned(item, "revive_contract 只能用于 mod")
+        return syn::Error::new_spanned(item, "revive_contract must be applied to a mod / revive_contract 只能用于 mod")
             .to_compile_error()
             .into();
     };
@@ -380,12 +432,13 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mod_content = match &mut module.content {
         Some((_, items)) => items,
         None => {
-            return syn::Error::new_spanned(module, "revive_contract mod 必须有 body")
+            return syn::Error::new_spanned(module, "revive_contract mod must have a body / revive_contract mod 必须有 body")
                 .to_compile_error()
                 .into();
         }
     };
 
+    // Classify: exactly one constructor, messages with selectors, other items (kept as-is)
     // 分类：构造函数（恰好一个）、带 selector 的 message、其他项（原样保留）
     let mut constructor_fn: Option<ItemFn> = None;
     let mut message_fns: Vec<(ItemFn, [u8; 4])> = Vec::new();
@@ -416,13 +469,14 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let constructor_fn = match constructor_fn {
         Some(f) => f,
         None => {
-            return syn::Error::new_spanned(&module, "需要恰好一个 #[revive(constructor)] 函数")
+            return syn::Error::new_spanned(&module, "exactly one #[revive(constructor)] function required / 需要恰好一个 #[revive(constructor)] 函数")
                 .to_compile_error()
                 .into();
         }
     };
     let constructor_name = constructor_fn.sig.ident.clone();
 
+    // Emit ABI to target/contract/{contract_name}.json
     // 生成 ABI 到 target/contract/abi.json
     emit_abi(
         &contract_name,
@@ -430,6 +484,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
         &message_fns,
     );
 
+    // Put constructor, messages, and other items back into the mod (deploy/call are emitted outside)
     // 把用户的 constructor、message、其他项重新放回 mod（deploy/call 生成在 mod 外）
     mod_content.push(Item::Fn(constructor_fn));
     for (f, _) in &message_fns {
@@ -437,6 +492,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     mod_content.extend(other_items);
 
+    // Build match arms for call(): cfg(feature = "test") chooses manual parse vs input!
     // 为 call() 生成 match 分支：用 cfg(feature = "test") 在合约包中选择手动解析或 input!
     let match_arms: Vec<TokenStream2> = message_fns
         .iter()
@@ -461,6 +517,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
             let manual_parse = manual_parse_from_input(&input_vars_off);
+            // Manual parse: [u8; 20] is already by-value, pass name; with input! we pass *name for &[u8; 20]
             // 手动解析时 [u8; 20] 变量已是 by-value，传 name；input! 时为 &[u8; 20] 传 *name
             let call_exprs_manual: Vec<TokenStream2> = input_vars_off
                 .iter()
@@ -499,6 +556,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
         })
         .collect();
 
+    // Emit deploy(): entry called by PolkaVM on instantiation, forwards to user constructor
     // 生成 deploy()：PolkaVM 实例化时调用的入口，直接转发到用户定义的构造函数
     let deploy_fn: Item = syn::parse2(quote! {
         #[no_mangle]
@@ -508,6 +566,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     })
     .unwrap();
 
+    // Emit call(): read call data, dispatch by first 4-byte selector, encode return value
     // 生成 call()：读取 call data，按前 4 字节 selector 分发到对应 message，并编码返回值
     let call_fn: Item = syn::parse2(quote! {
         #[no_mangle]
@@ -530,6 +589,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     })
     .unwrap();
 
+    // Expansion: original mod + deploy() + call()
     // 展开结果：原 mod + deploy() + call()
     quote! {
         #module
@@ -541,6 +601,8 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     .into()
 }
 
+/// **Pass-through macro**: `#[revive(constructor)]` and `#[revive(message, selector = ...)]` are only markers;
+/// `#[revive_contract]` reads them when parsing the mod; here we do not expand, just return the item as-is.
 /// **透传宏**：`#[revive(constructor)]` 与 `#[revive(message, selector = ...)]` 仅作为标记，
 /// 由 `#[revive_contract]` 在解析 mod 时读取，此处不做展开，原样返回 item。
 #[proc_macro_attribute]
