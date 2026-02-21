@@ -1,17 +1,21 @@
-#![cfg_attr(not(feature = "test"), no_std)]
-#![cfg_attr(not(feature = "test"), no_main)]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_main)]
 
-use wrevive_api::{ext, ReturnFlags, StorageFlags,input, HostFn};
+use wrevive_api::{ext, ReturnFlags, StorageFlags};
+
+#[cfg(not(test))]
+use wrevive_api::{input, HostFn};
+
 #[allow(unused_imports)]
 use wrevive_macro::{revive, revive_contract};
 
-const STORAGE_KEY_VALUE: &[u8] = b"value";
-const STORAGE_KEY_OWNER: &[u8] = b"owner";
-const EMPTY_TOPICS: &[[u8; 32]] = &[];
 
 #[revive_contract]
 mod contract {
     use super::*;
+    const STORAGE_KEY_VALUE: &[u8] = b"value";
+    const STORAGE_KEY_OWNER: &[u8] = b"owner";
+    const EMPTY_TOPICS: &[[u8; 32]] = &[];
 
     #[revive(constructor)]
     pub fn deploy() {
@@ -63,7 +67,7 @@ mod contract {
         }
     }
 
-    #[revive(message, selector = 0x8f8f9f8f)]
+    #[revive(message)]
     pub fn get_owner() -> [u8; 20] {
         let mut owner = [0u8; 20];
         let mut slice: &mut [u8] = &mut owner[..];
@@ -77,7 +81,7 @@ mod contract {
     }
 }
 
-#[cfg(not(feature = "test"))]
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
 	// Safety: The unimp instruction is guaranteed to trap
@@ -87,5 +91,5 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 	}
 }
 
-#[cfg(all(feature = "test", test))]
+#[cfg(test)]
 mod tests;

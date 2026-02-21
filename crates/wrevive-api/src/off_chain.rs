@@ -8,8 +8,8 @@ use pallet_revive_uapi::ReturnFlags;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-/// Thread-local engine instance; all ext::* calls and test setup use this.
-/// 线程局部引擎实例；所有 ext::* 调用与测试配置均使用此实例。
+// Thread-local engine instance; all ext::* calls and test setup use this.
+// 线程局部引擎实例；所有 ext::* 调用与测试配置均使用此实例。
 thread_local! {
     static ENGINE: RefCell<Engine> = RefCell::new(Engine::default());
 }

@@ -322,9 +322,9 @@ fn arg_for_input(arg_ty: &syn::Type, pat: &syn::Pat) -> Option<(usize, TokenStre
     None
 }
 
-/// When feature "test" is on: parses arguments from __input[__off..] by hand, without input!
+/// When cfg(test): parses arguments from __input[__off..] by hand, without input!
 /// (so we don't rely on HostFnImpl, which is not available on host during tests.)
-/// 当 feature "test" 时，从 __input[__off..] 手动解析参数，不依赖 input!（避免 HostFnImpl 在 host 上不可用）。
+/// 当 cfg(test)（cargo test）时，从 __input[__off..] 手动解析参数，不依赖 input!（避免 HostFnImpl 在 host 上不可用）。
 fn manual_parse_from_input(
     input_vars: &[(syn::Ident, usize, TokenStream2)],
 ) -> TokenStream2 {
@@ -492,8 +492,8 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     mod_content.extend(other_items);
 
-    // Build match arms for call(): cfg(feature = "test") chooses manual parse vs input!
-    // 为 call() 生成 match 分支：用 cfg(feature = "test") 在合约包中选择手动解析或 input!
+    // Build match arms for call(): cfg(test) chooses manual parse vs input! (set by cargo test)
+    // 为 call() 生成 match 分支：cfg(test) 时用手动解析，否则用 input!（由 cargo test 自动设置）
     let match_arms: Vec<TokenStream2> = message_fns
         .iter()
         .map(|(f, sel)| {
@@ -539,13 +539,13 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 [#s0, #s1, #s2, #s3] => {
                     if __input_len >= #min_len {
-                        #[cfg(feature = "test")]
+                        #[cfg(test)]
                         #manual_parse
-                        #[cfg(not(feature = "test"))]
+                        #[cfg(not(test))]
                         #input_parse_ink
-                        #[cfg(feature = "test")]
+                        #[cfg(test)]
                         let __ret = #mod_name::#fn_name(#(#call_exprs_manual),*);
-                        #[cfg(not(feature = "test"))]
+                        #[cfg(not(test))]
                         let __ret = #mod_name::#fn_name(#(#call_exprs),*);
                         #encode_and_return
                     } else {

@@ -50,7 +50,7 @@ fn set_owner_only_by_current_owner() {
     contract::deploy();
 
     // Alice 可以改 owner 为 Bob
-    contract::set_owner(bob);
+    contract::set_owner(bob, 0);
     off_chain::with_engine(|e| {
         assert_eq!(e.get_storage_value(STORAGE_KEY_OWNER).unwrap(), bob);
     });
@@ -60,7 +60,7 @@ fn set_owner_only_by_current_owner() {
         e.set_caller(bob);
     });
     let new_owner = [3u8; 20];
-    contract::set_owner(new_owner);
+    contract::set_owner(new_owner, 0);
     off_chain::with_engine(|e| {
         assert_eq!(e.get_storage_value(STORAGE_KEY_OWNER).unwrap(), new_owner);
     });
