@@ -1,0 +1,21 @@
+[package]
+name = "wrevive-example-contract"
+version = "0.1.0"
+edition = "2021"
+description = "示例合约：value/owner 存储与 message，供 PolkaVM 部署"
+
+[features]
+# 启用后用于单元测试：使用 wrevive-api 的 off_chain Engine，可在 host 上运行测试
+test = ["wrevive-api/off_chain"]
+
+# polkavm-linker 提供的 target 为 only-cdylib，产出 .elf 供 polkatool link
+[lib]
+name = "example"
+crate-type = ["cdylib"]
+
+[build-dependencies]
+polkavm-linker = "0.30"
+
+[dependencies]
+wrevive-macro = { path = "../../crates/wrevive-macro" }
+wrevive-api = { path = "../../crates/wrevive-api", default-features = false }

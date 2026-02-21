@@ -1,0 +1,17 @@
+[workspace]
+members = [
+    "crates/wrevive-macro",
+    "crates/wrevive-api",
+    "examples/wrevive-example-contract",
+]
+resolver = "2"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+debug = true

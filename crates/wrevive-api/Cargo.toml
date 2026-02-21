@@ -1,0 +1,13 @@
+[package]
+name = "wrevive-api"
+version = "0.1.0"
+edition = "2021"
+description = "pallet_revive_uapi 封装：on_chain（真实 Host）/ off_chain（Engine 测试），参考 ink engine"
+
+[features]
+default = []
+# 启用 off_chain：ext 使用内存 Engine，用于单元测试（同 ink engine test_api）
+off_chain = []
+
+[dependencies]
+pallet-revive-uapi = { git = "https://github.com/paritytech/polkadot-sdk", package = "pallet-revive-uapi", default-features = false }

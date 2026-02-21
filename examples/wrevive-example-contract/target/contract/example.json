@@ -1,0 +1,104 @@
+{
+  "contract": {
+    "name": "example"
+  },
+  "metadataVersion": "0.1",
+  "spec": {
+    "constructors": [
+      {
+        "args": [],
+        "default": false,
+        "docs": [],
+        "label": "deploy",
+        "payable": false,
+        "returnType": null,
+        "selector": "0x00000000"
+      }
+    ],
+    "docs": [],
+    "events": [],
+    "messages": [
+      {
+        "args": [
+          {
+            "label": "_value",
+            "type": {
+              "displayName": [
+                "u32"
+              ],
+              "type": 0
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "set_value",
+        "mutates": true,
+        "payable": false,
+        "returnType": null,
+        "selector": "0x60fe47b1"
+      },
+      {
+        "args": [],
+        "default": false,
+        "docs": [],
+        "label": "get_value",
+        "mutates": true,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "u32"
+          ],
+          "type": 0
+        },
+        "selector": "0x6d4ce633"
+      },
+      {
+        "args": [
+          {
+            "label": "new_owner",
+            "length": 20,
+            "type": {
+              "displayName": [
+                "AccountId"
+              ],
+              "type": 0
+            }
+          },
+          {
+            "label": "_v",
+            "type": {
+              "displayName": [
+                "u32"
+              ],
+              "type": 0
+            }
+          }
+        ],
+        "default": false,
+        "docs": [],
+        "label": "set_owner",
+        "mutates": true,
+        "payable": false,
+        "returnType": null,
+        "selector": "0x13af4035"
+      },
+      {
+        "args": [],
+        "default": false,
+        "docs": [],
+        "label": "get_owner",
+        "length": 20,
+        "mutates": true,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "AccountId"
+          ],
+          "type": 0
+        },
+        "selector": "0x8f8f9f8f"
+      }
+    ]
+  }
+}
