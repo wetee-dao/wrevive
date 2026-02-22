@@ -1,5 +1,3 @@
-//! 单元测试：使用 wrevive_api::off_chain Engine，运行 `cargo test -p wrevive-example-contract --features test`
-
 use crate::contract;
 use wrevive_api::off_chain;
 

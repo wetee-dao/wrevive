@@ -521,7 +521,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
             // 手动解析时 [u8; 20] 变量已是 by-value，传 name；input! 时为 &[u8; 20] 传 *name
             let call_exprs_manual: Vec<TokenStream2> = input_vars_off
                 .iter()
-                .map(|(name, size, _)| if *size == 20 { quote! { #name } } else { quote! { #name } })
+                .map(|(name, _, _)| quote! { #name })
                 .collect();
             let input_parse_ink = if input_vars_ink.is_empty() {
                 quote! { input!(__input, _skip: u32, ); }
@@ -532,12 +532,9 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
             };
             let ret_ty = &sig.output;
             let encode_and_return = return_encode(ret_ty);
-            let s0 = sel[0];
-            let s1 = sel[1];
-            let s2 = sel[2];
-            let s3 = sel[3];
+            let sel_u32 = u32::from_be_bytes(*sel);
             quote! {
-                [#s0, #s1, #s2, #s3] => {
+                #sel_u32 => {
                     if __input_len >= #min_len {
                         #[cfg(test)]
                         #manual_parse
@@ -577,7 +574,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 ext::call_data_copy(&mut __input[..__input_len], 0);
             }
             if __input_len >= 4 {
-                let __sel = [__input[0], __input[1], __input[2], __input[3]];
+                let __sel = u32::from_be_bytes([__input[0], __input[1], __input[2], __input[3]]);
                 match __sel {
                     #(#match_arms),*
                     _ => ext::return_value(ReturnFlags::REVERT, &[]),

@@ -6,7 +6,6 @@ description = "pallet_revive_uapi 封装：on_chain（真实 Host）/ off_chain�
 
 [features]
 default = []
-# 启用 off_chain：ext 使用内存 Engine，用于单元测试（同 ink engine test_api）
 off_chain = []
 
 [dependencies]
