@@ -1,12 +1,9 @@
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
 
-wrevive_api::picoalloc_global_allocator!(1024);
+wrevive_macro::picoalloc_global_allocator!(1024);
 
 use wrevive_api::{env, get_storage, set_storage, ReturnFlags, StorageFlags};
-
-#[cfg(not(test))]
-use wrevive_api::{input, HostFn};
 
 #[allow(unused_imports)]
 use wrevive_macro::{revive, revive_contract};
@@ -68,3 +65,4 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 
 #[cfg(test)]
 mod tests;
+

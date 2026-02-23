@@ -15,10 +15,10 @@
 //!
 //! 链上 no_std 时，`Mapping::set` / `Mapping::get` 内部分别用 `value.encode()` 与 `vec![0u8; 256]`，
 //! 不再要求调用方传入 buffer。这依赖 **全局分配器**：需在合约根（如 `lib.rs`）中设置 `#[global_allocator]`，
-//! 否则 `alloc::vec::Vec` 无法工作。例如使用 [picoalloc](https://crates.io/crates/picoalloc)（可选 feature `allocator`）：
+//! 否则 `alloc::vec::Vec` 无法工作。例如使用 [picoalloc](https://crates.io/crates/picoalloc)（通过 `wrevive-macro`）：
 //!
 //! ```ignore
-//! use wrevive_api::picoalloc_global_allocator;
+//! use wrevive_macro::picoalloc_global_allocator;
 //! picoalloc_global_allocator!(1024); // 1024 字节堆，可按需调大
 //! ```
 
@@ -42,7 +42,6 @@ pub use pallet_revive_uapi::{input, HostFn, ReturnErrorCode, ReturnFlags, Storag
 /// Scale 编解码与类型信息，供 `#[scale_derive(Encode, Decode, TypeInfo)]` 及 Mapping set/get 使用。
 pub use parity_scale_codec::{Decode, Encode};
 pub use scale_info::TypeInfo;
-pub use wrevive_macro::scale_derive;
 pub use mapping::{Mapping, MappingError};
 
 
@@ -115,6 +114,7 @@ pub fn get_storage<K: Encode + ?Sized, V: Decode>(
 }
 
 /// 链上全局分配器：包装 picoalloc，使 static 满足 Sync（合约单线程执行）。
+/// 类型定义保留在此处，供 `wrevive_macro::picoalloc_global_allocator!` 宏使用。
 #[cfg(feature = "on_chain")]
 mod picoalloc_allocator {
     pub use picoalloc;
@@ -139,24 +139,6 @@ mod picoalloc_allocator {
 }
 #[cfg(feature = "on_chain")]
 pub use picoalloc_allocator::{picoalloc, PicoallocWrapper};
-
-#[cfg(feature = "on_chain")]
-#[macro_export]
-macro_rules! picoalloc_global_allocator {
-    ($n:literal) => {
-        #[cfg(not(test))]
-        extern crate alloc;
-
-        #[cfg(not(test))]
-        #[global_allocator]
-        static ALLOC: $crate::PicoallocWrapper<$n> = {
-            static mut ARRAY: $crate::picoalloc::Array<$n> = $crate::picoalloc::Array([0u8; $n]);
-            $crate::PicoallocWrapper($crate::picoalloc::Mutex::new($crate::picoalloc::Allocator::new(unsafe {
-                $crate::picoalloc::ArrayPointer::new(&raw mut ARRAY)
-            })))
-        };
-    };
-}
 
 /// test 时使用 off_chain，正常运行。
 #[cfg(test)]

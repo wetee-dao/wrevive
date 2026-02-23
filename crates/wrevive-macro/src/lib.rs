@@ -40,7 +40,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use syn::{
     parse_macro_input,
     punctuated::Punctuated,
@@ -171,14 +171,46 @@ fn emit_abi(
     constructor_name: &str,
     message_fns: &[(ItemFn, [u8; 4])],
 ) {
-    // Resolve output dir: CARGO_TARGET_DIR first, else {CARGO_MANIFEST_DIR}/target
-    // 确定输出目录：优先 CARGO_TARGET_DIR，否则 {CARGO_MANIFEST_DIR}/target
+    // Resolve output dir: CARGO_TARGET_DIR first, else try to find workspace root, else {CARGO_MANIFEST_DIR}/target
+    // 确定输出目录：优先 CARGO_TARGET_DIR，否则尝试查找 workspace 根目录，否则 {CARGO_MANIFEST_DIR}/target
     let manifest_dir = match env::var("CARGO_MANIFEST_DIR") {
         Ok(d) => d,
         Err(_) => return,
     };
-    let target_dir = env::var("CARGO_TARGET_DIR")
-        .unwrap_or_else(|_| Path::new(&manifest_dir).join("target").to_string_lossy().into_owned());
+    
+    // Helper function to find workspace root
+    // 辅助函数：查找 workspace 根目录
+    fn find_workspace_root(start: &Path) -> Option<PathBuf> {
+        let mut current = start;
+        loop {
+            let workspace_toml = current.join("Cargo.toml");
+            if workspace_toml.exists() {
+                if let Ok(content) = fs::read_to_string(&workspace_toml) {
+                    if content.contains("[workspace]") {
+                        return Some(current.to_path_buf());
+                    }
+                }
+            }
+            match current.parent() {
+                Some(parent) => current = parent,
+                None => break,
+            }
+        }
+        None
+    }
+    
+    let target_dir = env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| {
+        // Try to find workspace root by looking for Cargo.toml with [workspace] section
+        // 尝试通过查找包含 [workspace] 的 Cargo.toml 来找到 workspace 根目录
+        let manifest_path = Path::new(&manifest_dir);
+        if let Some(workspace_root) = find_workspace_root(manifest_path) {
+            workspace_root.join("target").to_string_lossy().into_owned()
+        } else {
+            // Fallback to {CARGO_MANIFEST_DIR}/target
+            // 回退到 {CARGO_MANIFEST_DIR}/target
+            manifest_path.join("target").to_string_lossy().into_owned()
+        }
+    });
     let contract_dir = Path::new(&target_dir).join("contract");
     if fs::create_dir_all(&contract_dir).is_err() {
         return;
@@ -266,6 +298,45 @@ fn emit_abi(
 }
 
 // =============================================================================
+// Global allocator macro for no_std contracts
+// 全局分配器宏，用于 no_std 合约
+// =============================================================================
+
+/// 链上全局分配器：包装 picoalloc，使 static 满足 Sync（合约单线程执行）。
+/// 在 `#[revive_contract]` 宏中自动生成，或手动调用此宏。
+/// 
+/// # Example
+/// ```ignore
+/// use wrevive_macro::picoalloc_global_allocator;
+/// picoalloc_global_allocator!(1024); // 1024 字节堆，可按需调大
+/// ```
+/// 
+/// 注意：此宏需要确保 `wrevive-api` 启用了 `on_chain` feature（包含 picoalloc 类型定义）。
+#[proc_macro]
+pub fn picoalloc_global_allocator(input: TokenStream) -> TokenStream {
+    let n: usize = syn::parse_macro_input!(input as syn::LitInt)
+        .base10_parse()
+        .unwrap_or_else(|_| {
+            panic!("picoalloc_global_allocator! requires a literal integer (e.g., 1024)");
+        });
+    
+    quote! {
+        #[cfg(not(test))]
+        extern crate alloc;
+
+        #[cfg(not(test))]
+        #[global_allocator]
+        static ALLOC: wrevive_api::PicoallocWrapper<#n> = {
+            static mut ARRAY: wrevive_api::picoalloc::Array<#n> = wrevive_api::picoalloc::Array([0u8; #n]);
+            wrevive_api::PicoallocWrapper(wrevive_api::picoalloc::Mutex::new(wrevive_api::picoalloc::Allocator::new(unsafe {
+                wrevive_api::picoalloc::ArrayPointer::new(&raw mut ARRAY)
+            })))
+        };
+    }
+    .into()
+}
+
+// =============================================================================
 // Call data layout and decode/encode (aligned with ABI)
 // call() 内参数字节布局与解码/编码（与 ABI 约定一致）
 // =============================================================================
@@ -344,7 +415,11 @@ fn arg_for_input(
                             return Some((20, ParseKind::AccountId20, quote! { &[u8; 20] }, quote! { *#name }));
                         }
                         if len == 32 {
-                            return Some((32, ParseKind::H256, quote! { [u8; 32] }, quote! { #name }));
+                            return Some((32, ParseKind::H256, quote! { &[u8; 32] }, quote! { {
+                                let mut arr = [0u8; 32];
+                                arr.copy_from_slice(#name);
+                                arr
+                            } }));
                         }
                     }
                 }
@@ -673,9 +748,19 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     })
     .unwrap();
 
-    // Expansion: original mod + deploy() + call()
-    // 展开结果：原 mod + deploy() + call()
+    // 在 crate 根自动添加必要的导入（仅在非测试环境下，供 call() 中的 input! 使用）
+    // Automatically add necessary imports at crate root (only in non-test builds, for input! in call())
+    let use_input_hostfn: Item = syn::parse2(quote! {
+        #[cfg(not(test))]
+        use wrevive_api::{input, HostFn};
+    })
+    .unwrap();
+
+    // Expansion: imports + original mod + deploy() + call()
+    // 展开结果：导入 + 原 mod + deploy() + call()
     quote! {
+        #use_input_hostfn
+
         #module
 
         #deploy_fn

@@ -3,13 +3,6 @@ members = [
     "crates/wrevive-macro",
     "crates/wrevive-api",
     "examples/wrevive-example-contract",
-    "examples/flipper",
-    "examples/incrementer",
-    "examples/fallible-setter",
-    "examples/trait-incrementer",
-    "examples/erc721",
-    "examples/simple-storage",
-    "examples/dns",
 ]
 resolver = "2"
 
