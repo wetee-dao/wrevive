@@ -3,17 +3,24 @@
 
 wrevive_macro::picoalloc_global_allocator!(1024);
 
-use wrevive_api::{env, get_storage, set_storage, ReturnFlags, StorageFlags};
-
-#[allow(unused_imports)]
-use wrevive_macro::{revive, revive_contract};
+use wrevive_api::{env, get_storage, set_storage, Mapping, ReturnFlags, StorageFlags};
+use wrevive_macro::revive_contract;
 
 #[revive_contract]
 mod contract {
     use super::*;
+    const EMPTY_TOPICS: &[[u8; 32]] = &[];
+
     const STORAGE_KEY_VALUE: &[u8] = b"value";
     const STORAGE_KEY_OWNER: &[u8] = b"owner";
-    const EMPTY_TOPICS: &[[u8; 32]] = &[];
+    // 创建一个用于存储用户余额的 Mapping
+    // key: 用户地址 [u8; 20], value: 余额 u64
+    static BALANCE_MAPPING: Mapping = Mapping::new(b"balance");
+
+    // 创建一个用于存储用户信息的 Mapping
+    // key: 用户地址 [u8; 20], subkey: 信息类型 u8, value: 信息值 u32
+    static USER_INFO_MAPPING: Mapping = Mapping::new(b"user_info");
+    
 
     #[revive(constructor)]
     pub fn deploy() {
@@ -50,6 +57,47 @@ mod contract {
     #[revive(message)]
     pub fn get_owner() -> [u8; 20] {
         get_storage::<_, [u8; 20]>(StorageFlags::empty(), STORAGE_KEY_OWNER).unwrap_or([0u8; 20])
+    }
+
+    /// 设置用户余额（使用 Mapping）
+    /// 没有 subkey，使用空元组 () 作为 subkey
+    #[revive(message)]
+    pub fn set_balance(user: [u8; 20], balance: u64) {
+        BALANCE_MAPPING.set(env(), &user, &(), &balance);
+    }
+
+    /// 获取用户余额（使用 Mapping）
+    /// 没有 subkey，使用空元组 () 作为 subkey
+    #[revive(message)]
+    pub fn get_balance(user: [u8; 20]) -> u64 {
+        BALANCE_MAPPING.get(env(), &user, &()).unwrap_or(0)
+    }
+
+    /// 设置用户信息（使用 Mapping，带 subkey）
+    /// info_type: 0=年龄, 1=积分, 2=等级等
+    #[revive(message)]
+    pub fn set_user_info(user: [u8; 20], info_type: u8, value: u32) {
+        USER_INFO_MAPPING.set(env(), &user, &info_type, &value);
+    }
+
+    /// 获取用户信息（使用 Mapping，带 subkey）
+    #[revive(message)]
+    pub fn get_user_info(user: [u8; 20], info_type: u8) -> u32 {
+        USER_INFO_MAPPING.get(env(), &user, &info_type).unwrap_or(0)
+    }
+
+    /// 转账：从一个用户转移余额到另一个用户（使用 Mapping）
+    #[revive(message)]
+    pub fn transfer_balance(from: [u8; 20], to: [u8; 20], amount: u64) {
+        let from_balance = BALANCE_MAPPING.get(env(), &from, &()).unwrap_or(0);
+        if from_balance < amount {
+            env().return_value(ReturnFlags::REVERT, &[]);
+            return;
+        }
+        
+        let to_balance = BALANCE_MAPPING.get(env(), &to, &()).unwrap_or(0);
+        BALANCE_MAPPING.set(env(), &from, &(), &(from_balance - amount));
+        BALANCE_MAPPING.set(env(), &to, &(), &(to_balance + amount));
     }
 }
 
