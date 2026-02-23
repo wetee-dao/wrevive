@@ -274,21 +274,45 @@ fn emit_abi(
 // - u32: 4 bytes, little-endian, i.e. __input[4..8]
 // - [u8; 20] (AccountId): 20 bytes, i.e. __input[4..24]
 
-/// Builds (byte size, type token for input!, call expression) for each message argument.
+/// How to parse a single argument in manual_parse (cfg(test)).
+/// manual_parse 时每个参数的解析方式。
+#[derive(Clone, Copy)]
+enum ParseKind {
+    U8,
+    U32,
+    I32,
+    Bool,
+    U64,
+    AccountId20,
+    H256, // [u8; 32]
+}
+
+/// Builds (byte size, parse kind, type token for input!, call expression) for each message argument.
 /// For [u8; 20], input! parses as &[u8; 20]; at call site we use *name to get [u8; 20].
-/// 为官方 input! 生成参数：返回 (字节长, input! 中的类型 token, 调用 message 时的表达式)。
-/// [u8; 20] 在 input! 中用 &[u8; 20] 解析，调用时用 *name 转为 [u8; 20]。
-fn arg_for_input(arg_ty: &syn::Type, pat: &syn::Pat) -> Option<(usize, TokenStream2, TokenStream2)> {
+/// 为官方 input! 生成参数：返回 (字节长, 解析方式, input! 中的类型 token, 调用 message 时的表达式)。
+fn arg_for_input(
+    arg_ty: &syn::Type,
+    pat: &syn::Pat,
+) -> Option<(usize, ParseKind, TokenStream2, TokenStream2)> {
     let name = match pat {
         syn::Pat::Ident(pi) => pi.ident.clone(),
         _ => return None,
     };
     if let syn::Type::Path(p) = arg_ty {
+        if p.path.is_ident("u8") {
+            return Some((1, ParseKind::U8, quote! { u8 }, quote! { #name }));
+        }
         if p.path.is_ident("u32") {
-            return Some((4, quote! { u32 }, quote! { #name }));
+            return Some((4, ParseKind::U32, quote! { u32 }, quote! { #name }));
+        }
+        if p.path.is_ident("i32") {
+            return Some((4, ParseKind::I32, quote! { i32 }, quote! { #name }));
+        }
+        if p.path.is_ident("bool") {
+            return Some((1, ParseKind::Bool, quote! { bool }, quote! { #name }));
         }
         if p.path.is_ident("u64") {
-            return Some((8, quote! { u64 }, quote! { #name }));
+            return Some((8, ParseKind::U64, quote! { u64 }, quote! { #name }));
         }
     }
     if let syn::Type::Reference(r) = arg_ty {
@@ -297,8 +321,12 @@ fn arg_for_input(arg_ty: &syn::Type, pat: &syn::Pat) -> Option<(usize, TokenStre
                 if inner.path.is_ident("u8") {
                     if let syn::Expr::Lit(lit) = &arr.len {
                         if let Lit::Int(n) = &lit.lit {
-                            if n.base10_parse::<usize>().ok() == Some(20) {
-                                return Some((20, quote! { &[u8; 20] }, quote! { #name }));
+                            let len = n.base10_parse::<usize>().ok()?;
+                            if len == 20 {
+                                return Some((20, ParseKind::AccountId20, quote! { &[u8; 20] }, quote! { #name }));
+                            }
+                            if len == 32 {
+                                return Some((32, ParseKind::H256, quote! { &[u8; 32] }, quote! { &#name }));
                             }
                         }
                     }
@@ -311,8 +339,12 @@ fn arg_for_input(arg_ty: &syn::Type, pat: &syn::Pat) -> Option<(usize, TokenStre
             if inner.path.is_ident("u8") {
                 if let syn::Expr::Lit(lit) = &arr.len {
                     if let Lit::Int(n) = &lit.lit {
-                        if n.base10_parse::<usize>().ok() == Some(20) {
-                            return Some((20, quote! { &[u8; 20] }, quote! { *#name }));
+                        let len = n.base10_parse::<usize>().ok()?;
+                        if len == 20 {
+                            return Some((20, ParseKind::AccountId20, quote! { &[u8; 20] }, quote! { *#name }));
+                        }
+                        if len == 32 {
+                            return Some((32, ParseKind::H256, quote! { [u8; 32] }, quote! { #name }));
                         }
                     }
                 }
@@ -326,25 +358,37 @@ fn arg_for_input(arg_ty: &syn::Type, pat: &syn::Pat) -> Option<(usize, TokenStre
 /// (so we don't rely on HostFnImpl, which is not available on host during tests.)
 /// 当 cfg(test)（cargo test）时，从 __input[__off..] 手动解析参数，不依赖 input!（避免 HostFnImpl 在 host 上不可用）。
 fn manual_parse_from_input(
-    input_vars: &[(syn::Ident, usize, TokenStream2)],
+    input_vars: &[(syn::Ident, usize, ParseKind, TokenStream2)],
 ) -> TokenStream2 {
     let mut stmts = Vec::<TokenStream2>::new();
     let mut off: usize = 4; // after 4-byte selector
-    for (name, size, _call_expr) in input_vars {
-        if *size == 4 {
-            stmts.push(quote! {
+    for (name, size, kind, _call_expr) in input_vars {
+        let stmt = match kind {
+            ParseKind::U8 => quote! {
+                let #name = __input[#off];
+            },
+            ParseKind::U32 => quote! {
                 let #name = u32::from_le_bytes(__input[#off..#off + 4].try_into().unwrap());
-            });
-        } else if *size == 20 {
-            stmts.push(quote! {
+            },
+            ParseKind::I32 => quote! {
+                let #name = i32::from_le_bytes(__input[#off..#off + 4].try_into().unwrap());
+            },
+            ParseKind::Bool => quote! {
+                let #name = __input[#off] != 0;
+            },
+            ParseKind::U64 => quote! {
+                let #name = u64::from_le_bytes(__input[#off..#off + 8].try_into().unwrap());
+            },
+            ParseKind::AccountId20 => quote! {
                 let mut #name = [0u8; 20];
                 #name.copy_from_slice(&__input[#off..#off + 20]);
-            });
-        } else if *size == 8 {
-            stmts.push(quote! {
-                let #name = u64::from_le_bytes(__input[#off..#off + 8].try_into().unwrap());
-            });
-        }
+            },
+            ParseKind::H256 => quote! {
+                let mut #name = [0u8; 32];
+                #name.copy_from_slice(&__input[#off..#off + 32]);
+            },
+        };
+        stmts.push(stmt);
         off += size;
     }
     quote! {
@@ -353,12 +397,12 @@ fn manual_parse_from_input(
     }
 }
 
-/// Generates code that encodes the return value `__ret` and passes it to `ext::return_value`.
+/// Generates code that encodes the return value `__ret` and passes it to `wrevive_api::env().return_value`.
 /// - `()`: no return, pass empty slice;
 /// - `u32`: encode as 32-byte buffer (first 4 bytes LE), common ABI convention;
 /// - `[u8; 20]`: pass 20-byte reference directly;
 /// - other: currently treated as no return, empty slice (extensible later).
-/// 根据 message 的返回类型，生成将返回值 `__ret` 编码并通过 `ext::return_value` 返回的代码。
+/// 根据 message 的返回类型，生成将返回值 `__ret` 编码并通过 `wrevive_api::env().return_value` 返回的代码。
 /// - `()`：无返回值，传空切片；
 /// - `u32`：编码为 32 字节 buffer（前 4 字节小端），与常见 ABI 约定一致；
 /// - `[u8; 20]`：直接传 20 字节引用；
@@ -366,7 +410,7 @@ fn manual_parse_from_input(
 fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
     match ret_ty {
         ReturnType::Default => quote! {
-            ext::return_value(ReturnFlags::empty(), &[]);
+            wrevive_api::env().return_value(ReturnFlags::empty(), &[]);
         },
         ReturnType::Type(_, ty) => {
             if let syn::Type::Path(p) = ty.as_ref() {
@@ -377,7 +421,39 @@ fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
                             b[0..4].copy_from_slice(&__ret.to_le_bytes());
                             b
                         };
-                        ext::return_value(ReturnFlags::empty(), &__buf);
+                        wrevive_api::env().return_value(ReturnFlags::empty(), &__buf);
+                    };
+                }
+                if p.path.is_ident("i32") {
+                    return quote! {
+                        let __buf: [u8; 32] = {
+                            let mut b = [0u8; 32];
+                            b[0..4].copy_from_slice(&__ret.to_le_bytes());
+                            b
+                        };
+                        wrevive_api::env().return_value(ReturnFlags::empty(), &__buf);
+                    };
+                }
+                if p.path.is_ident("bool") {
+                    return quote! {
+                        let __byte = [if __ret { 1u8 } else { 0u8 }];
+                        wrevive_api::env().return_value(ReturnFlags::empty(), &__byte);
+                    };
+                }
+                if p.path.is_ident("u8") {
+                    return quote! {
+                        let __byte = [__ret];
+                        wrevive_api::env().return_value(ReturnFlags::empty(), &__byte);
+                    };
+                }
+                if p.path.is_ident("u64") {
+                    return quote! {
+                        let __buf: [u8; 32] = {
+                            let mut b = [0u8; 32];
+                            b[0..8].copy_from_slice(&__ret.to_le_bytes());
+                            b
+                        };
+                        wrevive_api::env().return_value(ReturnFlags::empty(), &__buf);
                     };
                 }
             }
@@ -388,7 +464,12 @@ fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
                             if let Lit::Int(n) = &lit.lit {
                                 if n.base10_parse::<usize>().ok() == Some(20) {
                                     return quote! {
-                                        ext::return_value(ReturnFlags::empty(), &__ret);
+                                        wrevive_api::env().return_value(ReturnFlags::empty(), &__ret);
+                                    };
+                                }
+                                if n.base10_parse::<usize>().ok() == Some(32) {
+                                    return quote! {
+                                        wrevive_api::env().return_value(ReturnFlags::empty(), &__ret);
                                     };
                                 }
                             }
@@ -397,7 +478,7 @@ fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
                 }
             }
             quote! {
-                ext::return_value(ReturnFlags::empty(), &[]);
+                wrevive_api::env().return_value(ReturnFlags::empty(), &[]);
             }
         }
     }
@@ -500,18 +581,18 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let fn_name = &f.sig.ident;
             let sig = &f.sig;
             let mut min_len: usize = 4;
-            let mut input_vars_off: Vec<(syn::Ident, usize, TokenStream2)> = Vec::new();
+            let mut input_vars_off: Vec<(syn::Ident, usize, ParseKind, TokenStream2)> = Vec::new();
             let mut input_vars_ink: Vec<(syn::Ident, TokenStream2)> = Vec::new();
             let mut call_exprs = Vec::new();
             for arg in &sig.inputs {
                 let FnArg::Typed(pt) = arg else { continue };
-                if let Some((size, type_tt, call_expr)) = arg_for_input(pt.ty.as_ref(), &pt.pat) {
+                if let Some((size, parse_kind, type_tt, call_expr)) = arg_for_input(pt.ty.as_ref(), &pt.pat) {
                     min_len += size;
                     let name = match pt.pat.as_ref() {
                         syn::Pat::Ident(pi) => pi.ident.clone(),
                         _ => continue,
                     };
-                    input_vars_off.push((name.clone(), size, call_expr.clone()));
+                    input_vars_off.push((name.clone(), size, parse_kind, call_expr.clone()));
                     input_vars_ink.push((name, type_tt));
                     call_exprs.push(call_expr);
                 }
@@ -521,7 +602,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
             // 手动解析时 [u8; 20] 变量已是 by-value，传 name；input! 时为 &[u8; 20] 传 *name
             let call_exprs_manual: Vec<TokenStream2> = input_vars_off
                 .iter()
-                .map(|(name, _, _)| quote! { #name })
+                .map(|(name, _, _, _)| quote! { #name })
                 .collect();
             let input_parse_ink = if input_vars_ink.is_empty() {
                 quote! { input!(__input, _skip: u32, ); }
@@ -546,7 +627,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
                         let __ret = #mod_name::#fn_name(#(#call_exprs),*);
                         #encode_and_return
                     } else {
-                        ext::return_value(ReturnFlags::REVERT, &[]);
+                        wrevive_api::env().return_value(ReturnFlags::REVERT, &[]);
                     }
                 }
             }
@@ -568,19 +649,25 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let call_fn: Item = syn::parse2(quote! {
         #[no_mangle]
         pub extern "C" fn call() {
-            let __input_len = ext::call_data_size().min(1024) as usize;
-            let mut __input = [0u8; 1024];
-            if __input_len > 0 {
-                ext::call_data_copy(&mut __input[..__input_len], 0);
-            }
+            let __input_len = wrevive_api::env().call_data_size().min(1024) as usize;
+            let __input_vec = if __input_len > 0 {
+                wrevive_api::env().call_data_copy(0, __input_len)
+            } else {
+                #[cfg(test)]
+                let empty = vec![];
+                #[cfg(not(test))]
+                let empty = alloc::vec![];
+                empty
+            };
+            let __input: &[u8] = &__input_vec;
             if __input_len >= 4 {
                 let __sel = u32::from_be_bytes([__input[0], __input[1], __input[2], __input[3]]);
                 match __sel {
                     #(#match_arms),*
-                    _ => ext::return_value(ReturnFlags::REVERT, &[]),
+                    _ => wrevive_api::env().return_value(ReturnFlags::REVERT, &[]),
                 }
             } else {
-                ext::return_value(ReturnFlags::REVERT, &[]);
+                wrevive_api::env().return_value(ReturnFlags::REVERT, &[]);
             }
         }
     })
@@ -605,4 +692,17 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn revive(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
+}
+
+/// **Scale derive**: like `#[ink::scale_derive(Encode, Decode, TypeInfo)]`, expands to
+/// `#[derive(::wrevive_api::Encode, ::wrevive_api::Decode, ::wrevive_api::TypeInfo)]` on the item.
+/// Use on structs/enums whose instances are stored as Mapping values (set/get require Scale).
+#[proc_macro_attribute]
+pub fn scale_derive(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let item: TokenStream2 = item.into();
+    quote! {
+        #[derive(::wrevive_api::Encode, ::wrevive_api::Decode, ::wrevive_api::TypeInfo)]
+        #item
+    }
+    .into()
 }

@@ -1,0 +1,63 @@
+{
+  "contract": {
+    "name": "trait_incrementer"
+  },
+  "metadataVersion": "0.1",
+  "spec": {
+    "constructors": [
+      {
+        "args": [],
+        "default": false,
+        "docs": [],
+        "label": "deploy",
+        "payable": false,
+        "returnType": null,
+        "selector": "0x00000000"
+      }
+    ],
+    "docs": [],
+    "events": [],
+    "messages": [
+      {
+        "args": [],
+        "default": false,
+        "docs": [],
+        "label": "inc_by",
+        "mutates": true,
+        "payable": false,
+        "returnType": null,
+        "selector": "0x5f6d1b00"
+      },
+      {
+        "args": [],
+        "default": false,
+        "docs": [],
+        "label": "inc",
+        "mutates": true,
+        "payable": false,
+        "returnType": null,
+        "selector": "0x61af393f"
+      },
+      {
+        "args": [],
+        "default": false,
+        "docs": [],
+        "label": "get",
+        "mutates": true,
+        "payable": false,
+        "returnType": null,
+        "selector": "0x091a13fb"
+      },
+      {
+        "args": [],
+        "default": false,
+        "docs": [],
+        "label": "reset",
+        "mutates": true,
+        "payable": false,
+        "returnType": null,
+        "selector": "0x690265c7"
+      }
+    ]
+  }
+}

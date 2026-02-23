@@ -46,7 +46,7 @@ RUSTC_BOOTSTRAP=1 cargo +stable build \
   --release \
   --no-default-features \
   --target "$TARGET_JSON" \
-  -Z build-std=core > build.log 2>&1
+  -Z build-std=core,alloc > build.log 2>&1
 CARGO_EXIT=$?
 cat build.log
 if [ "$CARGO_EXIT" -ne 0 ]; then

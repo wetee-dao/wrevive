@@ -1,5 +1,5 @@
 use crate::contract;
-use wrevive_api::off_chain;
+use wrevive_api::{get_storage, off_chain};
 
 const STORAGE_KEY_VALUE: &[u8] = b"value";
 const STORAGE_KEY_OWNER: &[u8] = b"owner";
@@ -12,13 +12,10 @@ fn deploy_sets_owner_and_value() {
     });
     contract::deploy();
 
-    off_chain::with_engine(|e| {
-        let owner = e.get_storage_value(STORAGE_KEY_OWNER).unwrap();
-        assert_eq!(owner.len(), 20);
-        assert_eq!(owner, [1u8; 20]);
-        let value = e.get_storage_value(STORAGE_KEY_VALUE).unwrap();
-        assert_eq!(value, 0u32.to_le_bytes());
-    });
+    let owner: [u8; 20] = get_storage(wrevive_api::StorageFlags::empty(), STORAGE_KEY_OWNER).unwrap();
+    assert_eq!(owner, [1u8; 20]);
+    let value: u32 = get_storage(wrevive_api::StorageFlags::empty(), STORAGE_KEY_VALUE).unwrap();
+    assert_eq!(value, 0);
 }
 
 #[test]
@@ -49,9 +46,8 @@ fn set_owner_only_by_current_owner() {
 
     // Alice 可以改 owner 为 Bob
     contract::set_owner(bob, 0);
-    off_chain::with_engine(|e| {
-        assert_eq!(e.get_storage_value(STORAGE_KEY_OWNER).unwrap(), bob);
-    });
+    let stored_owner: [u8; 20] = get_storage(wrevive_api::StorageFlags::empty(), STORAGE_KEY_OWNER).unwrap();
+    assert_eq!(stored_owner, bob);
 
     // Bob 为 caller 时才能再改 owner；若用 Alice 作为 caller 调用 set_owner 会 revert
     off_chain::with_engine(|e| {
@@ -59,9 +55,8 @@ fn set_owner_only_by_current_owner() {
     });
     let new_owner = [3u8; 20];
     contract::set_owner(new_owner, 0);
-    off_chain::with_engine(|e| {
-        assert_eq!(e.get_storage_value(STORAGE_KEY_OWNER).unwrap(), new_owner);
-    });
+    let stored_owner: [u8; 20] = get_storage(wrevive_api::StorageFlags::empty(), STORAGE_KEY_OWNER).unwrap();
+    assert_eq!(stored_owner, new_owner);
 }
 
 #[test]

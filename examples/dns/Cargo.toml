@@ -1,15 +1,14 @@
 [package]
-name = "wrevive-example-contract"
+name = "dns"
 version = "0.1.0"
 edition = "2021"
-description = "示例合约：value/owner 存储与 message，供 PolkaVM 部署"
+description = "域名解析简化版：register/set_address/get_address/get_owner，对应 ink dns"
 
 [features]
 default = []
 
-# polkavm-linker 提供的 target 为 only-cdylib，产出 .elf 供 polkatool link
 [lib]
-name = "example"
+name = "dns"
 crate-type = ["cdylib"]
 
 [build-dependencies]

@@ -4,12 +4,15 @@
 //!
 //! Off-chain 实现：内存 Engine，用于单元测试（参考 [ink engine](https://github.com/use-ink/ink/tree/master/crates/engine) test_api）。
 
-use pallet_revive_uapi::ReturnFlags;
+use crate::env::{Env, CallResult};
+use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
+#[cfg(feature = "off_chain")]
+use sha3::{Digest, Keccak256};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-// Thread-local engine instance; all ext::* calls and test setup use this.
-// 线程局部引擎实例；所有 ext::* 调用与测试配置均使用此实例。
+// Thread-local engine instance; env() and test setup use this.
+// 线程局部引擎实例；env() 与测试配置均使用此实例。
 thread_local! {
     static ENGINE: RefCell<Engine> = RefCell::new(Engine::default());
 }
@@ -80,46 +83,33 @@ where
     ENGINE.with(|cell| f(&mut *cell.borrow_mut()))
 }
 
-/// Same namespace name as on_chain::ext; delegates to the thread-local Engine.
-/// 与 on_chain 同名的 ext 命名空间，内部委托给 thread_local Engine。
-pub mod ext {
-    use super::ENGINE;
-    use pallet_revive_uapi::{ReturnErrorCode, ReturnFlags, StorageFlags};
+/// Off-chain 对 Env 的实现，委托给 thread_local ENGINE。
+pub struct OffChainEnv;
 
-    /// Read caller from Engine (set via Engine::set_caller in tests).
-    pub fn caller(output: &mut [u8; 20]) {
-        ENGINE.with(|cell| output.copy_from_slice(&cell.borrow().caller));
+impl Env for OffChainEnv {
+    fn caller(&self) -> [u8; 20] {
+        ENGINE.with(|cell| cell.borrow().caller)
     }
-
-    /// Write to Engine storage; returns previous value length if any.
-    pub fn set_storage(_flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
+    fn set_storage_bytes(&self, _flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
         ENGINE.with(|cell| {
             let prev = cell.borrow().storage.get(key).map(|v| v.len() as u32);
             cell.borrow_mut().storage.insert(key.to_vec(), value.to_vec());
             prev
         })
     }
-
-    /// Read from Engine storage; Err(KeyNotFound) if key missing.
-    pub fn get_storage(
+    fn get_storage_bytes(
+        &self,
         _flags: StorageFlags,
         key: &[u8],
-        output: &mut &mut [u8],
-    ) -> Result<(), ReturnErrorCode> {
+    ) -> Result<Vec<u8>, ReturnErrorCode> {
         ENGINE.with(|cell| {
-            let data = cell.borrow().storage.get(key).cloned();
-            if let Some(d) = data {
-                let len = d.len().min(output.len());
-                output[..len].copy_from_slice(&d[..len]);
-                Ok(())
-            } else {
-                Err(ReturnErrorCode::KeyNotFound)
-            }
+            cell.borrow().storage.get(key).cloned().ok_or(ReturnErrorCode::KeyNotFound)
         })
     }
 
-    /// Append (topics, data) to Engine.events.
-    pub fn deposit_event(topics: &[[u8; 32]], data: &[u8]) {
+
+
+    fn deposit_event(&self, topics: &[[u8; 32]], data: &[u8]) {
         ENGINE.with(|cell| {
             cell.borrow_mut()
                 .events
@@ -127,31 +117,219 @@ pub mod ext {
         });
     }
 
-    /// Store return in Engine and panic (contract “returns” by unwinding in tests).
-    pub fn return_value(flags: ReturnFlags, return_value: &[u8]) -> ! {
+    fn return_value(&self, flags: ReturnFlags, return_value: &[u8]) -> ! {
         ENGINE.with(|cell| {
             cell.borrow_mut().return_value = Some((flags, return_value.to_vec()));
         });
         panic!("off_chain return_value: flags={:?}, len={}", flags, return_value.len());
     }
 
-    /// Length of Engine.call_data (set via set_call_data).
-    pub fn call_data_size() -> u64 {
+    fn call_data_size(&self) -> u64 {
         ENGINE.with(|cell| cell.borrow().call_data.len() as u64)
     }
-
-    /// Copy Engine.call_data from offset into output; pad with zeros if needed.
-    pub fn call_data_copy(output: &mut [u8], offset: u32) {
+    
+    fn call_data_copy(&self, offset: u32, len: usize) -> Vec<u8> {
         ENGINE.with(|cell| {
             let data = &cell.borrow().call_data;
             let off = offset as usize;
-            let len = output.len().min(data.len().saturating_sub(off));
-            if len > 0 {
+            let actual_len = len.min(data.len().saturating_sub(off));
+            if actual_len > 0 {
+                data[off..off + actual_len].to_vec()
+            } else {
+                vec![0u8; len]
+            }
+        })
+    }
+
+    fn address(&self) -> [u8; 20] {
+        // Off-chain: return zero address as default
+        [0u8; 20]
+    }
+
+    fn get_immutable_data(&self, _output: &mut &mut [u8]) {
+        // Off-chain: no immutable data by default
+    }
+
+    fn set_immutable_data(&self, _data: &[u8]) {
+        // Off-chain: no-op
+    }
+
+    fn balance(&self) -> [u8; 32] {
+        // Off-chain: return zero balance
+        [0u8; 32]
+    }
+
+    fn balance_of(&self, _addr: &[u8; 20]) -> [u8; 32] {
+        // Off-chain: return zero balance
+        [0u8; 32]
+    }
+
+    fn chain_id(&self) -> [u8; 32] {
+        // Off-chain: return default chain ID (1)
+        let mut output = [0u8; 32];
+        output[31] = 1;
+        output
+    }
+
+    fn gas_price(&self) -> u64 {
+        // Off-chain: return default gas price
+        1
+    }
+
+    fn base_fee(&self) -> [u8; 32] {
+        // Off-chain: return zero base fee
+        [0u8; 32]
+    }
+
+    fn call(
+        &self,
+        _flags: CallFlags,
+        _callee: &[u8; 20],
+        _ref_time_limit: u64,
+        _proof_size_limit: u64,
+        _deposit: &[u8; 32],
+        _value: &[u8; 32],
+        _input_data: &[u8],
+        _output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        // Off-chain: calls not supported, return error
+        Err(ReturnErrorCode::CalleeTrapped)
+    }
+
+    fn origin(&self) -> [u8; 20] {
+        // Off-chain: return caller as origin
+        self.caller()
+    }
+
+    fn code_hash(&self, _addr: &[u8; 20]) -> [u8; 32] {
+        // Off-chain: return zero hash
+        [0u8; 32]
+    }
+
+    fn code_size(&self, _addr: &[u8; 20]) -> u64 {
+        // Off-chain: return zero size
+        0
+    }
+
+    fn delegate_call(
+        &self,
+        _flags: CallFlags,
+        _address: &[u8; 20],
+        _ref_time_limit: u64,
+        _proof_size_limit: u64,
+        _deposit_limit: &[u8; 32],
+        _input_data: &[u8],
+        _output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        // Off-chain: delegate calls not supported, return error
+        Err(ReturnErrorCode::CalleeTrapped)
+    }
+
+    fn hash_keccak_256(&self, input: &[u8]) -> [u8; 32] {
+        // Off-chain: use sha3 crate for Keccak-256
+        #[cfg(feature = "off_chain")]
+        {
+            let hash = Keccak256::digest(input);
+            let mut output = [0u8; 32];
+            output.copy_from_slice(&hash);
+            output
+        }
+        #[cfg(not(feature = "off_chain"))]
+        {
+            // Fallback: return zero hash if sha3 is not available
+            [0u8; 32]
+        }
+    }
+
+    fn call_data_load(&self, offset: u32) -> [u8; 32] {
+        // Off-chain: load 32 bytes from call data
+        ENGINE.with(|cell| {
+            let data = &cell.borrow().call_data;
+            let off = offset as usize;
+            let mut output = [0u8; 32];
+            if off < data.len() {
+                let len = 32.min(data.len() - off);
                 output[..len].copy_from_slice(&data[off..off + len]);
             }
-            if len < output.len() {
-                output[len..].fill(0);
+            output
+        })
+    }
+
+    fn instantiate(
+        &self,
+        _flags: CallFlags,
+        _code_hash: &[u8; 32],
+        _ref_time_limit: u64,
+        _proof_size_limit: u64,
+        _deposit: &[u8; 32],
+        _value: &[u8; 32],
+        _input_data: &[u8],
+        address: &mut [u8; 20],
+        _output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        // Off-chain: generate a mock address
+        address.fill(0);
+        Err(ReturnErrorCode::CalleeTrapped)
+    }
+
+    fn now(&self) -> [u8; 32] {
+        // Off-chain: return current timestamp (mock)
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let mut output = [0u8; 32];
+        output[24..32].copy_from_slice(&timestamp.to_be_bytes());
+        output
+    }
+
+    fn gas_limit(&self) -> u64 {
+        // Off-chain: return default gas limit
+        u64::MAX
+    }
+
+    fn set_storage_or_clear(&self, flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32> {
+        // Off-chain: if value is all zeros, clear storage
+        if value.iter().all(|&b| b == 0) {
+            ENGINE.with(|cell| {
+                let key_vec = key.to_vec();
+                let prev = cell.borrow().storage.get(&key_vec).map(|v| v.len() as u32);
+                cell.borrow_mut().storage.remove(&key_vec);
+                prev
+            })
+        } else {
+            self.set_storage_bytes(flags, key, value)
+        }
+    }
+
+    fn get_storage_or_zero(&self, flags: StorageFlags, key: &[u8; 32]) -> [u8; 32] {
+        // Off-chain: get storage or return zero
+        match self.get_storage_bytes(flags, key as &[u8]) {
+            Ok(data) => {
+                let mut output = [0u8; 32];
+                let len = data.len().min(32);
+                output[..len].copy_from_slice(&data[..len]);
+                output
             }
-        });
+            Err(_) => [0u8; 32],
+        }
+    }
+
+    fn value_transferred(&self) -> [u8; 32] {
+        // Off-chain: return zero value
+        [0u8; 32]
+    }
+
+    fn weight_to_fee(&self, _ref_time_limit: u64, _proof_size_limit: u64) -> [u8; 32] {
+        // Off-chain: return zero fee
+        [0u8; 32]
+    }
+
+    fn return_data_size(&self) -> u64 {
+        // Off-chain: return zero size
+        0
     }
 }
+
+/// Off-chain Env 静态实例。
+pub static OFF_CHAIN_ENV: OffChainEnv = OffChainEnv;
