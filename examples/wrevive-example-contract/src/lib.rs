@@ -92,9 +92,8 @@ mod contract {
         let from_balance = BALANCE_MAPPING.get(env(), &from, &()).unwrap_or(0);
         if from_balance < amount {
             env().return_value(ReturnFlags::REVERT, &[]);
-            return;
         }
-        
+
         let to_balance = BALANCE_MAPPING.get(env(), &to, &()).unwrap_or(0);
         BALANCE_MAPPING.set(env(), &from, &(), &(from_balance - amount));
         BALANCE_MAPPING.set(env(), &to, &(), &(to_balance + amount));
