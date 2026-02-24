@@ -1,23 +1,32 @@
 [package]
 name = "wrevive-example-contract"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "示例合约：value/owner 存储与 message，供 PolkaVM 部署"
+build = "build.rs"
 
 [features]
 default = []
 
-# polkavm-linker 提供的 target 为 only-cdylib，产出 .elf 供 polkatool link
-[lib]
-name = "example"
-crate-type = ["cdylib"]
-
-[build-dependencies]
-polkavm-linker = "0.30"
+[[bin]]
+name = "wrevive-example"
+path = "src/wrevive-example-contract.rs"
 
 [dependencies]
+pallet-revive-uapi = { version = "0.10", default-features = false }
+picoalloc = { version = "5", default-features = false }
+polkavm-derive = "0.31"
 wrevive-macro = { path = "../../crates/wrevive-macro" }
 wrevive-api = { path = "../../crates/wrevive-api", default-features = false, features = ["on_chain"] }
+
+[build-dependencies]
+cargo-pvm-contract-builder = "0.3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+panic = "abort"
 
 [dev-dependencies]
 wrevive-api = { path = "../../crates/wrevive-api", default-features = false, features = ["off_chain"] }

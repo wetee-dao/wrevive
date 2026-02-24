@@ -32,9 +32,9 @@ mod contract {
     }
 
     #[revive(message, selector = 0x60fe47b1)]
-    pub fn set_value(_value: u32) {
-        set_storage(StorageFlags::empty(), STORAGE_KEY_VALUE, &_value);
-        env().deposit_event(EMPTY_TOPICS, &_value.to_le_bytes().as_slice());
+    pub fn set_value(value: u32) {
+        set_storage(StorageFlags::empty(), STORAGE_KEY_VALUE, &value);
+        env().deposit_event(EMPTY_TOPICS, &value.to_le_bytes().as_slice());
     }
 
     #[revive(message, selector = 0x6d4ce633)]

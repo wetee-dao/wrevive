@@ -312,8 +312,8 @@ impl Env for OffChainEnv {
                 output
             }
             Err(_) => [0u8; 32],
-        }
     }
+}
 
     fn value_transferred(&self) -> [u8; 32] {
         // Off-chain: return zero value

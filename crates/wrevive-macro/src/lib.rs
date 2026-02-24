@@ -211,7 +211,7 @@ fn emit_abi(
             manifest_path.join("target").to_string_lossy().into_owned()
         }
     });
-    let contract_dir = Path::new(&target_dir).join("contract");
+    let contract_dir = Path::new(&target_dir);
     if fs::create_dir_all(&contract_dir).is_err() {
         return;
     }
@@ -294,7 +294,12 @@ fn emit_abi(
         }
     });
 
-    let _ = fs::write(&out_path, serde_json::to_string_pretty(&abi).unwrap_or_default());
+    let json_str = serde_json::to_string_pretty(&abi).unwrap_or_default();
+    let _ = fs::write(&out_path, &json_str);
+
+    // 同时写入包内 abi/{contract_name}.json，便于版本管理与前端直接引用（README 约定路径）
+    let abi_dir = Path::new(&manifest_dir).join("abi");
+    let _ = fs::create_dir_all(&abi_dir).and_then(|()| fs::write(abi_dir.join(format!("{}.json", contract_name)), &json_str));
 }
 
 // =============================================================================
@@ -345,215 +350,20 @@ pub fn picoalloc_global_allocator(input: TokenStream) -> TokenStream {
 // - u32: 4 bytes, little-endian, i.e. __input[4..8]
 // - [u8; 20] (AccountId): 20 bytes, i.e. __input[4..24]
 
-/// How to parse a single argument in manual_parse (cfg(test)).
-/// manual_parse 时每个参数的解析方式。
-#[derive(Clone, Copy)]
-enum ParseKind {
-    U8,
-    U32,
-    I32,
-    Bool,
-    U64,
-    AccountId20,
-    H256, // [u8; 32]
-}
-
-/// Builds (byte size, parse kind, type token for input!, call expression) for each message argument.
-/// For [u8; 20], input! parses as &[u8; 20]; at call site we use *name to get [u8; 20].
-/// 为官方 input! 生成参数：返回 (字节长, 解析方式, input! 中的类型 token, 调用 message 时的表达式)。
-fn arg_for_input(
-    arg_ty: &syn::Type,
-    pat: &syn::Pat,
-) -> Option<(usize, ParseKind, TokenStream2, TokenStream2)> {
-    let name = match pat {
-        syn::Pat::Ident(pi) => pi.ident.clone(),
-        _ => return None,
-    };
-    if let syn::Type::Path(p) = arg_ty {
-        if p.path.is_ident("u8") {
-            return Some((1, ParseKind::U8, quote! { u8 }, quote! { #name }));
-        }
-        if p.path.is_ident("u32") {
-            return Some((4, ParseKind::U32, quote! { u32 }, quote! { #name }));
-        }
-        if p.path.is_ident("i32") {
-            return Some((4, ParseKind::I32, quote! { i32 }, quote! { #name }));
-        }
-        if p.path.is_ident("bool") {
-            return Some((1, ParseKind::Bool, quote! { bool }, quote! { #name }));
-        }
-        if p.path.is_ident("u64") {
-            return Some((8, ParseKind::U64, quote! { u64 }, quote! { #name }));
-        }
-    }
-    if let syn::Type::Reference(r) = arg_ty {
-        if let syn::Type::Array(arr) = r.elem.as_ref() {
-            if let syn::Type::Path(inner) = *arr.elem.clone() {
-                if inner.path.is_ident("u8") {
-                    if let syn::Expr::Lit(lit) = &arr.len {
-                        if let Lit::Int(n) = &lit.lit {
-                            let len = n.base10_parse::<usize>().ok()?;
-                            if len == 20 {
-                                return Some((20, ParseKind::AccountId20, quote! { &[u8; 20] }, quote! { #name }));
-                            }
-                            if len == 32 {
-                                return Some((32, ParseKind::H256, quote! { &[u8; 32] }, quote! { &#name }));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    if let syn::Type::Array(arr) = arg_ty {
-        if let syn::Type::Path(inner) = *arr.elem.clone() {
-            if inner.path.is_ident("u8") {
-                if let syn::Expr::Lit(lit) = &arr.len {
-                    if let Lit::Int(n) = &lit.lit {
-                        let len = n.base10_parse::<usize>().ok()?;
-                        if len == 20 {
-                            return Some((20, ParseKind::AccountId20, quote! { &[u8; 20] }, quote! { *#name }));
-                        }
-                        if len == 32 {
-                            return Some((32, ParseKind::H256, quote! { &[u8; 32] }, quote! { {
-                                let mut arr = [0u8; 32];
-                                arr.copy_from_slice(#name);
-                                arr
-                            } }));
-                        }
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
-/// When cfg(test): parses arguments from __input[__off..] by hand, without input!
-/// (so we don't rely on HostFnImpl, which is not available on host during tests.)
-/// 当 cfg(test)（cargo test）时，从 __input[__off..] 手动解析参数，不依赖 input!（避免 HostFnImpl 在 host 上不可用）。
-fn manual_parse_from_input(
-    input_vars: &[(syn::Ident, usize, ParseKind, TokenStream2)],
-) -> TokenStream2 {
-    let mut stmts = Vec::<TokenStream2>::new();
-    let mut off: usize = 4; // after 4-byte selector
-    for (name, size, kind, _call_expr) in input_vars {
-        let stmt = match kind {
-            ParseKind::U8 => quote! {
-                let #name = __input[#off];
-            },
-            ParseKind::U32 => quote! {
-                let #name = u32::from_le_bytes(__input[#off..#off + 4].try_into().unwrap());
-            },
-            ParseKind::I32 => quote! {
-                let #name = i32::from_le_bytes(__input[#off..#off + 4].try_into().unwrap());
-            },
-            ParseKind::Bool => quote! {
-                let #name = __input[#off] != 0;
-            },
-            ParseKind::U64 => quote! {
-                let #name = u64::from_le_bytes(__input[#off..#off + 8].try_into().unwrap());
-            },
-            ParseKind::AccountId20 => quote! {
-                let mut #name = [0u8; 20];
-                #name.copy_from_slice(&__input[#off..#off + 20]);
-            },
-            ParseKind::H256 => quote! {
-                let mut #name = [0u8; 32];
-                #name.copy_from_slice(&__input[#off..#off + 32]);
-            },
-        };
-        stmts.push(stmt);
-        off += size;
-    }
-    quote! {
-        let mut __off = 4usize;
-        #(#stmts)*
-    }
-}
-
 /// Generates code that encodes the return value `__ret` and passes it to `wrevive_api::env().return_value`.
-/// - `()`: no return, pass empty slice;
-/// - `u32`: encode as 32-byte buffer (first 4 bytes LE), common ABI convention;
-/// - `[u8; 20]`: pass 20-byte reference directly;
-/// - other: currently treated as no return, empty slice (extensible later).
+/// 使用 SCALE 编码处理所有类型，参考 ink! 的实现方式。
 /// 根据 message 的返回类型，生成将返回值 `__ret` 编码并通过 `wrevive_api::env().return_value` 返回的代码。
-/// - `()`：无返回值，传空切片；
-/// - `u32`：编码为 32 字节 buffer（前 4 字节小端），与常见 ABI 约定一致；
-/// - `[u8; 20]`：直接传 20 字节引用；
-/// - 其他类型：当前视为无返回，传空切片（可后续扩展）。
 fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
     match ret_ty {
         ReturnType::Default => quote! {
             wrevive_api::env().return_value(ReturnFlags::empty(), &[]);
         },
-        ReturnType::Type(_, ty) => {
-            if let syn::Type::Path(p) = ty.as_ref() {
-                if p.path.is_ident("u32") {
-                    return quote! {
-                        let __buf: [u8; 32] = {
-                            let mut b = [0u8; 32];
-                            b[0..4].copy_from_slice(&__ret.to_le_bytes());
-                            b
-                        };
-                        wrevive_api::env().return_value(ReturnFlags::empty(), &__buf);
-                    };
-                }
-                if p.path.is_ident("i32") {
-                    return quote! {
-                        let __buf: [u8; 32] = {
-                            let mut b = [0u8; 32];
-                            b[0..4].copy_from_slice(&__ret.to_le_bytes());
-                            b
-                        };
-                        wrevive_api::env().return_value(ReturnFlags::empty(), &__buf);
-                    };
-                }
-                if p.path.is_ident("bool") {
-                    return quote! {
-                        let __byte = [if __ret { 1u8 } else { 0u8 }];
-                        wrevive_api::env().return_value(ReturnFlags::empty(), &__byte);
-                    };
-                }
-                if p.path.is_ident("u8") {
-                    return quote! {
-                        let __byte = [__ret];
-                        wrevive_api::env().return_value(ReturnFlags::empty(), &__byte);
-                    };
-                }
-                if p.path.is_ident("u64") {
-                    return quote! {
-                        let __buf: [u8; 32] = {
-                            let mut b = [0u8; 32];
-                            b[0..8].copy_from_slice(&__ret.to_le_bytes());
-                            b
-                        };
-                        wrevive_api::env().return_value(ReturnFlags::empty(), &__buf);
-                    };
-                }
-            }
-            if let syn::Type::Array(arr) = ty.as_ref() {
-                if let syn::Type::Path(inner) = *arr.elem.clone() {
-                    if inner.path.is_ident("u8") {
-                        if let syn::Expr::Lit(lit) = &arr.len {
-                            if let Lit::Int(n) = &lit.lit {
-                                if n.base10_parse::<usize>().ok() == Some(20) {
-                                    return quote! {
-                                        wrevive_api::env().return_value(ReturnFlags::empty(), &__ret);
-                                    };
-                                }
-                                if n.base10_parse::<usize>().ok() == Some(32) {
-                                    return quote! {
-                                        wrevive_api::env().return_value(ReturnFlags::empty(), &__ret);
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        ReturnType::Type(_, _ty) => {
             quote! {
-                wrevive_api::env().return_value(ReturnFlags::empty(), &[]);
+                {
+                    let __encoded = wrevive_api::Encode::encode(&__ret);
+                    wrevive_api::env().return_value(ReturnFlags::empty(), &__encoded);
+                }
             }
         }
     }
@@ -575,7 +385,10 @@ fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
 /// 3. 编译时把 ABI 写入 target/contract/abi.json。
 #[proc_macro_attribute]
 pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let contract_name = env::var("CONTRACT_LIB_NAME").unwrap_or_else(|_| "contract".into());
+    // ABI name: 优先使用 binary 名 (CARGO_BIN_NAME，如 "wrevive-example")，其次 CONTRACT_NAME，最后 "contract"
+    let contract_name = env::var("CARGO_BIN_NAME")
+        .or_else(|_| env::var("CONTRACT_NAME"))
+        .unwrap_or_else(|_| "contract".into());
 
     let item = parse_macro_input!(item as Item);
     let Item::Mod(mut module) = item else {
@@ -648,43 +461,51 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     mod_content.extend(other_items);
 
-    // Build match arms for call(): cfg(test) chooses manual parse vs input! (set by cargo test)
-    // 为 call() 生成 match 分支：cfg(test) 时用手动解析，否则用 input!（由 cargo test 自动设置）
+    // Build match arms for call(): all arguments use SCALE decode (unified approach)
+    // 为 call() 生成 match 分支：所有参数统一使用 SCALE 解码（测试和正式环境一致）
     let match_arms: Vec<TokenStream2> = message_fns
         .iter()
         .map(|(f, sel)| {
             let fn_name = &f.sig.ident;
             let sig = &f.sig;
-            let mut min_len: usize = 4;
-            let mut input_vars_off: Vec<(syn::Ident, usize, ParseKind, TokenStream2)> = Vec::new();
-            let mut input_vars_ink: Vec<(syn::Ident, TokenStream2)> = Vec::new();
+            let min_len: usize = 4; // 至少需要 selector 的 4 字节
+            
+            // 收集所有参数的类型和名称，统一使用 SCALE 解码
+            let mut input_vars: Vec<(syn::Ident, TokenStream2)> = Vec::new();
             let mut call_exprs = Vec::new();
             for arg in &sig.inputs {
                 let FnArg::Typed(pt) = arg else { continue };
-                if let Some((size, parse_kind, type_tt, call_expr)) = arg_for_input(pt.ty.as_ref(), &pt.pat) {
-                    min_len += size;
-                    let name = match pt.pat.as_ref() {
-                        syn::Pat::Ident(pi) => pi.ident.clone(),
-                        _ => continue,
-                    };
-                    input_vars_off.push((name.clone(), size, parse_kind, call_expr.clone()));
-                    input_vars_ink.push((name, type_tt));
-                    call_exprs.push(call_expr);
-                }
+                let name = match pt.pat.as_ref() {
+                    syn::Pat::Ident(pi) => pi.ident.clone(),
+                    _ => continue,
+                };
+                let ty = pt.ty.as_ref();
+                let type_tt = quote! { #ty };
+                input_vars.push((name.clone(), type_tt));
+                call_exprs.push(quote! { #name });
             }
-            let manual_parse = manual_parse_from_input(&input_vars_off);
-            // Manual parse: [u8; 20] is already by-value, pass name; with input! we pass *name for &[u8; 20]
-            // 手动解析时 [u8; 20] 变量已是 by-value，传 name；input! 时为 &[u8; 20] 传 *name
-            let call_exprs_manual: Vec<TokenStream2> = input_vars_off
-                .iter()
-                .map(|(name, _, _, _)| quote! { #name })
-                .collect();
-            let input_parse_ink = if input_vars_ink.is_empty() {
-                quote! { input!(__input, _skip: u32, ); }
+            
+            // 统一使用 SCALE 解码（测试和正式环境一致）
+            let input_parse = if input_vars.is_empty() {
+                quote! {}
             } else {
-                let names = input_vars_ink.iter().map(|(n, _)| n);
-                let types = input_vars_ink.iter().map(|(_, t)| t);
-                quote! { input!(__input, _skip: u32, #(#names: #types),* , ); }
+                let mut scale_stmts = Vec::new();
+                let scale_input = quote! { __scale_input };
+                for (name, type_tt) in &input_vars {
+                    scale_stmts.push(quote! {
+                        let #name: #type_tt = match <#type_tt as wrevive_api::Decode>::decode(&mut #scale_input) {
+                            Ok(val) => val,
+                            Err(_) => {
+                                wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                                return;
+                            }
+                        };
+                    });
+                }
+                quote! {
+                    let mut __scale_input = &__input[4..];
+                    #(#scale_stmts)*
+                }
             };
             let ret_ty = &sig.output;
             let encode_and_return = return_encode(ret_ty);
@@ -692,13 +513,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 #sel_u32 => {
                     if __input_len >= #min_len {
-                        #[cfg(test)]
-                        #manual_parse
-                        #[cfg(not(test))]
-                        #input_parse_ink
-                        #[cfg(test)]
-                        let __ret = #mod_name::#fn_name(#(#call_exprs_manual),*);
-                        #[cfg(not(test))]
+                        #input_parse
                         let __ret = #mod_name::#fn_name(#(#call_exprs),*);
                         #encode_and_return
                     } else {
@@ -723,6 +538,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // 生成 call()：读取 call data，按前 4 字节 selector 分发到对应 message，并编码返回值
     let call_fn: Item = syn::parse2(quote! {
         #[no_mangle]
+        #[allow(unreachable_code)]
         pub extern "C" fn call() {
             let __input_len = wrevive_api::env().call_data_size().min(1024) as usize;
             let __input_vec = if __input_len > 0 {
@@ -748,18 +564,17 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     })
     .unwrap();
 
-    // 在 crate 根自动添加必要的导入（仅在非测试环境下，供 call() 中的 input! 使用）
-    // Automatically add necessary imports at crate root (only in non-test builds, for input! in call())
-    let use_input_hostfn: Item = syn::parse2(quote! {
-        #[cfg(not(test))]
-        use wrevive_api::{input, HostFn};
+    // 在 crate 根自动添加必要的导入（SCALE 编码/解码）
+    // Automatically add necessary imports at crate root (for SCALE encode/decode)
+    let use_scale_codec: Item = syn::parse2(quote! {
+        use wrevive_api::Decode;
     })
     .unwrap();
 
     // Expansion: imports + original mod + deploy() + call()
     // 展开结果：导入 + 原 mod + deploy() + call()
     quote! {
-        #use_input_hostfn
+        #use_scale_codec
 
         #module
 

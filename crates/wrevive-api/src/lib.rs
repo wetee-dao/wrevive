@@ -45,8 +45,8 @@ pub use scale_info::TypeInfo;
 pub use mapping::{Mapping, MappingError};
 
 
-// 正常运行暴露 on_chain：cfg(not(test)) 且未启用 off_chain，目标 riscv64（与 off_chain 互斥）
-#[cfg(all(not(test), not(feature = "off_chain"), target_arch = "riscv64"))]
+// 正常运行暴露 on_chain：cfg(not(test)) 且未启用 off_chain（与 off_chain 互斥）
+#[cfg(all(not(test), not(feature = "off_chain")))]
 pub mod on_chain;
 
 // test 暴露 off_chain：cfg(test) 或 feature "off_chain"（依赖方 cargo test 时启用 off_chain）
@@ -62,7 +62,7 @@ pub use off_chain::{with_engine, Engine};
 pub fn env() -> &'static dyn Env {
     &off_chain::OFF_CHAIN_ENV
 }
-#[cfg(all(not(test), not(feature = "off_chain"), target_arch = "riscv64"))]
+#[cfg(all(not(test), not(feature = "off_chain")))]
 #[inline(always)]
 pub fn env() -> &'static dyn Env {
     &on_chain::ON_CHAIN_ENV
@@ -82,7 +82,7 @@ pub fn set_storage<K: Encode + ?Sized, V: Encode + ?Sized>(
     {
         off_chain::OFF_CHAIN_ENV.set_storage_bytes(flags, &key_bytes, &value_bytes)
     }
-    #[cfg(all(not(test), not(feature = "off_chain"), target_arch = "riscv64"))]
+    #[cfg(all(not(test), not(feature = "off_chain")))]
     {
         on_chain::ON_CHAIN_ENV.set_storage_bytes(flags, &key_bytes, &value_bytes)
     }
@@ -98,7 +98,7 @@ pub fn get_storage<K: Encode + ?Sized, V: Decode>(
     let key_bytes = key.encode();
     #[cfg(any(test, feature = "off_chain"))]
     let data = off_chain::OFF_CHAIN_ENV.get_storage_bytes(flags, &key_bytes)?;
-    #[cfg(all(not(test), not(feature = "off_chain"), target_arch = "riscv64"))]
+    #[cfg(all(not(test), not(feature = "off_chain")))]
     let data = on_chain::ON_CHAIN_ENV.get_storage_bytes(flags, &key_bytes)?;
     V::decode(&mut &data[..]).map_err(|_| ReturnErrorCode::KeyNotFound)
 }

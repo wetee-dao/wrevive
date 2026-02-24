@@ -13,7 +13,7 @@ fn deploy_sets_owner_and_value() {
     contract::deploy();
 
     let owner: [u8; 20] = get_storage(wrevive_api::StorageFlags::empty(), STORAGE_KEY_OWNER).unwrap();
-    assert_eq!(owner, [1u8; 20]);
+        assert_eq!(owner, [1u8; 20]);
     let value: u32 = get_storage(wrevive_api::StorageFlags::empty(), STORAGE_KEY_VALUE).unwrap();
     assert_eq!(value, 0);
 }

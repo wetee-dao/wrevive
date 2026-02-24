@@ -26,43 +26,55 @@ wetee-contract-core/   # 仓库名可保留，内部 crates 为 wrevive-*
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    ```
 
-2. **polkatool** (用于将 ELF 链接为 PolkaVM 字节码；`polkavm-linker` 仅为库，无独立二进制)
-   ```bash
-   cargo install polkatool
-   ```
-
-3. **Rust 标准库源码** (用于交叉编译)
+2. **Rust 标准库源码** (用于交叉编译)
    ```bash
    rustup component add rust-src
    ```
 
 ### 构建合约
 
-使用提供的构建脚本：
+推荐使用 **cargo 子命令**（前置编译器方式）：
 
 ```bash
-./build.sh
+# 先安装子命令（仅需一次）
+cargo install --path crates/cargo-wrevive
+
+# 在项目根目录构建合约
+cargo wrevive build -p wrevive-example-contract
 ```
 
-或者手动构建：
+或使用脚本（内部会调用 `cargo wrevive build`）：
 
 ```bash
-# 编译
-RUSTC_BOOTSTRAP=1 cargo +stable build \
-  --release \
-  --no-default-features \
-  --target riscv64emac-unknown-none-polkavm.json \
-  -Z build-std=core,alloc
-
-# 链接（需要先安装 polkatool）
-polkatool link --strip -o target/contract/contract.polkavm \
-  target/riscv64emac-unknown-none-polkavm/release/example.elf
+./build.sh wrevive-example-contract
 ```
+
+手动构建（等价于上述子命令）：
+
+```bash
+# 编译（.json target 需 -Z json-target-spec）
+RUSTC_BOOTSTRAP=1 cargo build --release --no-default-features \
+  -p wrevive-example-contract \
+  --target examples/wrevive-example-contract/riscv64emac-unknown-none-polkavm.json \
+  -Z build-std=core,alloc -Z json-target-spec
+
+# 链接（cargo wrevive build 已内置，无需单独安装 polkatool）
+# 若需手动链接，可使用 polkavm-linker 库或 cargo install polkatool 后执行 polkatool link --strip -o ...
+```
+
+**两种合约编译方式**（参考 `examples/project`）：
+
+| 方式 | 适用 | 命令 | 产出 |
+|------|------|------|------|
+| **cargo-pvm-contract-builder** | 独立合约、bin 目标（见 `examples/project`） | 在合约目录下 `cargo build --release` | `target/<name>.release.polkavm` + ABI |
+| **cargo wrevive + 包内 target** | workspace 内 lib/cdylib 合约（本示例） | 根目录 `cargo wrevive build -p wrevive-example-contract` | `target/contract/<lib_name>.polkavm` |
+
+本示例合约使用 `.cargo/config.toml` 的 target，在合约目录下也可直接 `cargo build --release` 得到 ELF；`cargo wrevive build` 会优先使用包内 `riscv64emac-unknown-none-polkavm.json`，再编译并链接为 .polkavm。
 
 ### 构建输出
 
 - **ELF 文件**: `target/riscv64emac-unknown-none-polkavm/release/example.elf`
-- **PolkaVM 文件**: `target/contract/contract.polkavm` (链接后)
+- **PolkaVM 文件**: `target/contract/example.polkavm`（由 `cargo wrevive build` 链接产出）
 - **ABI**: `abi/contract.json`（类似 ink!，供前端/JS 编码调用与解码返回值）
 
 ## 宏用法（类似 ink!）
@@ -240,13 +252,9 @@ let call_result = Pallet::<T>::bare_call(
 3. 是否安装了 `rust-src` 组件
 4. 目标 JSON 文件路径是否正确
 
-### 链接错误
+### 链接
 
-如果 `polkatool` 未找到：
-
-```bash
-cargo install polkatool
-```
+`cargo wrevive build` 已内置 ELF→PolkaVM 链接（使用 polkavm-linker），无需单独安装 polkatool。若手动构建 ELF 后需链接，可 `cargo install polkatool` 后使用 `polkatool link --strip -o ...`。
 
 ### 运行时错误
 
