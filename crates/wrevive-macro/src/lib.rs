@@ -562,24 +562,3 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     .into()
 }
 
-/// **Pass-through macro**: `#[revive(constructor)]` and `#[revive(message, selector = ...)]` are only markers;
-/// `#[revive_contract]` reads them when parsing the mod; here we do not expand, just return the item as-is.
-/// **透传宏**：`#[revive(constructor)]` 与 `#[revive(message, selector = ...)]` 仅作为标记，
-/// 由 `#[revive_contract]` 在解析 mod 时读取，此处不做展开，原样返回 item。
-#[proc_macro_attribute]
-pub fn revive(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
-}
-
-/// **Scale derive**: like `#[ink::scale_derive(Encode, Decode, TypeInfo)]`, expands to
-/// `#[derive(::wrevive_api::Encode, ::wrevive_api::Decode, ::wrevive_api::TypeInfo)]` on the item.
-/// Use on structs/enums whose instances are stored as Mapping values (set/get require Scale).
-#[proc_macro_attribute]
-pub fn scale_derive(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let item: TokenStream2 = item.into();
-    quote! {
-        #[derive(::wrevive_api::Encode, ::wrevive_api::Decode, ::wrevive_api::TypeInfo)]
-        #item
-    }
-    .into()
-}

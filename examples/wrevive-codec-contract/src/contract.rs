@@ -59,13 +59,9 @@ mod contract {
         }
     }
 
-    fn _get_owner() -> [u8; 20] {
-        get_storage::<_, [u8; 20]>(StorageFlags::empty(), STORAGE_KEY_OWNER).unwrap_or([0u8; 20])
-    }
-
     #[revive(message)]
     pub fn get_owner() -> [u8; 20] {
-        _get_owner()
+        get_storage::<_, [u8; 20]>(StorageFlags::empty(), STORAGE_KEY_OWNER).unwrap_or([0u8; 20])
     }
 
     /// 设置用户余额（使用 Mapping）
