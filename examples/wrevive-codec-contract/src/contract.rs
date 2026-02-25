@@ -17,7 +17,9 @@ mod contract {
 
     const EMPTY_TOPICS: &[[u8; 32]] = &[];
 
+    // 存储值
     const STORAGE_KEY_VALUE: &[u8] = b"value";
+    // 存储所有者
     const STORAGE_KEY_OWNER: &[u8] = b"owner";
 
     // 创建一个用于存储用户余额的 Mapping
@@ -28,19 +30,35 @@ mod contract {
     // key: 用户地址 [u8; 20], subkey: 信息类型 u8, value: 信息值 u32
     static USER_INFO_MAPPING: Mapping = Mapping::new(b"user_info");
 
+    /// 错误类型
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Error {
+        InsufficientBalance,
+    }
+    impl AsRef<[u8]> for Error {
+        fn as_ref(&self) -> &[u8] {
+            match *self {
+                Error::InsufficientBalance => b"InsufficientBalance",
+            }
+        }
+    }
+
     #[revive(constructor)]
-    pub fn deploy() {
+    pub fn deploy() -> Result<(), Error> {
         let caller = env().caller();
 
         set_storage(StorageFlags::empty(), STORAGE_KEY_OWNER, &caller);
         let default_value: u32 = 0;
         set_storage(StorageFlags::empty(), STORAGE_KEY_VALUE, &default_value);
+
+        Ok(())
     }
 
     #[revive(message)]
-    pub fn set_value(value: u32) {
+    pub fn set_value(value: u32) -> Result<(), Error> {
         set_storage(StorageFlags::empty(), STORAGE_KEY_VALUE, &value);
         env().deposit_event(EMPTY_TOPICS, &value.to_le_bytes().as_slice());
+        Ok(())
     }
 
     #[revive(message)]

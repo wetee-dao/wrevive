@@ -44,7 +44,7 @@ use std::path::{Path, PathBuf};
 use syn::{
     parse_macro_input,
     punctuated::Punctuated,
-    Attribute, FnArg, Item, ItemFn, Lit, Meta, ReturnType, Token,
+    Attribute, FnArg, GenericArgument, Item, ItemFn, Lit, Meta, PathArguments, ReturnType, Token,
 };
 
 // =============================================================================
@@ -129,17 +129,41 @@ fn strip_revive_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
         .collect()
 }
 
+/// 从 syn::Path 取类型显示名（多段路径取最后一段，如 `crate::BalanceInfo` → `BalanceInfo`）。
+fn path_to_display_name(path: &syn::Path) -> String {
+    path.segments
+        .iter()
+        .last()
+        .map(|s| s.ident.to_string())
+        .unwrap_or_else(|| "ScaleBytes".into())
+}
+
 /// Maps a Rust type to an ABI type name and optional length for abi.json.
-/// - `u32` → `("u32", None)`
-/// - `[u8; 20]` → `("AccountId", Some(20))`
-/// 将 Rust 类型映射为 ABI 中的类型名及可选长度。
-/// 用于生成 abi.json 里 message 的 args/returnType。
+/// - 基础类型: u8/u16/u32/u64/u128, i8/.., bool
+/// - 数组: [u8; N] → ("AccountId", Some(N))
+/// - 自定义结构体（Path）: 取路径最后一段作为 displayName，表示支持 Codec 的自定义类型
+/// - 引用: &T / &mut T 递归到 T
+/// - 其他（Option/Vec/泛型等）: ("ScaleBytes", None)，表示 SCALE 编码字节
 fn type_to_abi(ty: &syn::Type) -> Option<(String, Option<u32>)> {
-    if let syn::Type::Path(p) = ty {
-        if p.path.is_ident("u32") {
-            return Some(("u32".into(), None));
-        }
+    // 引用类型：递归到内层
+    if let syn::Type::Reference(r) = ty {
+        return type_to_abi(&r.elem);
     }
+    // 路径类型：基础类型或自定义结构体
+    if let syn::Type::Path(p) = ty {
+        if let Some(id) = p.path.get_ident() {
+            let name = id.to_string();
+            match name.as_str() {
+                "u8" | "u16" | "u32" | "u64" | "u128"
+                | "i8" | "i16" | "i32" | "i64" | "i128"
+                | "bool" => return Some((name, None)),
+                _ => {}
+            }
+        }
+        // 自定义结构体（多段路径或单段非基础类型）：用类型名作为 displayName
+        return Some((path_to_display_name(&p.path), None));
+    }
+    // 定长数组 [u8; N]
     if let syn::Type::Array(arr) = ty {
         if let syn::Type::Path(inner) = *arr.elem.clone() {
             if inner.path.is_ident("u8") {
@@ -153,7 +177,8 @@ fn type_to_abi(ty: &syn::Type) -> Option<(String, Option<u32>)> {
             }
         }
     }
-    None
+    // Option<T>, Vec<T>, 其他泛型等：统一标为 ScaleBytes，表示 SCALE 编码
+    Some(("ScaleBytes".into(), None))
 }
 
 /// Formats the 4-byte selector as a hex string, e.g. `"0x60fe47b1"`, for the ABI selector field.
@@ -253,8 +278,8 @@ fn emit_abi(
                 args.push(arg_obj);
             }
         }
-        // Return type: no return → Null; u32 / [u8;20] → displayName + optional length
-        // 返回类型：无返回值 -> Null；u32 / [u8;20] -> displayName + 可选 length
+        // Return type: no return → Null; 基础类型/自定义 Codec 类型/ScaleBytes
+        // 返回类型：无返回值 -> Null；否则为 type_to_abi 的 displayName（含自定义结构体）
         let (return_type, length) = match &f.sig.output {
             ReturnType::Default => (serde_json::Value::Null, None),
             ReturnType::Type(_, ty) => type_to_abi(ty)
@@ -308,19 +333,71 @@ fn emit_abi(
 // - u32: 4 bytes, little-endian, i.e. __input[4..8]
 // - [u8; 20] (AccountId): 20 bytes, i.e. __input[4..24]
 
+/// 若返回类型为 Result<T,E> 或 Option<T>，返回 Some((内层类型 T, true=Result/false=Option))；否则返回 None。
+fn unwrap_result_or_option(ty: &syn::Type) -> Option<(&syn::Type, bool)> {
+    let path = match ty {
+        syn::Type::Path(p) => &p.path,
+        _ => return None,
+    };
+    let seg = path.segments.iter().last()?;
+    let name = seg.ident.to_string();
+    let args = match &seg.arguments {
+        PathArguments::AngleBracketed(a) => &a.args,
+        _ => return None,
+    };
+    let first_ty = args.iter().find_map(|a| match a {
+        GenericArgument::Type(t) => Some(t),
+        _ => None,
+    })?;
+    if name == "Result" {
+        Some((first_ty, true))
+    } else if name == "Option" {
+        Some((first_ty, false))
+    } else {
+        None
+    }
+}
+
 /// Generates code that encodes the return value `__ret` and passes it to `wrevive_api::env().return_value`.
-/// 使用 SCALE 编码处理所有类型，参考 ink! 的实现方式。
-/// 根据 message 的返回类型，生成将返回值 `__ret` 编码并通过 `wrevive_api::env().return_value` 返回的代码。
+/// 支持 ()、T、Result<T,E>（Ok 编码返回，Err 则 REVERT）、Option<T>（Some 编码返回，None 空字节）。
 fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
     match ret_ty {
         ReturnType::Default => quote! {
             wrevive_api::env().return_value(ReturnFlags::empty(), &[]);
         },
-        ReturnType::Type(_, _ty) => {
-            quote! {
-                {
-                    let __encoded = wrevive_api::Encode::encode(&__ret);
-                    wrevive_api::env().return_value(ReturnFlags::empty(), &__encoded);
+        ReturnType::Type(_, ty) => {
+            if let Some((_inner_ty, is_result)) = unwrap_result_or_option(ty) {
+                if is_result {
+                    quote! {
+                        match __ret {
+                            Ok(__v) => {
+                                let __encoded = wrevive_api::Encode::encode(&__v);
+                                wrevive_api::env().return_value(ReturnFlags::empty(), &__encoded);
+                            }
+                            Err(_) => {
+                                wrevive_api::env().return_value(ReturnFlags::REVERT, &[]);
+                            }
+                        }
+                    }
+                } else {
+                    quote! {
+                        match __ret {
+                            Some(__v) => {
+                                let __encoded = wrevive_api::Encode::encode(&__v);
+                                wrevive_api::env().return_value(ReturnFlags::empty(), &__encoded);
+                            }
+                            None => {
+                                wrevive_api::env().return_value(ReturnFlags::empty(), &[]);
+                            }
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    {
+                        let __encoded = wrevive_api::Encode::encode(&__ret);
+                        wrevive_api::env().return_value(ReturnFlags::empty(), &__encoded);
+                    }
                 }
             }
         }
@@ -430,6 +507,28 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
         &message_fns,
     );
 
+    // deploy() 体：若构造函数返回 Result，则 Err 时 REVERT（需在移动 constructor_fn 前生成）
+    let deploy_body: TokenStream2 = match &constructor_fn.sig.output {
+        ReturnType::Type(_, ty) if unwrap_result_or_option(ty).map(|(_, r)| r).unwrap_or(false) => {
+            quote! {
+                match #mod_name::#constructor_name() {
+                    Ok(_) => {}
+                    Err(_) => {
+                        wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    }
+                }
+            }
+        }
+        _ => quote! { #mod_name::#constructor_name(); },
+    };
+    let deploy_fn: Item = syn::parse2(quote! {
+        #[polkavm_derive::polkavm_export]
+        pub extern "C" fn deploy() {
+            #deploy_body
+        }
+    })
+    .unwrap();
+
     // Put constructor, messages, and other items back into the mod (deploy/call are emitted outside)
     // 把用户的 constructor、message、其他项重新放回 mod（deploy/call 生成在 mod 外）
     mod_content.push(Item::Fn(constructor_fn));
@@ -501,16 +600,6 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
         })
         .collect();
 
-    // Emit deploy(): entry called by PolkaVM on instantiation, forwards to user constructor
-    // 生成 deploy()：PolkaVM 实例化时调用的入口，直接转发到用户定义的构造函数
-    let deploy_fn: Item = syn::parse2(quote! {
-        #[polkavm_derive::polkavm_export]
-        pub extern "C" fn deploy() {
-            #mod_name::#constructor_name();
-        }
-    })
-    .unwrap();
-
     // Emit call(): read call data, dispatch by first 4-byte selector, encode return value
     // 生成 call()：读取 call data，按前 4 字节 selector 分发到对应 message，并编码返回值
     let call_fn: Item = syn::parse2(quote! {
@@ -561,4 +650,3 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     .into()
 }
-

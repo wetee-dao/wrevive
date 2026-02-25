@@ -15,10 +15,14 @@ fn main() {
 fn run() -> anyhow::Result<()> {
     print_rust_version();
     let args: Vec<String> = std::env::args().collect();
-    let sub = args.get(1).map(String::as_str).unwrap_or("");
+    // cargo wrevive build ... 时 Cargo 会把 "wrevive" 作为第一个参数传入，需跳过
+    let (sub, rest) = match (args.get(1).map(String::as_str), args.get(2).map(String::as_str)) {
+        (Some("wrevive"), next) => (next.unwrap_or(""), 3),
+        (some_sub, _) => (some_sub.unwrap_or(""), 2),
+    };
 
     match sub {
-        "build" => cmd_build(&args[2..])?,
+        "build" => cmd_build(&args[rest..])?,
         "help" | "-h" | "--help" => print_help(),
         "" => {
             print_help();
