@@ -13,6 +13,7 @@ fn main() {
 }
 
 fn run() -> anyhow::Result<()> {
+    print_rust_version();
     let args: Vec<String> = std::env::args().collect();
     let sub = args.get(1).map(String::as_str).unwrap_or("");
 
@@ -196,6 +197,19 @@ fn get_workspace_or_project_root(manifest_path: &std::path::Path) -> anyhow::Res
         .and_then(|v| v.as_str())
         .ok_or_else(|| anyhow::anyhow!("cargo metadata missing workspace_root"))?;
     Ok(std::path::PathBuf::from(root))
+}
+
+fn print_rust_version() {
+    let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".to_string());
+    match std::process::Command::new(&rustc).arg("--version").output() {
+        Ok(out) if out.status.success() => {
+            let v = String::from_utf8_lossy(&out.stdout);
+            eprintln!("{}", v.trim());
+        }
+        _ => {
+            eprintln!("rustc --version: (unable to get version)");
+        }
+    }
 }
 
 fn print_help() {

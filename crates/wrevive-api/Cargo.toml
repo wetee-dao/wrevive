@@ -5,16 +5,12 @@ edition = "2021"
 description = "pallet_revive_uapi 封装：on_chain（真实 Host）/ off_chain（Engine 测试），参考 ink engine"
 
 [features]
-default = []
-# 测试时在 host 上编译可启用，与 no_std 互斥，使用 std
-std = []
+default = ["off_chain"]
 off_chain = []
-# 链上 no_std 时提供全局分配器，供 Mapping 内部分配（set/get 已不要求调用方传 buffer）
-on_chain = ["picoalloc"]
+on_chain = []
 
 [dependencies]
-pallet-revive-uapi = { git = "https://github.com/paritytech/polkadot-sdk", package = "pallet-revive-uapi", default-features = false }
+pallet-revive-uapi = { version = "0.10", default-features = false }
 parity-scale-codec = { version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"] }
-picoalloc = { version = "5", optional = true }
 sha3 = { version = "0.10", default-features = false }

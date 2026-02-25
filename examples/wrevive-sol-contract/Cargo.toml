@@ -1,0 +1,35 @@
+[package]
+name = "wrevive-sol-contract"
+version = "0.1.0"
+edition = "2024"
+description = "示例合约：value/owner 存储与 message，供 PolkaVM 部署"
+
+[features]
+abi-gen = ["pvm-contract-types/abi-reflection"]
+test = ["wrevive-api/off_chain"]
+
+[[bin]]
+name = "wrevive-sol-example"
+path = "src/contract.rs"
+
+[dependencies]
+pvm-contract-macros = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+pvm-contract-types = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+pvm-contract-builder-dsl = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+pvm-bump-allocator = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+alloy-core = { version = "1.5", default-features = false, features = ["sol-types"] }
+pallet-revive-uapi = { version = "0.10", default-features = false }
+polkavm-derive = { version = "0.31.0" }
+ruint = { version = "1.17", default-features = false }
+picoalloc = { version = "5", default-features = false }
+#wrevive-api = { path = "../../crates/wrevive-api", default-features = false, features = ["on_chain"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+panic = "abort"
+overflow-checks = false
+
+[dev-dependencies]
+wrevive-api = { path = "../../crates/wrevive-api", default-features = false, features = ["off_chain"] }

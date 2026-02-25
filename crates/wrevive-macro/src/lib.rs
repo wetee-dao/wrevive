@@ -211,7 +211,8 @@ fn emit_abi(
             manifest_path.join("target").to_string_lossy().into_owned()
         }
     });
-    let contract_dir = Path::new(&target_dir);
+    // ABI 写入 target/contract/{contract_name}.json（与文档一致）
+    let contract_dir = Path::new(&target_dir).join("contract");
     if fs::create_dir_all(&contract_dir).is_err() {
         return;
     }
@@ -296,45 +297,6 @@ fn emit_abi(
 
     let json_str = serde_json::to_string_pretty(&abi).unwrap_or_default();
     let _ = fs::write(&out_path, &json_str);
-}
-
-// =============================================================================
-// Global allocator macro for no_std contracts
-// 全局分配器宏，用于 no_std 合约
-// =============================================================================
-
-/// 链上全局分配器：包装 picoalloc，使 static 满足 Sync（合约单线程执行）。
-/// 在 `#[revive_contract]` 宏中自动生成，或手动调用此宏。
-/// 
-/// # Example
-/// ```ignore
-/// use wrevive_macro::picoalloc_global_allocator;
-/// picoalloc_global_allocator!(1024); // 1024 字节堆，可按需调大
-/// ```
-/// 
-/// 注意：此宏需要确保 `wrevive-api` 启用了 `on_chain` feature（包含 picoalloc 类型定义）。
-#[proc_macro]
-pub fn picoalloc_global_allocator(input: TokenStream) -> TokenStream {
-    let n: usize = syn::parse_macro_input!(input as syn::LitInt)
-        .base10_parse()
-        .unwrap_or_else(|_| {
-            panic!("picoalloc_global_allocator! requires a literal integer (e.g., 1024)");
-        });
-    
-    quote! {
-        #[cfg(not(test))]
-        extern crate alloc;
-
-        #[cfg(not(test))]
-        #[global_allocator]
-        static ALLOC: wrevive_api::PicoallocWrapper<#n> = {
-            static mut ARRAY: wrevive_api::picoalloc::Array<#n> = wrevive_api::picoalloc::Array([0u8; #n]);
-            wrevive_api::PicoallocWrapper(wrevive_api::picoalloc::Mutex::new(wrevive_api::picoalloc::Allocator::new(unsafe {
-                wrevive_api::picoalloc::ArrayPointer::new(&raw mut ARRAY)
-            })))
-        };
-    }
-    .into()
 }
 
 // =============================================================================

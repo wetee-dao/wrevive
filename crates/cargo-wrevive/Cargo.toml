@@ -4,15 +4,12 @@ version = "0.1.0"
 edition = "2024"
 description = "Cargo subcommand: cargo wrevive build — build PolkaVM contract (includes PvmBuilder lib for build.rs)"
 
-[lib]
-name = "cargo_wrevive"
-path = "src/lib.rs"
-
 [[bin]]
 name = "cargo-wrevive"
 path = "src/main.rs"
 
 [dependencies]
+cargo-pvm-contract-builder = "0.3.0"
 anyhow = "1"
 polkavm-linker = "0.31"
 toml_edit = "0.22"

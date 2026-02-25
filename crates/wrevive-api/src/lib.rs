@@ -1,30 +1,6 @@
-//! # wrevive-api
-//!
-//! Thin wrapper over `pallet_revive_uapi` with **on_chain** and **off_chain** backends,
-//! similar to the [ink! engine](https://github.com/use-ink/ink/tree/master/crates/engine).
-//!
-//! pallet_revive_uapi 封装：**on_chain** / **off_chain** 两套接口，参考 [ink engine](https://github.com/use-ink/ink/tree/master/crates/engine)。
-//!
-//! ## Backends / 后端
-//!
-//! - **test 暴露 off_chain**：`cargo test` 时 `cfg(test)` 为真，编译并导出 `off_chain`（内存 Engine），测试可正常运行。
-//! - **正常运行暴露 on_chain**：非 test 构建时 `cfg(not(test))`，编译并导出 `on_chain`（HostFnImpl），仅 riscv64/PolkaVM。
-//! - 依赖方若需在自身 test 中使用 off_chain，可启用 feature `off_chain`。
-//!
-//! ## no_std 与 Mapping（无需调用方 buffer）
-//!
-//! 链上 no_std 时，`Mapping::set` / `Mapping::get` 内部分别用 `value.encode()` 与 `vec![0u8; 256]`，
-//! 不再要求调用方传入 buffer。这依赖 **全局分配器**：需在合约根（如 `lib.rs`）中设置 `#[global_allocator]`，
-//! 否则 `alloc::vec::Vec` 无法工作。例如使用 [picoalloc](https://crates.io/crates/picoalloc)（通过 `wrevive-macro`）：
-//!
-//! ```ignore
-//! use wrevive_macro::picoalloc_global_allocator;
-//! picoalloc_global_allocator!(1024); // 1024 字节堆，可按需调大
-//! ```
-
 // test / feature "off_chain" / feature "std" => 使用 std；否则 no_std。测试时依赖方可用 feature "std" 在 host 上跑。
-#![cfg_attr(not(any(test, feature = "off_chain", feature = "std")), no_std)]
-#[cfg(not(any(test, feature = "off_chain", feature = "std")))]
+#![cfg_attr(not(any(test, feature = "off_chain")), no_std)]
+#[cfg(not(any(test, feature = "off_chain")))]
 extern crate alloc;
 
 /// Environment trait: unified interface for on_chain and off_chain.
@@ -102,33 +78,6 @@ pub fn get_storage<K: Encode + ?Sized, V: Decode>(
     let data = on_chain::ON_CHAIN_ENV.get_storage_bytes(flags, &key_bytes)?;
     V::decode(&mut &data[..]).map_err(|_| ReturnErrorCode::KeyNotFound)
 }
-
-/// 链上全局分配器：包装 picoalloc，使 static 满足 Sync（合约单线程执行）。
-/// 类型定义保留在此处，供 `wrevive_macro::picoalloc_global_allocator!` 宏使用。
-#[cfg(feature = "on_chain")]
-mod picoalloc_allocator {
-    pub use picoalloc;
-
-    pub struct PicoallocWrapper<const N: usize>(pub picoalloc::Mutex<picoalloc::Allocator<picoalloc::ArrayPointer<N>>>);
-
-    unsafe impl<const N: usize> Send for PicoallocWrapper<N> {}
-    unsafe impl<const N: usize> Sync for PicoallocWrapper<N> {}
-
-    unsafe impl<const N: usize> core::alloc::GlobalAlloc for PicoallocWrapper<N> {
-        unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
-            let align = picoalloc::Size::from_bytes_usize(layout.align().max(1)).unwrap();
-            let size = picoalloc::Size::from_bytes_usize(layout.size().max(1)).unwrap();
-            self.0.lock().alloc(align, size).map(|p| p.as_ptr()).unwrap_or(core::ptr::null_mut())
-        }
-        unsafe fn dealloc(&self, ptr: *mut u8, _layout: core::alloc::Layout) {
-            if !ptr.is_null() {
-                self.0.lock().free(core::ptr::NonNull::new_unchecked(ptr));
-            }
-        }
-    }
-}
-#[cfg(feature = "on_chain")]
-pub use picoalloc_allocator::{picoalloc, PicoallocWrapper};
 
 /// test 时使用 off_chain，正常运行。
 #[cfg(test)]
