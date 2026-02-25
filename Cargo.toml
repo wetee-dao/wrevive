@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/cargo-wrevive",
     "crates/wrevive-macro",
     "crates/wrevive-api",
     "examples/wrevive-example-contract",

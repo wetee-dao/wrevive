@@ -3,12 +3,9 @@ name = "wrevive-example-contract"
 version = "0.1.0"
 edition = "2024"
 description = "示例合约：value/owner 存储与 message，供 PolkaVM 部署"
-build = "build.rs"
 
 [features]
 default = []
-# 测试时在 host 上跑，启用 wrevive-api 的 std，与 no_std 编译互斥
-test = ["wrevive-api/std"]
 
 [[bin]]
 name = "wrevive-example"
@@ -20,9 +17,6 @@ picoalloc = { version = "5", default-features = false }
 polkavm-derive = "0.31"
 wrevive-macro = { path = "../../crates/wrevive-macro" }
 wrevive-api = { path = "../../crates/wrevive-api", default-features = false, features = ["on_chain"] }
-
-[build-dependencies]
-cargo-pvm-contract-builder = "0.3"
 
 [profile.release]
 codegen-units = 1
