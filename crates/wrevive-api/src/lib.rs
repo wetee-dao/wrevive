@@ -22,9 +22,9 @@
 //! picoalloc_global_allocator!(1024); // 1024 字节堆，可按需调大
 //! ```
 
-// test 或 feature "off_chain" => 有 off_chain（off_chain）；否则 no_off_chain（on_chain）。依赖方用 feature "off_chain" 获得 off_chain。
-#![cfg_attr(not(any(test, feature = "off_chain")), no_std)]
-#[cfg(not(any(test, feature = "off_chain")))]
+// test / feature "off_chain" / feature "std" => 使用 std；否则 no_std。测试时依赖方可用 feature "std" 在 host 上跑。
+#![cfg_attr(not(any(test, feature = "off_chain", feature = "std")), no_std)]
+#[cfg(not(any(test, feature = "off_chain", feature = "std")))]
 extern crate alloc;
 
 /// Environment trait: unified interface for on_chain and off_chain.

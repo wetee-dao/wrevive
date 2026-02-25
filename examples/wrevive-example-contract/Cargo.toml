@@ -7,10 +7,12 @@ build = "build.rs"
 
 [features]
 default = []
+# 测试时在 host 上跑，启用 wrevive-api 的 std，与 no_std 编译互斥
+test = ["wrevive-api/std"]
 
 [[bin]]
 name = "wrevive-example"
-path = "src/wrevive-example-contract.rs"
+path = "src/contract.rs"
 
 [dependencies]
 pallet-revive-uapi = { version = "0.10", default-features = false }

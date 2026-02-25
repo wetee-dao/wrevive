@@ -296,10 +296,6 @@ fn emit_abi(
 
     let json_str = serde_json::to_string_pretty(&abi).unwrap_or_default();
     let _ = fs::write(&out_path, &json_str);
-
-    // 同时写入包内 abi/{contract_name}.json，便于版本管理与前端直接引用（README 约定路径）
-    let abi_dir = Path::new(&manifest_dir).join("abi");
-    let _ = fs::create_dir_all(&abi_dir).and_then(|()| fs::write(abi_dir.join(format!("{}.json", contract_name)), &json_str));
 }
 
 // =============================================================================
@@ -375,20 +371,39 @@ fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
 // 过程宏入口
 // =============================================================================
 
+/// 从当前包的 Cargo.toml 中读取第一个 `[[bin]]` 的 `name`，用于 ABI 文件名（编译 lib 时 CARGO_BIN_NAME 未设置）。
+fn bin_name_from_manifest() -> Option<String> {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").ok()?;
+    let content = fs::read_to_string(Path::new(&manifest_dir).join("Cargo.toml")).ok()?;
+    let rest = content.find("[[bin]]")?;
+    let after_bin = &content[rest + "[[bin]]".len()..];
+    // 找 name = "xxx" 或 name = 'xxx'
+    let name_start = after_bin.find("name")?;
+    let after_name = &after_bin[name_start + 4..];
+    let eq = after_name.find('=')?;
+    let after_eq = after_name[eq + 1..].trim_start();
+    let quote = after_eq.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    let end = after_eq[1..].find(quote)?;
+    Some(after_eq[1..1 + end].to_string())
+}
+
 /// **Main macro**: `#[revive_contract]` must be applied to a `mod`. It:
 /// 1. Keeps the mod and its items;
 /// 2. Emits `deploy()` and `call()` as `extern "C"` at crate root;
-/// 3. Writes ABI to target/contract/abi.json at compile time.
+/// 3. Writes ABI to target/contract/{name}.json at compile time (name from bin or CONTRACT_NAME).
 /// **主宏**：`#[revive_contract]` 只能挂在 `mod` 上，展开后：
 /// 1. 保留该 mod 及其内部项；
 /// 2. 在 crate 根生成 `deploy()` 和 `call()` 两个 `extern "C"` 函数；
-/// 3. 编译时把 ABI 写入 target/contract/abi.json。
+/// 3. 编译时把 ABI 写入 target/contract/{name}.json（name 取自 [[bin]] 或 CONTRACT_NAME）。
 #[proc_macro_attribute]
 pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    // ABI name: 优先使用 binary 名 (CARGO_BIN_NAME，如 "wrevive-example")，其次 CONTRACT_NAME，最后 "contract"
+    // ABI 名：CARGO_BIN_NAME（编 binary 时）-> CONTRACT_NAME -> Cargo.toml 首个 [[bin]] name -> "contract"
     let contract_name = env::var("CARGO_BIN_NAME")
         .or_else(|_| env::var("CONTRACT_NAME"))
-        .unwrap_or_else(|_| "contract".into());
+        .unwrap_or_else(|_| bin_name_from_manifest().unwrap_or_else(|| "contract".into()));
 
     let item = parse_macro_input!(item as Item);
     let Item::Mod(mut module) = item else {
@@ -527,7 +542,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Emit deploy(): entry called by PolkaVM on instantiation, forwards to user constructor
     // 生成 deploy()：PolkaVM 实例化时调用的入口，直接转发到用户定义的构造函数
     let deploy_fn: Item = syn::parse2(quote! {
-        #[no_mangle]
+        #[polkavm_derive::polkavm_export]
         pub extern "C" fn deploy() {
             #mod_name::#constructor_name();
         }
@@ -537,7 +552,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Emit call(): read call data, dispatch by first 4-byte selector, encode return value
     // 生成 call()：读取 call data，按前 4 字节 selector 分发到对应 message，并编码返回值
     let call_fn: Item = syn::parse2(quote! {
-        #[no_mangle]
+        #[polkavm_derive::polkavm_export]
         #[allow(unreachable_code)]
         pub extern "C" fn call() {
             let __input_len = wrevive_api::env().call_data_size().min(1024) as usize;

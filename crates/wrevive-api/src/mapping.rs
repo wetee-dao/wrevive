@@ -4,12 +4,12 @@
 //! **value 必须实现 Scale**（Encode / Decode）；可用 `#[wrevive_api::scale_derive(Encode, Decode, TypeInfo)]` 派生。
 //! `set` / `get` 方法支持任意实现 `Encode` 的 key / subkey（如 u8, u16, u32, u64, i8, [u8; N] 等）。
 
-#[cfg(not(any(test, feature = "off_chain")))]
+#[cfg(not(any(test, feature = "off_chain", feature = "std")))]
 use alloc::vec::Vec;
-#[cfg(any(test, feature = "off_chain"))]
+#[cfg(any(test, feature = "off_chain", feature = "std"))]
 use std::vec::Vec;
 
-#[cfg(not(any(test, feature = "off_chain")))]
+#[cfg(not(any(test, feature = "off_chain", feature = "std")))]
 extern crate alloc;
 
 use pallet_revive_uapi::{ReturnErrorCode, StorageFlags};

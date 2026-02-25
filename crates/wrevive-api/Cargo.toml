@@ -6,6 +6,8 @@ description = "pallet_revive_uapi 封装：on_chain（真实 Host）/ off_chain�
 
 [features]
 default = []
+# 测试时在 host 上编译可启用，与 no_std 互斥，使用 std
+std = []
 off_chain = []
 # 链上 no_std 时提供全局分配器，供 Mapping 内部分配（set/get 已不要求调用方传 buffer）
 on_chain = ["picoalloc"]

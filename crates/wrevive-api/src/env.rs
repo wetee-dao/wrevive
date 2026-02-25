@@ -7,9 +7,9 @@
 //! Environment 抽象：与 ink [Environment](https://github.com/use-ink/ink/tree/master/crates/engine) 类似，
 //! 统一 on_chain（链上 HostFnImpl）与 off_chain（测试 Engine）两套实现。
 
-#[cfg(not(any(test, feature = "off_chain")))]
+#[cfg(not(any(test, feature = "off_chain", feature = "std")))]
 use alloc::vec::Vec;
-#[cfg(any(test, feature = "off_chain"))]
+#[cfg(any(test, feature = "off_chain", feature = "std"))]
 use std::vec::Vec;
 
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
