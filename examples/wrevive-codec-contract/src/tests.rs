@@ -149,6 +149,204 @@ fn mapping_transfer_balance_works() {
     assert_eq!(contract::get_balance(bob), 800);
 }
 
+/// Insufficient balance must revert (off_chain: panic). 余额不足必须 revert（链下会 panic）。
+#[test]
+#[should_panic(expected = "return_value")]
+fn transfer_balance_insufficient_balance_reverts() {
+    let alice = [1u8; 20];
+    let bob = [2u8; 20];
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(alice);
+    });
+    let _ = contract::deploy();
+    contract::set_balance(alice, 100);
+    contract::transfer_balance(alice, bob, 200);
+}
+
+/// Only `from` may call transfer_balance; else revert (off_chain: panic). 仅 from 可调用转账，否则 revert。
+#[test]
+#[should_panic(expected = "return_value")]
+fn transfer_balance_only_from_may_call() {
+    let alice = [1u8; 20];
+    let bob = [2u8; 20];
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(bob);
+    });
+    let _ = contract::deploy();
+    contract::set_balance(alice, 1000);
+    contract::transfer_balance(alice, bob, 100);
+}
+
+// ======================== 异常 / 边界：owner 与 value ========================
+
+/// Non-owner calling set_owner must revert. 非 owner 调用 set_owner 必须 revert。
+#[test]
+#[should_panic(expected = "return_value")]
+fn set_owner_reverts_when_not_owner() {
+    let alice = [1u8; 20];
+    let bob = [2u8; 20];
+    let charlie = [3u8; 20];
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(alice);
+    });
+    let _ = contract::deploy();
+    off_chain::with_engine(|e| e.set_caller(bob));
+    contract::set_owner(charlie, 0);
+}
+
+/// get_value returns 0 when never set (after deploy). 未设置时 get_value 返回 0。
+#[test]
+fn get_value_default_before_any_set() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller([5u8; 20]);
+    });
+    let _ = contract::deploy();
+    assert_eq!(contract::get_value(), 0);
+}
+
+/// get_owner returns zero address when never set (e.g. storage cleared). 未设置时 get_owner 返回零地址。
+#[test]
+fn get_owner_after_deploy_is_caller() {
+    let addr = [7u8; 20];
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(addr);
+    });
+    let _ = contract::deploy();
+    assert_eq!(contract::get_owner(), addr);
+}
+
+// ======================== 异常 / 边界：List (records) ========================
+
+#[test]
+fn records_list_size_zero_returns_empty() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller([1u8; 20]);
+    });
+    let _ = contract::deploy();
+    contract::records_push(1);
+    let empty = contract::records_list(0, 0);
+    assert!(empty.is_empty());
+}
+
+#[test]
+fn records_list_start_beyond_len_returns_empty() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller([1u8; 20]);
+    });
+    let _ = contract::deploy();
+    contract::records_push(10);
+    contract::records_push(20);
+    assert_eq!(contract::records_len(), 2);
+    let empty = contract::records_list(10, 5);
+    assert!(empty.is_empty());
+}
+
+#[test]
+fn records_get_nonexistent_id_returns_zero() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller([1u8; 20]);
+    });
+    let _ = contract::deploy();
+    assert_eq!(contract::records_get(0), 0);
+    assert_eq!(contract::records_get(999), 0);
+}
+
+// ======================== 异常 / 边界：List2D (user_items) ========================
+
+#[test]
+fn user_items_list_empty_user_returns_empty() {
+    let alice = [1u8; 20];
+    let bob = [2u8; 20];
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(alice);
+    });
+    let _ = contract::deploy();
+    let empty = contract::user_items_list(bob, 0, 10);
+    assert!(empty.is_empty());
+    assert_eq!(contract::user_items_len(bob), 0);
+}
+
+#[test]
+fn user_items_list_size_zero_returns_empty() {
+    let alice = [1u8; 20];
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(alice);
+    });
+    let _ = contract::deploy();
+    contract::user_items_push(alice, 1);
+    let empty = contract::user_items_list(alice, 0, 0);
+    assert!(empty.is_empty());
+}
+
+#[test]
+fn user_items_get_nonexistent_k2_returns_zero() {
+    let alice = [1u8; 20];
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(alice);
+    });
+    let _ = contract::deploy();
+    contract::user_items_push(alice, 42);
+    assert_eq!(contract::user_items_get(alice, 99), 0);
+}
+
+// ======================== 异常 / 边界：transfer ========================
+
+/// Transfer amount 0 is allowed (no-op). 转账 0 允许（无操作）。
+#[test]
+fn transfer_balance_amount_zero_allowed() {
+    let alice = [1u8; 20];
+    let bob = [2u8; 20];
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(alice);
+    });
+    let _ = contract::deploy();
+    contract::set_balance(alice, 1000);
+    contract::set_balance(bob, 500);
+    contract::transfer_balance(alice, bob, 0);
+    assert_eq!(contract::get_balance(alice), 1000);
+    assert_eq!(contract::get_balance(bob), 500);
+}
+
+/// Self-transfer (from == to) is allowed when caller is from. 自己转给自己允许（caller 为 from）。
+#[test]
+fn transfer_balance_self_transfer_allowed() {
+    let alice = [1u8; 20];
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(alice);
+    });
+    let _ = contract::deploy();
+    contract::set_balance(alice, 1000);
+    contract::transfer_balance(alice, alice, 100);
+    assert_eq!(contract::get_balance(alice), 1000);
+}
+
+// ======================== 异常 / 边界：user_info ========================
+
+#[test]
+fn get_user_info_never_set_returns_zero() {
+    let alice = [1u8; 20];
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(alice);
+    });
+    let _ = contract::deploy();
+    assert_eq!(contract::get_user_info(alice, 0), 0);
+    assert_eq!(contract::get_user_info(alice, 255), 0);
+}
+
 // ======================== List (RECORDS) tests / List 测试 ========================
 
 #[test]

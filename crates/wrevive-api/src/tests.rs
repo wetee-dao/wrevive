@@ -2,6 +2,7 @@
 //! API 单元测试：使用 off_chain Engine 测试存储、caller、Mapping、List、List2D。
 
 use super::{env, off_chain, List, List2D, Mapping, StorageFlags};
+use parity_scale_codec::Encode;
 
 #[test]
 fn off_chain_engine_storage_and_caller() {
@@ -17,6 +18,176 @@ fn off_chain_engine_storage_and_caller() {
         let v = e.get_storage_value(b"key").unwrap();
         assert_eq!(v, b"value");
     });
+}
+
+/// Off-chain Env: call_data_size, call_data_copy, call_data_load. 覆盖 call_data 相关分支。
+#[test]
+fn off_chain_env_call_data() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_call_data(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    });
+    assert_eq!(env().call_data_size(), 10);
+    let copied = env().call_data_copy(0, 5);
+    assert_eq!(copied, vec![1, 2, 3, 4, 5]);
+    let copied_tail = env().call_data_copy(8, 5);
+    assert_eq!(copied_tail, vec![9, 10]);
+    let load = env().call_data_load(0);
+    assert_eq!(load[0..10], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    assert_eq!(load[10..], [0u8; 22]);
+}
+
+/// Off-chain Env: empty call_data. 空 call_data 时 call_data_copy 返回零填充。
+#[test]
+fn off_chain_env_call_data_empty() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_call_data(&[]);
+    });
+    assert_eq!(env().call_data_size(), 0);
+    let copied = env().call_data_copy(0, 4);
+    assert_eq!(copied, vec![0, 0, 0, 0]);
+    let load = env().call_data_load(0);
+    assert_eq!(load, [0u8; 32]);
+}
+
+/// Off-chain Env: address, balance, balance_of, chain_id, gas_price, base_fee, origin, now, gas_limit, value_transferred, weight_to_fee, return_data_size.
+#[test]
+fn off_chain_env_read_only_stubs() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller([5u8; 20]);
+    });
+    let addr = env().address();
+    assert_eq!(addr, [0u8; 20]);
+    let balance = env().balance();
+    assert_eq!(balance, [0u8; 32]);
+    let balance_of = env().balance_of(&[1u8; 20]);
+    assert_eq!(balance_of, [0u8; 32]);
+    let chain_id = env().chain_id();
+    assert_eq!(chain_id[31], 1);
+    assert_eq!(env().gas_price(), 1);
+    let base_fee = env().base_fee();
+    assert_eq!(base_fee, [0u8; 32]);
+    assert_eq!(env().origin(), [5u8; 20]);
+    let now = env().now();
+    assert!(now[24..32].iter().any(|&b| b != 0));
+    assert_eq!(env().gas_limit(), u64::MAX);
+    assert_eq!(env().value_transferred(), [0u8; 32]);
+    assert_eq!(env().weight_to_fee(0, 0), [0u8; 32]);
+    assert_eq!(env().return_data_size(), 0);
+}
+
+/// Off-chain Env: code_hash, code_size. 链下返回零。
+#[test]
+fn off_chain_env_code() {
+    off_chain::with_engine(|e| e.reset());
+    assert_eq!(env().code_hash(&[0u8; 20]), [0u8; 32]);
+    assert_eq!(env().code_size(&[0u8; 20]), 0);
+}
+
+/// Off-chain Env: set_storage_or_clear (zero clears), get_storage_or_zero. 零值清除存储；get 不到返回零。
+#[test]
+fn off_chain_env_storage_or_clear_and_zero() {
+    off_chain::with_engine(|e| e.reset());
+    let key = [1u8; 32];
+    let value = [2u8; 32];
+    env().set_storage_bytes(StorageFlags::empty(), &key, &value);
+    let got = env().get_storage_or_zero(StorageFlags::empty(), &key);
+    assert_eq!(got, value);
+    let zero = [0u8; 32];
+    let prev = env().set_storage_or_clear(StorageFlags::empty(), &key, &zero);
+    assert_eq!(prev, Some(32));
+    let after = env().get_storage_or_zero(StorageFlags::empty(), &key);
+    assert_eq!(after, [0u8; 32]);
+    let missing = env().get_storage_or_zero(StorageFlags::empty(), &[9u8; 32]);
+    assert_eq!(missing, [0u8; 32]);
+}
+
+/// Off-chain Env: set_storage_or_clear with non-zero writes. 非零值写入。
+#[test]
+fn off_chain_env_storage_or_clear_non_zero() {
+    off_chain::with_engine(|e| e.reset());
+    let key = [3u8; 32];
+    let value = [4u8; 32];
+    env().set_storage_or_clear(StorageFlags::empty(), &key, &value);
+    let got = env().get_storage_or_zero(StorageFlags::empty(), &key);
+    assert_eq!(got, value);
+}
+
+/// Off-chain Env: hash_keccak_256 (when feature off_chain). Keccak-256 哈希。
+#[test]
+fn off_chain_env_hash_keccak_256() {
+    off_chain::with_engine(|e| e.reset());
+    let hash = env().hash_keccak_256(b"hello");
+    assert_eq!(hash.len(), 32);
+    let hash2 = env().hash_keccak_256(b"hello");
+    assert_eq!(hash, hash2);
+}
+
+/// Off-chain Env: call and delegate_call return error. 链下 call/delegate_call 返回错误。
+#[test]
+fn off_chain_env_call_returns_err() {
+    off_chain::with_engine(|e| e.reset());
+    use pallet_revive_uapi::CallFlags;
+    let callee = [0u8; 20];
+    let deposit = [0u8; 32];
+    let value = [0u8; 32];
+    let r = env().call(
+        CallFlags::empty(),
+        &callee,
+        0,
+        0,
+        &deposit,
+        &value,
+        &[],
+        None,
+    );
+    assert!(r.is_err());
+    let r2 = env().delegate_call(
+        CallFlags::empty(),
+        &callee,
+        0,
+        0,
+        &deposit,
+        &[],
+        None,
+    );
+    assert!(r2.is_err());
+}
+
+/// Off-chain Env: instantiate fills address and returns error. 链下 instantiate 填 address 并返回错误。
+#[test]
+fn off_chain_env_instantiate() {
+    off_chain::with_engine(|e| e.reset());
+    use pallet_revive_uapi::CallFlags;
+    let mut address = [0xffu8; 20];
+    let code_hash = [0u8; 32];
+    let deposit = [0u8; 32];
+    let value = [0u8; 32];
+    let r = env().instantiate(
+        CallFlags::empty(),
+        &code_hash,
+        0,
+        0,
+        &deposit,
+        &value,
+        &[],
+        &mut address,
+        None,
+    );
+    assert!(r.is_err());
+    assert_eq!(address, [0u8; 20]);
+}
+
+/// Off-chain Env: get_immutable_data / set_immutable_data no-op. 链下不可变数据为空操作。
+#[test]
+fn off_chain_env_immutable_data() {
+    off_chain::with_engine(|e| e.reset());
+    let mut buf = [0u8; 8];
+    let mut cursor: &mut [u8] = &mut buf;
+    env().get_immutable_data(&mut cursor);
+    env().set_immutable_data(&[]);
 }
 
 #[test]
@@ -44,6 +215,61 @@ fn mapping_set_and_get() {
     m2.set(e, &2u32, &200u64).unwrap();
     assert_eq!(m2.get(e, &1u32).unwrap(), 100);
     assert_eq!(m2.get(e, &2u32).unwrap(), 200);
+}
+
+/// Mapping get for non-existent key returns Err. 不存在的 key 返回 Err。
+#[test]
+fn mapping_get_nonexistent_returns_err() {
+    off_chain::with_engine(|e| e.reset());
+    let m: Mapping<[u8; 20], u64> = Mapping::new(b"balance_nx");
+    let alice = [1u8; 20];
+    let e = env();
+    let r = m.get(e, &alice);
+    assert!(r.is_err());
+}
+
+/// Mapping set overwrites; get returns latest. 重复 set 后 get 为最后一次写入。
+#[test]
+fn mapping_set_overwrite() {
+    off_chain::with_engine(|e| e.reset());
+    let m: Mapping<u32, u64> = Mapping::new(b"cnt_ov");
+    let e = env();
+    m.set(e, &1u32, &100u64).unwrap();
+    assert_eq!(m.get(e, &1u32).unwrap(), 100);
+    m.set(e, &1u32, &200u64).unwrap();
+    assert_eq!(m.get(e, &1u32).unwrap(), 200);
+}
+
+/// Mapping full_key with buf too small returns None. full_key 的 buf 不足时返回 None。
+#[test]
+fn mapping_full_key_buf_too_small() {
+    let m: Mapping<u32, u64> = Mapping::new(b"pfx");
+    let key_bytes = 1u32.encode();
+    let mut buf = [0u8; 2];
+    let full = m.full_key(&key_bytes, &mut buf);
+    assert!(full.is_none());
+    let mut buf_ok = [0u8; 8];
+    let full_ok = m.full_key(&key_bytes, &mut buf_ok);
+    assert!(full_ok.is_some());
+    assert_eq!(full_ok.unwrap().len(), m.prefix().len() + key_bytes.len());
+}
+
+/// Mapping set_bytes / get_bytes roundtrip. 按字节 set/get 往返一致。
+#[test]
+fn mapping_set_bytes_get_bytes() {
+    off_chain::with_engine(|e| e.reset());
+    let m: Mapping<u32, u64> = Mapping::new(b"bytes_m");
+    let e = env();
+    let key = 42u32;
+    let key_bytes = key.encode();
+    let value_bytes = 100u64.encode();
+    let mut buf = vec![0u8; m.prefix().len() + key_bytes.len()];
+    m.set_bytes(e, &key_bytes, &mut buf, &value_bytes).unwrap();
+    let mut read_buf = vec![0u8; m.prefix().len() + key_bytes.len()];
+    let out = m.get_bytes(e, &key_bytes, &mut read_buf).unwrap();
+    assert_eq!(out, value_bytes);
+    let decoded: u64 = parity_scale_codec::Decode::decode(&mut &out[..]).unwrap();
+    assert_eq!(decoded, 100);
 }
 
 // ======================== List 单元测试 ========================
@@ -126,6 +352,44 @@ fn list_u32_list_asc() {
     assert!(page_empty.is_empty());
     let page_beyond = list.list(e, 10, 5);
     assert!(page_beyond.is_empty());
+}
+
+/// List desc_list on empty list returns empty. 空列表降序分页返回空。
+#[test]
+fn list_u32_desc_list_empty() {
+    off_chain::with_engine(|e| e.reset());
+    let list: List<u32, u64> = List::new(b"list_t5e_next", b"list_t5e_items");
+    let e = env();
+    let empty = list.desc_list(e, None, 5);
+    assert!(empty.is_empty());
+    let empty2 = list.desc_list(e, Some(0), 1);
+    assert!(empty2.is_empty());
+}
+
+/// List get for out-of-range key returns None. 越界 id 返回 None。
+#[test]
+fn list_u32_get_out_of_range() {
+    off_chain::with_engine(|e| e.reset());
+    let list: List<u32, u64> = List::new(b"list_t5r_next", b"list_t5r_items");
+    let e = env();
+    list.insert(e, &1u64).unwrap();
+    assert!(list.get(e, &1).is_none());
+    assert!(list.get(e, &100).is_none());
+}
+
+/// List insert when u8 id would overflow returns None. u8 作为 id 时溢出 insert 返回 None。
+#[test]
+fn list_u8_insert_overflow_returns_none() {
+    off_chain::with_engine(|e| e.reset());
+    let list: List<u8, u32> = List::new(b"list_u8o_next", b"list_u8o_items");
+    let e = env();
+    for i in 0..255 {
+        let k = list.insert(e, &(i as u32));
+        assert!(k.is_some(), "insert {} should succeed", i);
+    }
+    assert_eq!(list.len(e), 255u8);
+    let k_next = list.insert(e, &999u32);
+    assert!(k_next.is_none(), "u8 overflow (256th insert) should return None");
 }
 
 #[test]
@@ -252,6 +516,68 @@ fn list_2d_list_asc() {
 
     let bob = [2u8; 20];
     let empty = dl.list(e, &bob, 0, 5);
+    assert!(empty.is_empty());
+}
+
+/// List2D get for non-existent k1 returns None. 不存在的 k1 返回 None。
+#[test]
+fn list_2d_get_nonexistent_k1() {
+    off_chain::with_engine(|e| e.reset());
+    let dl: List2D<[u8; 20], u32, u64> =
+        List2D::new(b"dl_gn1_k1", b"dl_gn1_len", b"dl_gn1_k2", b"dl_gn1_store");
+    let e = env();
+    let alice = [1u8; 20];
+    assert!(dl.get(e, &alice, 0).is_none());
+    assert!(dl.len(e, &alice) == 0u32);
+}
+
+/// List2D get for valid k1 but invalid k2 returns None. 存在的 k1、不存在的 k2 返回 None。
+#[test]
+fn list_2d_get_valid_k1_invalid_k2() {
+    off_chain::with_engine(|e| e.reset());
+    let dl: List2D<[u8; 20], u32, u64> =
+        List2D::new(b"dl_gv1_k1", b"dl_gv1_len", b"dl_gv1_k2", b"dl_gv1_store");
+    let e = env();
+    let alice = [1u8; 20];
+    dl.insert(e, &alice, &100u64).unwrap();
+    assert!(dl.get(e, &alice, 1).is_none());
+    assert!(dl.get(e, &alice, 100).is_none());
+}
+
+/// List2D update for non-existent k1 returns None. 对不存在的 k1  update 返回 None。
+#[test]
+fn list_2d_update_nonexistent_k1() {
+    off_chain::with_engine(|e| e.reset());
+    let dl: List2D<[u8; 20], u32, u64> =
+        List2D::new(b"dl_un1_k1", b"dl_un1_len", b"dl_un1_k2", b"dl_un1_store");
+    let e = env();
+    let alice = [1u8; 20];
+    let r = dl.update(e, &alice, 0, &999u64);
+    assert!(r.is_none());
+}
+
+/// List2D desc_list with size 0 returns empty. 降序分页 size=0 返回空。
+#[test]
+fn list_2d_desc_list_size_zero() {
+    off_chain::with_engine(|e| e.reset());
+    let dl: List2D<[u8; 20], u32, u64> =
+        List2D::new(b"dl_ds0_k1", b"dl_ds0_len", b"dl_ds0_k2", b"dl_ds0_store");
+    let e = env();
+    let alice = [1u8; 20];
+    dl.insert(e, &alice, &1u64).unwrap();
+    let empty = dl.desc_list(e, &alice, None, 0);
+    assert!(empty.is_empty());
+}
+
+/// List2D list_all for non-existent k1 returns empty. 不存在的 k1  list_all 返回空。
+#[test]
+fn list_2d_list_all_nonexistent_k1() {
+    off_chain::with_engine(|e| e.reset());
+    let dl: List2D<[u8; 20], u32, u64> =
+        List2D::new(b"dl_la0_k1", b"dl_la0_len", b"dl_la0_k2", b"dl_la0_store");
+    let e = env();
+    let alice = [1u8; 20];
+    let empty = dl.list_all(e, &alice);
     assert!(empty.is_empty());
 }
 

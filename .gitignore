@@ -10,6 +10,9 @@ Cargo.lock
 *.a
 build.log
 
+# 覆盖率报告 (cargo tarpaulin --out Html --output-dir coverage)
+/coverage/
+
 # IDE
 .idea/
 .vscode/

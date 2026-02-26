@@ -116,10 +116,18 @@ mod contract {
         USER_INFO_MAPPING.get(env(), &(user, info_type)).unwrap_or(0)
     }
 
-    /// Transfer balance from one account to another (no event in this example).
-    /// 转账：从 from 转 amount 到 to（本示例未发事件）。
+    /// Transfer balance from one account to another. Only the sender (`from`) may call (else revert).
+    /// Reverts if `from` has insufficient balance. Self-transfer (from == to) is a no-op.
+    /// 转账：仅 from 可发起；余额不足时 revert；from == to 时不操作。
     #[revive(message)]
     pub fn transfer_balance(from: [u8; 20], to: [u8; 20], amount: u64) {
+        let caller = env().caller();
+        if caller != from {
+            env().return_value(ReturnFlags::REVERT, &[]);
+        }
+        if from == to || amount == 0 {
+            return;
+        }
         let from_balance = BALANCE_MAPPING.get(env(), &from).unwrap_or(0);
         if from_balance < amount {
             env().return_value(ReturnFlags::REVERT, &[]);
