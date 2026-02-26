@@ -12,6 +12,9 @@ pub use env::Env;
 
 /// Mapping：按前缀命名空间 + key 的 set/get 封装，类似 ink Mapping。
 pub mod mapping;
+/// List / 2D List：顺序列表与二维列表存储（参考 primitives define_map / define_double_map_base）。
+pub mod list;
+pub mod list_2d;
 
 /// Re-export from pallet_revive_uapi for contract code (input!, HostFn, flags).
 /// 从 pallet_revive_uapi 再导出，供合约使用（input!、HostFn、flags）。
@@ -21,6 +24,8 @@ pub use pallet_revive_uapi::{input, HostFn, ReturnErrorCode, ReturnFlags, Storag
 pub use parity_scale_codec::{Decode, Encode};
 pub use scale_info::TypeInfo;
 pub use mapping::{Mapping, MappingError};
+pub use list::{List, ListIndex};
+pub use list_2d::List2D;
 
 
 // 正常运行暴露 on_chain：cfg(not(test)) 且未启用 off_chain（与 off_chain 互斥）
@@ -40,6 +45,14 @@ pub use off_chain::{with_engine, Engine};
 pub fn env() -> &'static dyn Env {
     &off_chain::OFF_CHAIN_ENV
 }
+
+/// 测试/off_chain 下按 key 读取存储并解码为 V。
+#[cfg(any(test, feature = "off_chain"))]
+pub fn get_storage<V: Decode>(flags: StorageFlags, key: &[u8]) -> Result<V, ReturnErrorCode> {
+    let data = env().get_storage_bytes(flags, key)?;
+    V::decode(&mut &data[..]).map_err(|_| ReturnErrorCode::KeyNotFound)
+}
+
 #[cfg(all(not(test), not(feature = "off_chain")))]
 #[inline(always)]
 pub fn env() -> &'static dyn Env {
@@ -47,6 +60,7 @@ pub fn env() -> &'static dyn Env {
 }
 
 /// 单 key 存储：storage key = prefix，value 为 Scale 编码的 `V`。
+#[derive(Clone, Copy)]
 pub struct Storage<V>(&'static [u8], PhantomData<V>);
 
 impl<V> Storage<V>

@@ -202,16 +202,63 @@ fn extract_prefix_from_storage_mapping_macro(expr: &Expr) -> Option<Vec<u8>> {
     Some(blake2s_prefix_4_bytes(&bytes).to_vec())
 }
 
-/// 从合约 mod 的 Item 中提取 Storage/Mapping 的 prefix（若该项是 static ... = X::new(b"...") 或 static ... = storage!(...) / mapping!(...)）。
-fn prefix_from_item(item: &Item) -> Option<(Vec<u8>, String)> {
+/// 若 expr 是未展开的 `list!(...)`，返回 Blake2s256 取前 4 字节的两个 prefix：_id、_items。
+fn extract_prefixes_from_list_macro(expr: &Expr) -> Option<Vec<Vec<u8>>> {
+    let mac = match expr {
+        Expr::Macro(m) => m,
+        _ => return None,
+    };
+    let seg = mac.mac.path.segments.last()?;
+    if seg.ident != "list" {
+        return None;
+    }
+    let lit: Lit = syn::parse2(mac.mac.tokens.clone()).ok()?;
+    let bytes = lit_to_prefix_bytes(&lit)?;
+    let p_id = blake2s_prefix_4_bytes(&bytes).to_vec();
+    let p_items = blake2s_prefix_4_bytes(&[bytes.as_slice(), b"_items"].concat()).to_vec();
+    Some(vec![p_id, p_items])
+}
+
+/// 若 expr 是未展开的 `list_2d!(...)`，返回 Blake2s256 取前 4 字节的四个 prefix：_k1、_len、_k2、_store。
+fn extract_prefixes_from_list_2d_macro(expr: &Expr) -> Option<Vec<Vec<u8>>> {
+    let mac = match expr {
+        Expr::Macro(m) => m,
+        _ => return None,
+    };
+    let seg = mac.mac.path.segments.last()?;
+    if seg.ident != "list_2d" {
+        return None;
+    }
+    let lit: Lit = syn::parse2(mac.mac.tokens.clone()).ok()?;
+    let bytes = lit_to_prefix_bytes(&lit)?;
+    let p_k1 = blake2s_prefix_4_bytes(&[bytes.as_slice(), b"_k1"].concat()).to_vec();
+    let p_len = blake2s_prefix_4_bytes(&[bytes.as_slice(), b"_len"].concat()).to_vec();
+    let p_k2 = blake2s_prefix_4_bytes(&[bytes.as_slice(), b"_k2"].concat()).to_vec();
+    let p_store = blake2s_prefix_4_bytes(&[bytes.as_slice(), b"_store"].concat()).to_vec();
+    Some(vec![p_k1, p_len, p_k2, p_store])
+}
+
+/// 从合约 mod 的 Item 中提取所有 Storage/Mapping/List/List2D 的 prefix（含 list!/list_2d! 的多个），用于去重。
+/// 返回 [(prefix, static_name), ...]，list! 产生 2 条，list_2d! 产生 4 条，storage!/mapping! 产生 1 条。
+fn prefixes_from_item(item: &Item) -> Option<Vec<(Vec<u8>, String)>> {
     let s = match item {
         Item::Static(s) => s,
         _ => return None,
     };
-    let prefix = extract_prefix_from_new_call(&s.expr)
-        .or_else(|| extract_prefix_from_storage_mapping_macro(&s.expr))?;
     let name = s.ident.to_string();
-    Some((prefix, name))
+    if let Some(p) = extract_prefix_from_new_call(&s.expr) {
+        return Some(vec![(p, name)]);
+    }
+    if let Some(p) = extract_prefix_from_storage_mapping_macro(&s.expr) {
+        return Some(vec![(p, name)]);
+    }
+    if let Some(ps) = extract_prefixes_from_list_macro(&s.expr) {
+        return Some(ps.into_iter().map(|p| (p, name.clone())).collect());
+    }
+    if let Some(ps) = extract_prefixes_from_list_2d_macro(&s.expr) {
+        return Some(ps.into_iter().map(|p| (p, name.clone())).collect());
+    }
+    None
 }
 
 /// Maps a Rust type to an ABI type name and optional length for abi.json.
@@ -519,10 +566,11 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    // 编译期检查：Storage/Mapping 的 prefix 不能重复
+    // 编译期检查：Storage/Mapping/List/List2D 的 prefix 不能重复（list!/list_2d! 的多个 prefix 均参与）
     let prefix_to_names: std::collections::HashMap<Vec<u8>, Vec<String>> = mod_content
         .iter()
-        .filter_map(prefix_from_item)
+        .filter_map(prefixes_from_item)
+        .flat_map(|pairs| pairs.into_iter())
         .fold(std::collections::HashMap::new(), |mut acc, (prefix, name)| {
             acc.entry(prefix).or_default().push(name);
             acc
@@ -530,7 +578,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     for (prefix, names) in &prefix_to_names {
         if names.len() > 1 {
             let msg = format!(
-                "duplicate storage prefix: {:?} used by: {} (Storage/Mapping prefix must be unique)",
+                "duplicate storage prefix: {:?} used by: {} (Storage/Mapping/List/List2D prefix must be unique)",
                 prefix,
                 names.join(", ")
             );
@@ -789,6 +837,69 @@ pub fn mapping(input: TokenStream) -> TokenStream {
     let (b0, b1, b2, b3) = (prefix[0], prefix[1], prefix[2], prefix[3]);
     quote! {
         wrevive_api::Mapping::new(&[#b0, #b1, #b2, #b3])
+    }
+    .into()
+}
+
+// =============================================================================
+// list! / list_2d! — 单一 prefix，Blake2s 取前 4 字节生成多个 prefix，参与去重
+// =============================================================================
+
+/// `list!(b"mylist")` 或 `list!("mylist")` → `List::new(&[4字节], &[4字节])`，两段均为 Blake2s(prefix) / Blake2s(prefix+"_items") 前 4 字节。
+#[proc_macro]
+pub fn list(input: TokenStream) -> TokenStream {
+    let lit = match syn::parse::<Lit>(input) {
+        Ok(l) => l,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let bytes = match lit_to_prefix_bytes(&lit) {
+        Some(b) => b,
+        None => {
+            return syn::Error::new_spanned(lit, "list! expects a string or byte string literal, e.g. list!(b\"mylist\")")
+                .to_compile_error()
+                .into();
+        }
+    };
+    let p_id = blake2s_prefix_4_bytes(&bytes);
+    let p_items = blake2s_prefix_4_bytes(&[bytes.as_slice(), b"_items"].concat());
+    let (a0, a1, a2, a3) = (p_id[0], p_id[1], p_id[2], p_id[3]);
+    let (b0, b1, b2, b3) = (p_items[0], p_items[1], p_items[2], p_items[3]);
+    quote! {
+        wrevive_api::List::new(&[#a0, #a1, #a2, #a3], &[#b0, #b1, #b2, #b3])
+    }
+    .into()
+}
+
+/// `list_2d!(b"dl")` 或 `list_2d!("dl")` → `List2D::new(&[4字节], ...)`，四段为 Blake2s(prefix+"_k1/_len/_k2/_store") 前 4 字节。
+#[proc_macro]
+pub fn list_2d(input: TokenStream) -> TokenStream {
+    let lit = match syn::parse::<Lit>(input) {
+        Ok(l) => l,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let bytes = match lit_to_prefix_bytes(&lit) {
+        Some(b) => b,
+        None => {
+            return syn::Error::new_spanned(lit, "list_2d! expects a string or byte string literal, e.g. list_2d!(b\"dl\")")
+                .to_compile_error()
+                .into();
+        }
+    };
+    let p_k1 = blake2s_prefix_4_bytes(&[bytes.as_slice(), b"_k1"].concat());
+    let p_len = blake2s_prefix_4_bytes(&[bytes.as_slice(), b"_len"].concat());
+    let p_k2 = blake2s_prefix_4_bytes(&[bytes.as_slice(), b"_k2"].concat());
+    let p_store = blake2s_prefix_4_bytes(&[bytes.as_slice(), b"_store"].concat());
+    let (a0, a1, a2, a3) = (p_k1[0], p_k1[1], p_k1[2], p_k1[3]);
+    let (b0, b1, b2, b3) = (p_len[0], p_len[1], p_len[2], p_len[3]);
+    let (c0, c1, c2, c3) = (p_k2[0], p_k2[1], p_k2[2], p_k2[3]);
+    let (d0, d1, d2, d3) = (p_store[0], p_store[1], p_store[2], p_store[3]);
+    quote! {
+        wrevive_api::List2D::new(
+            &[#a0, #a1, #a2, #a3],
+            &[#b0, #b1, #b2, #b3],
+            &[#c0, #c1, #c2, #c3],
+            &[#d0, #d1, #d2, #d3],
+        )
     }
     .into()
 }

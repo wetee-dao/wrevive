@@ -5,11 +5,14 @@
 extern crate alloc;
 
 #[cfg(not(test))]
+use alloc::vec::Vec;
+
+#[cfg(not(test))]
 #[global_allocator]
 static ALLOC: pvm_bump_allocator::BumpAllocator<1024> = pvm_bump_allocator::BumpAllocator::new();
 
-use wrevive_api::{env, Encode, Mapping, ReturnFlags, Storage};
-use wrevive_macro::{mapping, revive_contract, storage};
+use wrevive_api::{env, Encode, List, List2D, Mapping, ReturnFlags, Storage};
+use wrevive_macro::{list, list_2d, mapping, revive_contract, storage};
 
 #[revive_contract]
 mod contract {
@@ -29,7 +32,13 @@ mod contract {
     // 创建一个用于存储用户信息的 Mapping：key = (用户地址, 信息类型), value = u32
     const USER_INFO_MAPPING: Mapping<([u8; 20], u8), u32> = mapping!(b"user_info");
 
-    /// 错误类型（使用 parity-scale-codec 编码，REVERT 时返回编码后的字节）
+    // 全局 List：自增 id，存 u64。用 list! 宏，
+    const RECORDS: List<u32, u64> = list!(b"records");
+
+    // 按用户维度的 List2D：每个 [u8;20] 下一条 u32 列表。用 list_2d! 宏
+    const USER_ITEMS: List2D<[u8; 20], u32, u32> = list_2d!(b"user_items");
+
+    /// 错误类型
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
     pub enum Error {
         InsufficientBalance,
@@ -109,6 +118,58 @@ mod contract {
         let to_balance = BALANCE_MAPPING.get(env(), &to).unwrap_or(0);
         BALANCE_MAPPING.set(env(), &from, &(from_balance - amount));
         BALANCE_MAPPING.set(env(), &to, &(to_balance + amount));
+    }
+
+    // ======================== List 示例 ========================
+
+    /// 向全局 records 列表追加一条 u64，返回分配到的 id
+    #[revive(message)]
+    pub fn records_push(value: u64) -> Option<u32> {
+        RECORDS.insert(env(), &value)
+    }
+
+    /// 按 id 取 records 中的值
+    #[revive(message)]
+    pub fn records_get(id: u32) -> u64 {
+        RECORDS.get(env(), &id).unwrap_or(0)
+    }
+
+    /// 全局 records 长度
+    #[revive(message)]
+    pub fn records_len() -> u32 {
+        RECORDS.len(env())
+    }
+
+    /// 分页：从 start 起取最多 size 条 (id, value)。返回长度 0 表示无数据或参数不合法
+    #[revive(message)]
+    pub fn records_list(start: u32, size: u32) -> Vec<(u32, u64)> {
+        RECORDS.list(env(), start, size)
+    }
+
+    // ======================== List2D 示例（按用户） ========================
+
+    /// 在指定用户下追加一条 u32，返回该用户下的 k2
+    #[revive(message)]
+    pub fn user_items_push(user: [u8; 20], value: u32) -> Option<u32> {
+        USER_ITEMS.insert(env(), &user, &value)
+    }
+
+    /// 取用户 user 下第 k2 条
+    #[revive(message)]
+    pub fn user_items_get(user: [u8; 20], k2: u32) -> u32 {
+        USER_ITEMS.get(env(), &user, k2).unwrap_or(0)
+    }
+
+    /// 用户 user 下的条目数量
+    #[revive(message)]
+    pub fn user_items_len(user: [u8; 20]) -> u32 {
+        USER_ITEMS.len(env(), &user)
+    }
+
+    /// 分页：用户 user 下从 start 起取最多 size 条 (k2, value)
+    #[revive(message)]
+    pub fn user_items_list(user: [u8; 20], start: u32, size: u32) -> Vec<(u32, u32)> {
+        USER_ITEMS.list(env(), &user, start, size)
     }
 }
 
