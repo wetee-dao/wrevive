@@ -1,12 +1,14 @@
 //! # On-chain backend
 //!
-//! On-chain 实现：委托 `pallet_revive_uapi::HostFnImpl`，仅 PolkaVM/RISC-V 目标。
+//! On-chain Env implementation: delegates to `pallet_revive_uapi::HostFnImpl` (PolkaVM/RISC-V only).
+//! 链上 Env 实现：委托 `pallet_revive_uapi::HostFnImpl`，仅用于 PolkaVM/RISC-V 目标。
 
 use alloc::vec::Vec;
 use crate::env::{Env, CallResult};
 use pallet_revive_uapi::{CallFlags, HostFn, HostFnImpl, ReturnErrorCode, ReturnFlags, StorageFlags};
 
-/// On-chain 对 Env 的实现，委托 HostFnImpl。
+/// On-chain Env: forwards all calls to HostFnImpl (host interface).
+/// 链上 Env：所有调用转发给 HostFnImpl（宿主接口）。
 pub struct OnChainEnv;
 
 impl Env for OnChainEnv {
@@ -28,6 +30,7 @@ impl Env for OnChainEnv {
         flags: StorageFlags,
         key: &[u8],
     ) -> Result<Vec<u8>, ReturnErrorCode> {
+        // Host 写入从 buf 起始填充，cursor 剩余长度 = 未写入；written = 256 - cursor.len()
         let mut buf = alloc::vec![0u8; 256];
         let mut cursor: &mut [u8] = buf.as_mut_slice();
         HostFnImpl::get_storage(flags, key, &mut cursor)?;
@@ -183,6 +186,7 @@ impl Env for OnChainEnv {
         address: &mut [u8; 20],
         output: Option<&mut &mut [u8]>,
     ) -> CallResult {
+        // HostFnImpl 参数顺序与 trait 略有不同 / parameter order differs from trait
         HostFnImpl::instantiate(
             proof_size_limit,
             ref_time_limit,
@@ -228,7 +232,7 @@ impl Env for OnChainEnv {
 
     #[inline(always)]
     fn weight_to_fee(&self, _ref_time_limit: u64, _proof_size_limit: u64) -> [u8; 32] {
-        // HostFnImpl doesn't have weight_to_fee, return zero fee
+        // HostFnImpl 无 weight_to_fee，返回零费用 / no weight_to_fee in host, return zero
         [0u8; 32]
     }
 

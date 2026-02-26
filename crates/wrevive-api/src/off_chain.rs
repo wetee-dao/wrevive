@@ -128,10 +128,13 @@ impl Env for OffChainEnv {
         ENGINE.with(|cell| cell.borrow().call_data.len() as u64)
     }
     
+    /// Copy `len` bytes from call data at `offset`; pad with zeros if beyond end.
+    /// 从 call data 的 offset 处复制 len 字节；若越界则用零填充。
     fn call_data_copy(&self, offset: u32, len: usize) -> Vec<u8> {
         ENGINE.with(|cell| {
             let data = &cell.borrow().call_data;
             let off = offset as usize;
+            // 实际可复制长度，避免越界 / actual copy length to avoid out-of-bounds
             let actual_len = len.min(data.len().saturating_sub(off));
             if actual_len > 0 {
                 data[off..off + actual_len].to_vec()
@@ -241,8 +244,9 @@ impl Env for OffChainEnv {
         }
     }
 
+    /// Load 32 bytes from call data at offset (EVM-style); zero-pad if shorter.
+    /// 从 offset 处加载 32 字节（EVM 风格）；不足则零填充。
     fn call_data_load(&self, offset: u32) -> [u8; 32] {
-        // Off-chain: load 32 bytes from call data
         ENGINE.with(|cell| {
             let data = &cell.borrow().call_data;
             let off = offset as usize;
@@ -272,13 +276,15 @@ impl Env for OffChainEnv {
         Err(ReturnErrorCode::CalleeTrapped)
     }
 
+    /// Return current Unix timestamp as 32-byte big-endian (mock for off-chain).
+    /// 返回当前 Unix 时间戳，32 字节大端序（链下模拟）。
     fn now(&self) -> [u8; 32] {
-        // Off-chain: return current timestamp (mock)
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
         let mut output = [0u8; 32];
+        // 高 8 字节存秒数大端 / store seconds in high 8 bytes, big-endian
         output[24..32].copy_from_slice(&timestamp.to_be_bytes());
         output
     }
@@ -302,8 +308,9 @@ impl Env for OffChainEnv {
         }
     }
 
+    /// Get storage or return 32 zero bytes if key not found.
+    /// 获取存储；若 key 不存在则返回 32 字节零。
     fn get_storage_or_zero(&self, flags: StorageFlags, key: &[u8; 32]) -> [u8; 32] {
-        // Off-chain: get storage or return zero
         match self.get_storage_bytes(flags, key as &[u8]) {
             Ok(data) => {
                 let mut output = [0u8; 32];
@@ -312,8 +319,8 @@ impl Env for OffChainEnv {
                 output
             }
             Err(_) => [0u8; 32],
+        }
     }
-}
 
     fn value_transferred(&self) -> [u8; 32] {
         // Off-chain: return zero value

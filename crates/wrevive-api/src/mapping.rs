@@ -1,7 +1,7 @@
 //! # Mapping
 //!
-//! 类似 ink! 的 `Mapping<K, V>`：按前缀命名空间 + key 的 set/get 封装，底层通过传入的 Env 调用。
-//! **K / V 在初始化时通过泛型指定**，K 须实现 `Encode`，V 须实现 `Encode` + `Decode`。
+//! ink!-style Mapping<K, V>: set/get by prefix namespace + key; backend via Env. K must Encode, V must Encode+Decode.
+//! 按前缀命名空间 + key 的 set/get 封装，底层通过传入的 Env 调用；K 须 Encode，V 须 Encode+Decode。
 
 #[cfg(not(any(test, feature = "off_chain")))]
 use alloc::vec::Vec;
@@ -58,7 +58,8 @@ impl<K, V> Mapping<K, V> {
         self.prefix
     }
 
-    /// 将完整 key 写入 `buf`，返回 `prefix || key` 的切片；若 `buf.len() < prefix.len() + key.len()` 则返回 `None`。
+    /// Build full storage key = prefix || key in buf; returns slice of length prefix.len()+key.len().
+    /// 将完整 key 写入 buf，返回 prefix||key 的切片；buf 不足时返回 None。
     #[inline]
     pub fn full_key<'a>(&self, key: &[u8], buf: &'a mut [u8]) -> Option<&'a [u8]> {
         let n = self.prefix.len().saturating_add(key.len());

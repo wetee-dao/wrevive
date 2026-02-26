@@ -1,3 +1,6 @@
+//! Example contract using pvm_contract_macros (Solidity-style): raw HostFnImpl, Keccak storage keys, U256.
+//! 使用 pvm_contract_macros 的示例合约（类 Solidity）：直接调用 HostFnImpl、Keccak 存储 key、U256。
+
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
 

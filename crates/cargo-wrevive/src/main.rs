@@ -1,4 +1,7 @@
-//! `cargo wrevive build` — build the current project as a PolkaVM contract.
+//! # cargo-wrevive
+//!
+//! Cargo subcommand to build the current project as a PolkaVM contract (RISC-V ELF → .polkavm).
+//! 将当前项目构建为 PolkaVM 合约（RISC-V ELF → .polkavm）。
 //!
 //! Install: `cargo install --path crates/cargo-wrevive`
 //! Usage: in a contract project dir, run `cargo wrevive build`
@@ -16,6 +19,8 @@ fn run() -> anyhow::Result<()> {
     print_rust_version();
     let args: Vec<String> = std::env::args().collect();
     // cargo wrevive build ... 时 Cargo 会把 "wrevive" 作为第一个参数传入，需跳过
+    // cargo wrevive build ... → Cargo passes "wrevive" as first arg, skip it for subcommand
+    // cargo wrevive build 时 Cargo 把 "wrevive" 作为第一个参数传入，需跳过以得到子命令
     let (sub, rest) = match (args.get(1).map(String::as_str), args.get(2).map(String::as_str)) {
         (Some("wrevive"), next) => (next.unwrap_or(""), 3),
         (some_sub, _) => (some_sub.unwrap_or(""), 2),

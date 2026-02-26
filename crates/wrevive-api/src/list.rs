@@ -1,7 +1,8 @@
 //! # List
 //!
+//! Sequential list storage: auto-increment id (K = u8/u16/u32/u64) as key; insert/get/update and paginated list/desc_list.
 //! 顺序列表存储：自增 id（K = u8/u16/u32/u64）作为 key，支持 insert/get/update 与分页 list/desc_list。
-//! 参考 primitives define_map：next_id + Mapping<key_ty, value_ty>。可用 list_u8! / list_u32! 等指定 id 类型。
+//! Layout: next_id (Storage<K>) + Mapping<K, V> for items; see primitives define_map. Use list! macro for prefix.
 
 #[cfg(not(any(test, feature = "off_chain")))]
 use alloc::vec::Vec;
@@ -86,9 +87,10 @@ where
         self.items.set(api, key, value)
     }
 
+    /// Paginated list (ascending): from start_key, at most size entries.
     /// 分页列表（升序）：从 start_key 起取最多 size 条。
     pub fn list(&self, api: &dyn Env, start_key: K, size: u32) -> Vec<(K, V)> {
-        let total_len = self.len(api);
+        let total_len = self.len(api);           // 下一个将分配的 id，即当前长度 / next id = current length
         let mut out = Vec::new();
         if size == 0 {
             return out;
@@ -96,12 +98,12 @@ where
         let mut k = start_key;
         for _ in 0..size {
             if k >= total_len {
-                break;
+                break;                          // 超出范围即停 / stop when beyond range
             }
             if let Some(v) = self.get(api, &k) {
                 out.push((k, v));
             }
-            k = match k.checked_next() {
+            k = match k.checked_next() {        // 自增到下一个 id，溢出则结束 / next id, break on overflow
                 Some(n) => n,
                 None => break,
             };
@@ -109,6 +111,7 @@ where
         out
     }
 
+    /// Paginated list (descending): from start_key_ backward, at most size entries; None = from end.
     /// 分页列表（降序）：从 start_key_ 起向前取最多 size 条；None 表示从末尾开始。
     pub fn desc_list(&self, api: &dyn Env, start_key_: Option<K>, size: u32) -> Vec<(K, V)> {
         let total_len = self.len(api);
@@ -116,16 +119,17 @@ where
         if size == 0 {
             return out;
         }
+        // None 时从最后一个有效 id（total_len-1）开始 / when None, start from last valid id
         let mut k = start_key_.or_else(|| total_len.checked_prev());
         for _ in 0..size {
             let key = match k {
                 Some(key) => key,
-                None => break,
+                None => break,                   // 下溢结束 / stop on underflow
             };
             if let Some(v) = self.get(api, &key) {
                 out.push((key, v));
             }
-            k = key.checked_prev();
+            k = key.checked_prev();             // 向前移动 / move backward
         }
         out
     }

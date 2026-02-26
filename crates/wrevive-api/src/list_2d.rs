@@ -1,7 +1,8 @@
 //! # List2D
 //!
-//! 二维列表：按 K1 分组，每组内为自增 Ix（u8/u16/u32/u64）索引的列表。参考 primitives define_double_map_base：
-//! k1 -> id，k1_length，k2_next_id per id，store (id, k2) -> value。可用 list_2d_u8! 等指定内层 id 类型。
+//! Two-dimensional list: grouped by K1, each group has an auto-increment Ix (u8/u16/u32/u64) index.
+//! 二维列表：按 K1 分组，每组内为自增 Ix 索引的列表。
+//! Layout: k1->id, k1_length, k2_next_id per id, store (id, k2)->value; see primitives define_double_map_base. Use list_2d! macro.
 
 #[cfg(not(any(test, feature = "off_chain")))]
 use alloc::vec::Vec;
@@ -57,8 +58,10 @@ where
         self.next_id(api, k1)
     }
 
+    /// Insert one entry under k1; returns the allocated k2.
     /// 在 k1 下插入一条记录，返回分配的 k2。
     pub fn insert(&self, api: &dyn Env, k1: &K1, value: &V) -> Option<Ix> {
+        // 若 k1 首次出现，分配新 id 并递增 k1_length / first time k1: allocate new id, increment k1_length
         let mut id = self.k1_to_id.get(api, k1).ok();
         if id.is_none() {
             let len = self.k1_length.get(api).unwrap_or(Ix::default());
@@ -68,10 +71,11 @@ where
             self.k1_length.set(api, &next_len);
         }
         let id_val = id?;
+        // 该 id 下当前 k2 的 next，插入后占用 next_id，故 new_next_id = next_id+1
         let next_id = self.k2_next_id.get(api, &id_val).unwrap_or(Ix::default());
         let new_next_id = next_id.checked_next()?;
         self.k2_next_id.set(api, &id_val, &new_next_id);
-        let key = (id_val, next_id);
+        let key = (id_val, next_id);            // 存储键 (组id, 组内下标) / store key (group id, index)
         self.store.set(api, &key, value);
         Some(next_id)
     }

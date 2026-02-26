@@ -451,10 +451,8 @@ fn emit_abi(
 // Call data layout and decode/encode (aligned with ABI)
 // call() 内参数字节布局与解码/编码（与 ABI 约定一致）
 // =============================================================================
-// Layout: [ selector(4) | arg1 | arg2 | ... ]
-// 布局： [ selector(4) | arg1 | arg2 | ... ]
-// - u32: 4 bytes, little-endian, i.e. __input[4..8]
-// - [u8; 20] (AccountId): 20 bytes, i.e. __input[4..24]
+// Layout: [ selector(4) | SCALE-encoded arg1 | arg2 | ... ]. All args use SCALE for consistency.
+// 布局： [ selector(4) | SCALE 编码的 arg1 | arg2 | ... ]，参数统一 SCALE 编码。
 
 /// 若返回类型为 Result<T,E> 或 Option<T>，返回 Some((内层类型 T, true=Result/false=Option))；否则返回 None。
 fn unwrap_result_or_option(ty: &syn::Type) -> Option<(&syn::Type, bool)> {
@@ -660,16 +658,15 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     mod_content.extend(other_items);
 
-    // Build match arms for call(): all arguments use SCALE decode (unified approach)
-    // 为 call() 生成 match 分支：所有参数统一使用 SCALE 解码（测试和正式环境一致）
+    // Build match arms for call(): decode __input[4..] as SCALE stream, one decode per parameter.
+    // 为 call() 生成 match 分支：从 __input[4..] 按 SCALE 流依次解码每个参数。
     let match_arms: Vec<TokenStream2> = message_fns
         .iter()
         .map(|(f, sel)| {
             let fn_name = &f.sig.ident;
             let sig = &f.sig;
-            let min_len: usize = 4; // 至少需要 selector 的 4 字节
-            
-            // 收集所有参数的类型和名称，统一使用 SCALE 解码
+            let min_len: usize = 4; // selector 占 4 字节 / selector is 4 bytes
+
             let mut input_vars: Vec<(syn::Ident, TokenStream2)> = Vec::new();
             let mut call_exprs = Vec::new();
             for arg in &sig.inputs {

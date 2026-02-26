@@ -1,4 +1,9 @@
-// test / feature "off_chain" / feature "std" => 使用 std；否则 no_std。测试时依赖方可用 feature "std" 在 host 上跑。
+//! # wrevive-api
+//!
+//! PolkaVM (pallet-revive) 合约运行时 API：链上/链下统一抽象、存储与列表封装。
+//! PolkaVM (pallet-revive) contract runtime API: unified on-chain/off-chain env, Storage/Mapping/List/List2D.
+
+// test / feature "off_chain" => 使用 std；否则 no_std。测试时启用 off_chain 在 host 上跑。
 #![cfg_attr(not(any(test, feature = "off_chain")), no_std)]
 #[cfg(not(any(test, feature = "off_chain")))]
 extern crate alloc;
@@ -39,13 +44,15 @@ pub mod off_chain;
 #[cfg(any(test, feature = "off_chain"))]
 pub use off_chain::{with_engine, Engine};
 
-/// 当前 backend 的 Env，合约通过 `env().caller()`、`env().set_storage()` 等调用。
+/// Returns the current backend Env. Contracts use `env().caller()`, `env().set_storage()` etc.
+/// 返回当前后端 Env；合约通过 `env().caller()`、`env().set_storage()` 等调用。
 #[cfg(any(test, feature = "off_chain"))]
 #[inline(always)]
 pub fn env() -> &'static dyn Env {
     &off_chain::OFF_CHAIN_ENV
 }
 
+/// Read storage at key and decode as V (for test/off_chain).
 /// 测试/off_chain 下按 key 读取存储并解码为 V。
 #[cfg(any(test, feature = "off_chain"))]
 pub fn get_storage<V: Decode>(flags: StorageFlags, key: &[u8]) -> Result<V, ReturnErrorCode> {
@@ -59,6 +66,7 @@ pub fn env() -> &'static dyn Env {
     &on_chain::ON_CHAIN_ENV
 }
 
+/// Single-key storage: storage key = prefix, value is Scale-encoded V.
 /// 单 key 存储：storage key = prefix，value 为 Scale 编码的 `V`。
 #[derive(Clone, Copy)]
 pub struct Storage<V>(&'static [u8], PhantomData<V>);
@@ -67,21 +75,28 @@ impl<V> Storage<V>
 where
     V: Encode + Decode,
 {
+    /// Create storage with the given prefix (used as the full storage key).
+    /// 使用给定 prefix 创建存储（prefix 即完整 storage key）。
     pub const fn new(prefix: &'static [u8]) -> Self {
         Self(prefix, PhantomData)
     }
 
+    /// Write value; returns previous value length in bytes if any.
+    /// 写入 value；若有旧值则返回其字节长度。
     pub fn set(&self, api: &dyn crate::env::Env, value: &V) -> Option<u32> {
         let value_bytes = value.encode();
         api.set_storage_bytes(StorageFlags::empty(), self.0, &value_bytes)
     }
 
+    /// Read and decode value; KeyNotFound if missing or decode fails.
+    /// 读取并解码；不存在或解码失败返回 KeyNotFound。
     pub fn get(&self, api: &dyn crate::env::Env) -> Result<V, ReturnErrorCode> {
         let data = api.get_storage_bytes(StorageFlags::empty(), self.0)?;
         V::decode(&mut &data[..]).map_err(|_| ReturnErrorCode::KeyNotFound)
     }
 }
 
-/// test 时使用 off_chain，正常运行。
+/// Unit tests use off_chain backend.
+/// 单元测试使用 off_chain 后端。
 #[cfg(test)]
 mod tests;

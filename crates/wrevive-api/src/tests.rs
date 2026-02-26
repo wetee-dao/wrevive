@@ -1,3 +1,6 @@
+//! API unit tests: off_chain Engine for storage, caller, Mapping, List, List2D.
+//! API 单元测试：使用 off_chain Engine 测试存储、caller、Mapping、List、List2D。
+
 use super::{env, off_chain, List, List2D, Mapping, StorageFlags};
 
 #[test]

@@ -1,6 +1,10 @@
+//! Unit tests for the codec example contract. Use off_chain Engine for storage/caller/events.
+//! 示例合约单元测试；使用 off_chain Engine 模拟存储、调用者与事件。
+
 use crate::contract;
 use wrevive_api::off_chain;
 
+/// Deploy sets caller as owner and value to 0. 部署后 caller 为 owner，value 为 0。
 #[test]
 fn deploy_sets_owner_and_value() {
     off_chain::with_engine(|e| {
@@ -145,7 +149,7 @@ fn mapping_transfer_balance_works() {
     assert_eq!(contract::get_balance(bob), 800);
 }
 
-// ======================== List (RECORDS) 测试 ========================
+// ======================== List (RECORDS) tests / List 测试 ========================
 
 #[test]
 fn records_push_get_len_list() {

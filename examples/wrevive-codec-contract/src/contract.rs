@@ -1,3 +1,6 @@
+//! Example contract using wrevive-api: Storage, Mapping, List, List2D with SCALE codec.
+//! 示例合约：使用 wrevive-api 的 Storage、Mapping、List、List2D，采用 SCALE 编解码。
+
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
 
@@ -18,40 +21,44 @@ use wrevive_macro::{list, list_2d, mapping, revive_contract, storage};
 mod contract {
     use super::*;
 
+    /// Event topics (empty for simple events). 事件主题（简单事件可为空）。
     const EMPTY_TOPICS: &[[u8; 32]] = &[];
 
-    // 存储值（prefix 使用 Blake2s256 取前 4 字节）
+    /// Single value storage; prefix = Blake2s256(b"value")[0..4].
+    /// 单值存储；prefix 由 storage! 宏用 Blake2s256 取前 4 字节。
     const VALUE: Storage<u32> = storage!(b"value");
 
-    // 存储所有者
+    /// Contract owner address (20 bytes). 合约所有者地址（20 字节）。
     const OWNER: Storage<[u8; 20]> = storage!(b"owner");
 
-    // 创建一个用于存储用户余额的 Mapping：key = 用户地址 [u8; 20], value = 余额 u64
+    /// Balance per account: key = [u8; 20], value = u64.
+    /// 用户余额：key = 用户地址，value = 余额。
     const BALANCE_MAPPING: Mapping<[u8; 20], u64> = mapping!(b"balance");
 
-    // 创建一个用于存储用户信息的 Mapping：key = (用户地址, 信息类型), value = u32
+    /// User info by (address, info_type): value = u32 (e.g. score, level).
+    /// 用户信息：key = (地址, 类型)，value = u32（如积分、等级）。
     const USER_INFO_MAPPING: Mapping<([u8; 20], u8), u32> = mapping!(b"user_info");
 
-    // 全局 List：自增 id，存 u64。用 list! 宏，
+    /// Global list: auto-increment id (u32), value u64. 全局列表：自增 id(u32)，值 u64。
     const RECORDS: List<u32, u64> = list!(b"records");
 
-    // 按用户维度的 List2D：每个 [u8;20] 下一条 u32 列表。用 list_2d! 宏
+    /// Per-user list: each [u8;20] has a list of u32. 按用户维度的列表：每用户一条 u32 列表。
     const USER_ITEMS: List2D<[u8; 20], u32, u32> = list_2d!(b"user_items");
 
-    /// 错误类型
+    /// Contract error type. 合约错误类型。
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
     pub enum Error {
         InsufficientBalance,
     }
 
+    /// Constructor: set caller as owner and init VALUE to 0.
+    /// 构造函数：设置调用者为 owner，VALUE 初始为 0。
     #[revive(constructor)]
     pub fn deploy() -> Result<(), Error> {
         let caller = env().caller();
-
         OWNER.set(env(), &caller);
         let default_value: u32 = 0;
         VALUE.set(env(), &default_value);
-
         Ok(())
     }
 
@@ -67,6 +74,8 @@ mod contract {
         VALUE.get(env()).unwrap_or(0)
     }
 
+    /// Set owner; only current owner may call (else revert).
+    /// 设置 owner；仅当前 owner 可调用，否则 revert。
     #[revive(message)]
     pub fn set_owner(new_owner: [u8; 20], _v: u32) {
         let caller = env().caller();
@@ -107,14 +116,14 @@ mod contract {
         USER_INFO_MAPPING.get(env(), &(user, info_type)).unwrap_or(0)
     }
 
-    /// 转账：从一个用户转移余额到另一个用户（使用 Mapping）
+    /// Transfer balance from one account to another (no event in this example).
+    /// 转账：从 from 转 amount 到 to（本示例未发事件）。
     #[revive(message)]
     pub fn transfer_balance(from: [u8; 20], to: [u8; 20], amount: u64) {
         let from_balance = BALANCE_MAPPING.get(env(), &from).unwrap_or(0);
         if from_balance < amount {
             env().return_value(ReturnFlags::REVERT, &[]);
         }
-
         let to_balance = BALANCE_MAPPING.get(env(), &to).unwrap_or(0);
         BALANCE_MAPPING.set(env(), &from, &(from_balance - amount));
         BALANCE_MAPPING.set(env(), &to, &(to_balance + amount));
