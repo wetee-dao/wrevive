@@ -101,22 +101,6 @@ selector 生成规则：
 - 若写了 `#[revive(message, selector = 0x...)]`：用你指定的 4 字节 selector
 - 否则：使用 **BLAKE2s256(function_name) 的前 4 字节**（与 ink! 一致）
 
-## 覆盖率（可选）
-
-覆盖率与解释见 `COVERAGE.md`。快速生成：
-
-```bash
-cargo install cargo-tarpaulin
-cargo tarpaulin --workspace --exclude wrevive-sol-contract --out Stdout
-```
-
-生成 HTML：
-
-```bash
-cargo tarpaulin --workspace --exclude wrevive-sol-contract --out Html --output-dir coverage
-```
-
-打开 `coverage/tarpaulin-report.html` 查看。
 
 ## 常见问题
 
