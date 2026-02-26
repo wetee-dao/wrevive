@@ -3,6 +3,8 @@
 #[cfg(not(any(test, feature = "off_chain")))]
 extern crate alloc;
 
+use scale_info::prelude::marker::PhantomData;
+
 /// Environment trait: unified interface for on_chain and off_chain.
 /// Environment 抽象：on_chain / off_chain 统一接口。
 pub mod env;
@@ -44,39 +46,26 @@ pub fn env() -> &'static dyn Env {
     &on_chain::ON_CHAIN_ENV
 }
 
-/// 便利函数：使用 Scale 编码的 key 和 value 进行存储。
-/// 支持任意实现 `Encode` 的 key 和 value 类型。
-#[inline]
-pub fn set_storage<K: Encode + ?Sized, V: Encode + ?Sized>(
-    flags: StorageFlags,
-    key: &K,
-    value: &V,
-) -> Option<u32> {
-    let key_bytes = key.encode();
-    let value_bytes = value.encode();
-    #[cfg(any(test, feature = "off_chain"))]
-    {
-        off_chain::OFF_CHAIN_ENV.set_storage_bytes(flags, &key_bytes, &value_bytes)
-    }
-    #[cfg(all(not(test), not(feature = "off_chain")))]
-    {
-        on_chain::ON_CHAIN_ENV.set_storage_bytes(flags, &key_bytes, &value_bytes)
-    }
-}
+/// 单 key 存储：storage key = prefix，value 为 Scale 编码的 `V`。
+pub struct Storage<V>(&'static [u8], PhantomData<V>);
 
-/// 便利函数：使用 Scale 编码的 key 读取存储值。
-/// 支持任意实现 `Encode` 的 key 类型和 `Decode` 的 value 类型。
-#[inline]
-pub fn get_storage<K: Encode + ?Sized, V: Decode>(
-    flags: StorageFlags,
-    key: &K,
-) -> Result<V, ReturnErrorCode> {
-    let key_bytes = key.encode();
-    #[cfg(any(test, feature = "off_chain"))]
-    let data = off_chain::OFF_CHAIN_ENV.get_storage_bytes(flags, &key_bytes)?;
-    #[cfg(all(not(test), not(feature = "off_chain")))]
-    let data = on_chain::ON_CHAIN_ENV.get_storage_bytes(flags, &key_bytes)?;
-    V::decode(&mut &data[..]).map_err(|_| ReturnErrorCode::KeyNotFound)
+impl<V> Storage<V>
+where
+    V: Encode + Decode,
+{
+    pub const fn new(prefix: &'static [u8]) -> Self {
+        Self(prefix, PhantomData)
+    }
+
+    pub fn set(&self, api: &dyn crate::env::Env, value: &V) -> Option<u32> {
+        let value_bytes = value.encode();
+        api.set_storage_bytes(StorageFlags::empty(), self.0, &value_bytes)
+    }
+
+    pub fn get(&self, api: &dyn crate::env::Env) -> Result<V, ReturnErrorCode> {
+        let data = api.get_storage_bytes(StorageFlags::empty(), self.0)?;
+        V::decode(&mut &data[..]).map_err(|_| ReturnErrorCode::KeyNotFound)
+    }
 }
 
 /// test 时使用 off_chain，正常运行。

@@ -44,7 +44,8 @@ use std::path::{Path, PathBuf};
 use syn::{
     parse_macro_input,
     punctuated::Punctuated,
-    Attribute, FnArg, GenericArgument, Item, ItemFn, Lit, Meta, PathArguments, ReturnType, Token,
+    Attribute, Expr, FnArg, GenericArgument, Item, ItemFn, Lit, Meta, PathArguments, ReturnType,
+    Token,
 };
 
 // =============================================================================
@@ -136,6 +137,81 @@ fn path_to_display_name(path: &syn::Path) -> String {
         .last()
         .map(|s| s.ident.to_string())
         .unwrap_or_else(|| "ScaleBytes".into())
+}
+
+/// 若 expr 是 `X::new(b"prefix")` 或 `X::new(&b"prefix")`（X 为 Storage/Mapping 等），返回 Some(prefix 字节)；否则返回 None。
+/// 也识别宏展开后的 `X::new(&[b0, b1, b2, b3])`（storage!/mapping! 生成的 4 字节 prefix）。
+fn extract_prefix_from_new_call(expr: &Expr) -> Option<Vec<u8>> {
+    let call = match expr {
+        Expr::Call(c) => c,
+        _ => return None,
+    };
+    let path = match &*call.func {
+        Expr::Path(p) => &p.path,
+        _ => return None,
+    };
+    if path.segments.last()?.ident != "new" {
+        return None;
+    }
+    let first_arg = call.args.first()?;
+    let inner = match first_arg {
+        Expr::Reference(r) => &*r.expr,
+        other => other,
+    };
+    // 字面量：b"prefix" 或 "prefix"（字节串）
+    if let Expr::Lit(l) = inner {
+        return match &l.lit {
+            Lit::ByteStr(bs) => Some(bs.value()),
+            Lit::Str(s) => Some(s.value().into_bytes()),
+            _ => None,
+        };
+    }
+    // 宏展开：&[b0, b1, b2, b3]（storage!/mapping! 生成的 4 字节）
+    if let Expr::Array(arr) = inner {
+        let mut bytes = Vec::with_capacity(arr.elems.len());
+        for e in &arr.elems {
+            if let Expr::Lit(l) = e {
+                if let Lit::Byte(b) = &l.lit {
+                    bytes.push(b.value());
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        }
+        return Some(bytes);
+    }
+    None
+}
+
+/// 若 expr 是未展开的 `storage!(...)` 或 `mapping!(...)`，用与宏相同的规则（Blake2s256 取前 4 字节）返回 prefix，否则 None。
+/// 这样在 revive_contract 展开时（早于 storage!/mapping! 展开）也能做 prefix 重复检查。
+fn extract_prefix_from_storage_mapping_macro(expr: &Expr) -> Option<Vec<u8>> {
+    let mac = match expr {
+        Expr::Macro(m) => m,
+        _ => return None,
+    };
+    let seg = mac.mac.path.segments.last()?;
+    let name = seg.ident.to_string();
+    if name != "storage" && name != "mapping" {
+        return None;
+    }
+    let lit: Lit = syn::parse2(mac.mac.tokens.clone()).ok()?;
+    let bytes = lit_to_prefix_bytes(&lit)?;
+    Some(blake2s_prefix_4_bytes(&bytes).to_vec())
+}
+
+/// 从合约 mod 的 Item 中提取 Storage/Mapping 的 prefix（若该项是 static ... = X::new(b"...") 或 static ... = storage!(...) / mapping!(...)）。
+fn prefix_from_item(item: &Item) -> Option<(Vec<u8>, String)> {
+    let s = match item {
+        Item::Static(s) => s,
+        _ => return None,
+    };
+    let prefix = extract_prefix_from_new_call(&s.expr)
+        .or_else(|| extract_prefix_from_storage_mapping_macro(&s.expr))?;
+    let name = s.ident.to_string();
+    Some((prefix, name))
 }
 
 /// Maps a Rust type to an ABI type name and optional length for abi.json.
@@ -374,8 +450,9 @@ fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
                                 let __encoded = wrevive_api::Encode::encode(&__v);
                                 wrevive_api::env().return_value(ReturnFlags::empty(), &__encoded);
                             }
-                            Err(_) => {
-                                wrevive_api::env().return_value(ReturnFlags::REVERT, &[]);
+                            Err(__e) => {
+                                let __err_bytes = __e.as_ref();
+                                wrevive_api::env().return_value(ReturnFlags::REVERT, __err_bytes);
                             }
                         }
                     }
@@ -461,6 +538,25 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    // 编译期检查：Storage/Mapping 的 prefix 不能重复
+    let prefix_to_names: std::collections::HashMap<Vec<u8>, Vec<String>> = mod_content
+        .iter()
+        .filter_map(prefix_from_item)
+        .fold(std::collections::HashMap::new(), |mut acc, (prefix, name)| {
+            acc.entry(prefix).or_default().push(name);
+            acc
+        });
+    for (prefix, names) in &prefix_to_names {
+        if names.len() > 1 {
+            let msg = format!(
+                "duplicate storage prefix: {:?} used by: {} (Storage/Mapping prefix must be unique)",
+                prefix,
+                names.join(", ")
+            );
+            return syn::Error::new_spanned(&module, msg).to_compile_error().into();
+        }
+    }
+
     // Classify: exactly one constructor, messages with selectors, other items (kept as-is)
     // 分类：构造函数（恰好一个）、带 selector 的 message、其他项（原样保留）
     let mut constructor_fn: Option<ItemFn> = None;
@@ -513,8 +609,9 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 match #mod_name::#constructor_name() {
                     Ok(_) => {}
-                    Err(_) => {
-                        wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    Err(__e) => {
+                        let __err_bytes = __e.as_ref();
+                        wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, __err_bytes);
                     }
                 }
             }
@@ -647,6 +744,73 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #deploy_fn
 
         #call_fn
+    }
+    .into()
+}
+
+// =============================================================================
+// storage! / mapping! — prefix 使用 Blake2s256 取前 4 字节
+// =============================================================================
+
+/// 从字符串或字节串字面量得到字节（供 storage!/mapping! 哈希用）。
+fn lit_to_prefix_bytes(lit: &Lit) -> Option<Vec<u8>> {
+    match lit {
+        Lit::Str(s) => Some(s.value().into_bytes()),
+        Lit::ByteStr(bs) => Some(bs.value()),
+        _ => None,
+    }
+}
+
+/// 将 prefix 字节用 Blake2s256 哈希后取前 4 字节，生成 `&[u8; 4]` 形式的 token。
+fn blake2s_prefix_4_bytes(bytes: &[u8]) -> [u8; 4] {
+    let hash = Blake2s256::digest(bytes);
+    [hash[0], hash[1], hash[2], hash[3]]
+}
+
+/// `storage!(b"value")` 或 `storage!("value")` → `Storage::new(&[b0, b1, b2, b3])`，
+/// 其中 4 字节为 Blake2s256(prefix) 的前 4 字节。类型由上下文推断，如 `static V: Storage<u32> = storage!(b"value");`
+#[proc_macro]
+pub fn storage(input: TokenStream) -> TokenStream {
+    let lit = match syn::parse::<Lit>(input) {
+        Ok(l) => l,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let bytes = match lit_to_prefix_bytes(&lit) {
+        Some(b) => b,
+        None => {
+            return syn::Error::new_spanned(lit, "storage! expects a string or byte string literal, e.g. storage!(b\"value\") or storage!(\"value\")")
+                .to_compile_error()
+                .into();
+        }
+    };
+    let prefix = blake2s_prefix_4_bytes(&bytes);
+    let (b0, b1, b2, b3) = (prefix[0], prefix[1], prefix[2], prefix[3]);
+    quote! {
+        wrevive_api::Storage::new(&[#b0, #b1, #b2, #b3])
+    }
+    .into()
+}
+
+/// `mapping!(b"balance")` 或 `mapping!("balance")` → `Mapping::new(&[b0, b1, b2, b3])`，
+/// 其中 4 字节为 Blake2s256(prefix) 的前 4 字节。类型由上下文推断，如 `static M: Mapping<K, V> = mapping!(b"balance");`
+#[proc_macro]
+pub fn mapping(input: TokenStream) -> TokenStream {
+    let lit = match syn::parse::<Lit>(input) {
+        Ok(l) => l,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let bytes = match lit_to_prefix_bytes(&lit) {
+        Some(b) => b,
+        None => {
+            return syn::Error::new_spanned(lit, "mapping! expects a string or byte string literal, e.g. mapping!(b\"balance\") or mapping!(\"balance\")")
+                .to_compile_error()
+                .into();
+        }
+    };
+    let prefix = blake2s_prefix_4_bytes(&bytes);
+    let (b0, b1, b2, b3) = (prefix[0], prefix[1], prefix[2], prefix[3]);
+    quote! {
+        wrevive_api::Mapping::new(&[#b0, #b1, #b2, #b3])
     }
     .into()
 }
