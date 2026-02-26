@@ -8,7 +8,7 @@ extern crate alloc;
 #[global_allocator]
 static ALLOC: pvm_bump_allocator::BumpAllocator<1024> = pvm_bump_allocator::BumpAllocator::new();
 
-use wrevive_api::{env, Mapping, ReturnFlags, Storage};
+use wrevive_api::{env, Encode, Mapping, ReturnFlags, Storage};
 use wrevive_macro::{mapping, revive_contract, storage};
 
 #[revive_contract]
@@ -29,17 +29,10 @@ mod contract {
     // 创建一个用于存储用户信息的 Mapping：key = (用户地址, 信息类型), value = u32
     const USER_INFO_MAPPING: Mapping<([u8; 20], u8), u32> = mapping!(b"user_info");
 
-    /// 错误类型
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    /// 错误类型（使用 parity-scale-codec 编码，REVERT 时返回编码后的字节）
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
     pub enum Error {
         InsufficientBalance,
-    }
-    impl AsRef<[u8]> for Error {
-        fn as_ref(&self) -> &[u8] {
-            match *self {
-                Error::InsufficientBalance => b"InsufficientBalance",
-            }
-        }
     }
 
     #[revive(constructor)]

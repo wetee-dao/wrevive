@@ -435,47 +435,28 @@ fn unwrap_result_or_option(ty: &syn::Type) -> Option<(&syn::Type, bool)> {
 }
 
 /// Generates code that encodes the return value `__ret` and passes it to `wrevive_api::env().return_value`.
-/// 支持 ()、T、Result<T,E>（Ok 编码返回，Err 则 REVERT）、Option<T>（Some 编码返回，None 空字节）。
+/// 支持 ()、T、Result<T,E>、Option<T>；统一为：编码一次，按类型决定 flags（仅 Result 的 Err 为 REVERT），再统一 return_value。
 fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
     match ret_ty {
         ReturnType::Default => quote! {
             wrevive_api::env().return_value(ReturnFlags::empty(), &[]);
         },
         ReturnType::Type(_, ty) => {
-            if let Some((_inner_ty, is_result)) = unwrap_result_or_option(ty) {
-                if is_result {
-                    quote! {
-                        match __ret {
-                            Ok(__v) => {
-                                let __encoded = wrevive_api::Encode::encode(&__v);
-                                wrevive_api::env().return_value(ReturnFlags::empty(), &__encoded);
-                            }
-                            Err(__e) => {
-                                let __err_bytes = __e.as_ref();
-                                wrevive_api::env().return_value(ReturnFlags::REVERT, __err_bytes);
-                            }
-                        }
-                    }
-                } else {
-                    quote! {
-                        match __ret {
-                            Some(__v) => {
-                                let __encoded = wrevive_api::Encode::encode(&__v);
-                                wrevive_api::env().return_value(ReturnFlags::empty(), &__encoded);
-                            }
-                            None => {
-                                wrevive_api::env().return_value(ReturnFlags::empty(), &[]);
-                            }
-                        }
+            let is_result = unwrap_result_or_option(ty).map(|(_, r)| r).unwrap_or(false);
+            let flags_expr: TokenStream2 = if is_result {
+                quote! {
+                    match &__ret {
+                        Ok(_) => wrevive_api::ReturnFlags::empty(),
+                        Err(_) => wrevive_api::ReturnFlags::REVERT,
                     }
                 }
             } else {
-                quote! {
-                    {
-                        let __encoded = wrevive_api::Encode::encode(&__ret);
-                        wrevive_api::env().return_value(ReturnFlags::empty(), &__encoded);
-                    }
-                }
+                quote! { wrevive_api::ReturnFlags::empty() }
+            };
+            quote! {
+                let __encoded = wrevive_api::Encode::encode(&__ret);
+                let __flags = #flags_expr;
+                wrevive_api::env().return_value(__flags, &__encoded);
             }
         }
     }
@@ -595,24 +576,21 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     let constructor_name = constructor_fn.sig.ident.clone();
 
-    // Emit ABI to target/contract/{contract_name}.json
-    // 生成 ABI 到 target/contract/abi.json
+    // Emit ABI to target/{contract_name}.json
     emit_abi(
         &contract_name,
         &constructor_name.to_string(),
         &message_fns,
     );
 
-    // deploy() 体：若构造函数返回 Result，则 Err 时 REVERT（需在移动 constructor_fn 前生成）
+    // deploy() 体：若构造函数返回 Result，则编码整只 Result，Err 时 REVERT 并带上该编码
     let deploy_body: TokenStream2 = match &constructor_fn.sig.output {
         ReturnType::Type(_, ty) if unwrap_result_or_option(ty).map(|(_, r)| r).unwrap_or(false) => {
             quote! {
-                match #mod_name::#constructor_name() {
-                    Ok(_) => {}
-                    Err(__e) => {
-                        let __err_bytes = __e.as_ref();
-                        wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, __err_bytes);
-                    }
+                let __ret = #mod_name::#constructor_name();
+                let __encoded = wrevive_api::Encode::encode(&__ret);
+                if let Err(_) = &__ret {
+                    wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &__encoded);
                 }
             }
         }
