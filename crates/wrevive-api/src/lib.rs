@@ -21,6 +21,18 @@ pub mod mapping;
 pub mod list;
 pub mod list_2d;
 
+/// 常见数据类型：Address、H256、U256、BlockNumber、String。
+pub mod types;
+pub use types::{Address, BlockNumber, Bytes, H256, U256};
+
+/// Vec 再导出：非 test 且非 off_chain 时用 alloc::vec::Vec（no_std 合约）；test 或 off_chain 时用 std::vec::Vec。
+#[cfg(test)]
+pub use std::vec::Vec;
+#[cfg(all(not(test), not(feature = "off_chain")))]
+pub use alloc::vec::Vec;
+#[cfg(all(not(test), feature = "off_chain"))]
+pub use std::vec::Vec;
+
 /// Re-export from pallet_revive_uapi for contract code (input!, HostFn, flags).
 /// 从 pallet_revive_uapi 再导出，供合约使用（input!、HostFn、flags）。
 pub use pallet_revive_uapi::{input, HostFn, ReturnErrorCode, ReturnFlags, StorageFlags};
@@ -56,7 +68,7 @@ pub fn env() -> &'static dyn Env {
 /// 测试/off_chain 下按 key 读取存储并解码为 V。
 #[cfg(any(test, feature = "off_chain"))]
 pub fn get_storage<V: Decode>(flags: StorageFlags, key: &[u8]) -> Result<V, ReturnErrorCode> {
-    let data = env().get_storage_bytes(flags, key)?;
+    let data = env().get_storage(flags, key)?;
     V::decode(&mut &data[..]).map_err(|_| ReturnErrorCode::KeyNotFound)
 }
 
@@ -85,13 +97,13 @@ where
     /// 写入 value；若有旧值则返回其字节长度。
     pub fn set(&self, api: &dyn crate::env::Env, value: &V) -> Option<u32> {
         let value_bytes = value.encode();
-        api.set_storage_bytes(StorageFlags::empty(), self.0, &value_bytes)
+        api.set_storage(StorageFlags::empty(), self.0, &value_bytes)
     }
 
     /// Read and decode value; KeyNotFound if missing or decode fails.
     /// 读取并解码；不存在或解码失败返回 KeyNotFound。
     pub fn get(&self, api: &dyn crate::env::Env) -> Result<V, ReturnErrorCode> {
-        let data = api.get_storage_bytes(StorageFlags::empty(), self.0)?;
+        let data = api.get_storage(StorageFlags::empty(), self.0)?;
         V::decode(&mut &data[..]).map_err(|_| ReturnErrorCode::KeyNotFound)
     }
 }

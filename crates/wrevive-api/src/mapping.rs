@@ -81,7 +81,7 @@ impl<K, V> Mapping<K, V> {
         value: &[u8],
     ) -> Option<()> {
         let full = self.full_key(key, buf)?;
-        api.set_storage_bytes(StorageFlags::empty(), full, value);
+        api.set_storage(StorageFlags::empty(), full, value);
         Some(())
     }
 
@@ -94,7 +94,7 @@ impl<K, V> Mapping<K, V> {
         buf: &mut [u8],
     ) -> Result<Vec<u8>, MappingError> {
         let full = self.full_key(key, buf).ok_or(ReturnErrorCode::KeyNotFound)?;
-        api.get_storage_bytes(StorageFlags::empty(), full).map_err(MappingError::KeyNotFound)
+        api.get_storage(StorageFlags::empty(), full).map_err(MappingError::KeyNotFound)
     }
 }
 
@@ -115,7 +115,7 @@ where
 
         let full = self.full_key(&key_bytes, &mut buf)?;
         let encoded = value.encode();
-        api.set_storage_bytes(StorageFlags::empty(), full, &encoded);
+        api.set_storage(StorageFlags::empty(), full, &encoded);
         Some(())
     }
 
@@ -130,7 +130,7 @@ where
         let mut key_buf = vec![0u8; self.prefix.len() + key_bytes.len()];
 
         let full = self.full_key(&key_bytes, &mut key_buf).ok_or(ReturnErrorCode::KeyNotFound)?;
-        let data = api.get_storage_bytes(StorageFlags::empty(), full)?;
+        let data = api.get_storage(StorageFlags::empty(), full)?;
         V::decode(&mut &data[..]).map_err(MappingError::Decode)
     }
 }

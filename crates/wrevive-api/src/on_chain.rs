@@ -5,6 +5,7 @@
 
 use alloc::vec::Vec;
 use crate::env::{Env, CallResult};
+use crate::types::{Address, BlockNumber, H256, U256};
 use pallet_revive_uapi::{CallFlags, HostFn, HostFnImpl, ReturnErrorCode, ReturnFlags, StorageFlags};
 
 /// On-chain Env: forwards all calls to HostFnImpl (host interface).
@@ -13,19 +14,19 @@ pub struct OnChainEnv;
 
 impl Env for OnChainEnv {
     #[inline(always)]
-    fn caller(&self) -> [u8; 20] {
+    fn caller(&self) -> Address {
         let mut output = [0u8; 20];
         HostFnImpl::caller(&mut output);
-        output
+        Address::from(output)
     }
 
     #[inline(always)]
-    fn set_storage_bytes(&self, flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
+    fn set_storage(&self, flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
         HostFnImpl::set_storage(flags, key, value)
     }
 
     #[inline(always)]
-    fn get_storage_bytes(
+    fn get_storage(
         &self,
         flags: StorageFlags,
         key: &[u8],
@@ -62,10 +63,10 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn address(&self) -> [u8; 20] {
+    fn address(&self) -> Address {
         let mut output = [0u8; 20];
         HostFnImpl::address(&mut output);
-        output
+        Address::from(output)
     }
 
     #[inline(always)]
@@ -79,17 +80,17 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn balance(&self) -> [u8; 32] {
+    fn balance(&self) -> U256 {
         let mut output = [0u8; 32];
         HostFnImpl::balance(&mut output);
-        output
+        U256::from_be_bytes(output)
     }
 
     #[inline(always)]
-    fn balance_of(&self, addr: &[u8; 20]) -> [u8; 32] {
+    fn balance_of(&self, addr: &[u8; 20]) -> U256 {
         let mut output = [0u8; 32];
         HostFnImpl::balance_of(addr, &mut output);
-        output
+        U256::from_be_bytes(output)
     }
 
     #[inline(always)]
@@ -105,25 +106,10 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn base_fee(&self) -> [u8; 32] {
+    fn base_fee(&self) -> U256 {
         let mut output = [0u8; 32];
         HostFnImpl::base_fee(&mut output);
-        output
-    }
-
-    #[inline(always)]
-    fn call(
-        &self,
-        flags: CallFlags,
-        callee: &[u8; 20],
-        ref_time_limit: u64,
-        proof_size_limit: u64,
-        deposit: &[u8; 32],
-        value: &[u8; 32],
-        input_data: &[u8],
-        output: Option<&mut &mut [u8]>,
-    ) -> CallResult {
-        HostFnImpl::call(flags, callee, ref_time_limit, proof_size_limit, deposit, value, input_data, output)
+        U256::from_be_bytes(output)
     }
 
     #[inline(always)]
@@ -134,10 +120,10 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn code_hash(&self, addr: &[u8; 20]) -> [u8; 32] {
+    fn code_hash(&self, addr: &[u8; 20]) -> H256 {
         let mut output = [0u8; 32];
         HostFnImpl::code_hash(addr, &mut output);
-        output
+        H256::from(output)
     }
 
     #[inline(always)]
@@ -146,24 +132,39 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn delegate_call(
+    fn call(
         &self,
         flags: CallFlags,
-        address: &[u8; 20],
+        callee: &Address,
         ref_time_limit: u64,
         proof_size_limit: u64,
-        deposit_limit: &[u8; 32],
+        deposit: &U256,
+        value: &U256,
         input_data: &[u8],
         output: Option<&mut &mut [u8]>,
     ) -> CallResult {
-        HostFnImpl::delegate_call(flags, address, ref_time_limit, proof_size_limit, deposit_limit, input_data, output)
+        HostFnImpl::call(flags, callee.as_ref(), ref_time_limit, proof_size_limit, deposit.as_bytes(), value.as_bytes(), input_data, output)
     }
 
     #[inline(always)]
-    fn hash_keccak_256(&self, input: &[u8]) -> [u8; 32] {
+    fn delegate_call(
+        &self,
+        flags: CallFlags,
+        address: &Address,
+        ref_time_limit: u64,
+        proof_size_limit: u64,
+        deposit_limit: &U256,
+        input_data: &[u8],
+        output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        HostFnImpl::delegate_call(flags, address.as_ref(), ref_time_limit, proof_size_limit, deposit_limit.as_bytes(), input_data, output)
+    }
+
+    #[inline(always)]
+    fn hash_keccak_256(&self, input: &[u8]) -> H256 {
         let mut output = [0u8; 32];
         HostFnImpl::hash_keccak_256(input, &mut output);
-        output
+        H256::from(output)
     }
 
     #[inline(always)]
@@ -200,10 +201,11 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn now(&self) -> [u8; 32] {
+    fn now(&self) -> BlockNumber {
         let mut output = [0u8; 32];
         HostFnImpl::now(&mut output);
-        output
+        // 取低 4 字节小端为 BlockNumber（u32）/ first 4 bytes LE as block number
+        BlockNumber::from_le_bytes(output[0..4].try_into().unwrap())
     }
 
     #[inline(always)]
@@ -224,21 +226,84 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn value_transferred(&self) -> [u8; 32] {
+    fn value_transferred(&self) -> U256 {
         let mut output = [0u8; 32];
         HostFnImpl::value_transferred(&mut output);
-        output
+        U256::from_be_bytes(output)
     }
 
-    #[inline(always)]
-    fn weight_to_fee(&self, _ref_time_limit: u64, _proof_size_limit: u64) -> [u8; 32] {
-        // HostFnImpl 无 weight_to_fee，返回零费用 / no weight_to_fee in host, return zero
-        [0u8; 32]
-    }
 
     #[inline(always)]
     fn return_data_size(&self) -> u64 {
         HostFnImpl::return_data_size()
+    }
+
+    #[inline(always)]
+    fn call_evm(
+        &self,
+        flags: CallFlags,
+        callee: &Address,
+        gas: u64,
+        value: &U256,
+        input_data: &[u8],
+        output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        HostFnImpl::call_evm(flags, callee.as_ref(), gas, value.as_bytes(), input_data, output)
+    }
+
+    #[inline(always)]
+    fn delegate_call_evm(
+        &self,
+        flags: CallFlags,
+        address: &Address,
+        gas: u64,
+        input_data: &[u8],
+        output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        HostFnImpl::delegate_call_evm(flags, address.as_ref(), gas, input_data, output)
+    }
+
+    #[inline(always)]
+    fn return_data_copy(&self, output: &mut &mut [u8], offset: u32) {
+        HostFnImpl::return_data_copy(output, offset);
+    }
+
+    #[inline(always)]
+    fn gas_left(&self) -> u64 {
+        HostFnImpl::gas_left()
+    }
+
+    #[inline(always)]
+    fn block_author(&self) -> Address {
+        let mut output = [0u8; 20];
+        HostFnImpl::block_author(&mut output);
+        Address::from(output)
+    }
+
+    #[inline(always)]
+    fn block_number(&self) -> BlockNumber {
+        let mut output = [0u8; 32];
+        HostFnImpl::block_number(&mut output);
+        BlockNumber::from_le_bytes(output[0..4].try_into().unwrap())
+    }
+
+    #[inline(always)]
+    fn block_hash(&self, block_number: BlockNumber) -> H256 {
+        let mut bn_buf = [0u8; 32];
+        bn_buf[0..4].copy_from_slice(&block_number.to_le_bytes());
+        let mut output = [0u8; 32];
+        HostFnImpl::block_hash(&bn_buf, &mut output);
+        H256::from(output)
+    }
+
+    #[inline(always)]
+    fn consume_all_gas(&self) -> ! {
+        HostFnImpl::consume_all_gas()
+    }
+
+    #[inline(always)]
+    fn terminate(&self, beneficiary: &[u8; 20]) -> ! {
+        HostFnImpl::terminate(beneficiary)
     }
 }
 

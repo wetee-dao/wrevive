@@ -56,7 +56,7 @@ mod contract {
     #[revive(constructor)]
     pub fn deploy() -> Result<(), Error> {
         let caller = env().caller();
-        OWNER.set(env(), &caller);
+        OWNER.set(env(), caller.as_ref());
         let default_value: u32 = 0;
         VALUE.set(env(), &default_value);
         Ok(())
@@ -80,7 +80,7 @@ mod contract {
     pub fn set_owner(new_owner: [u8; 20], _v: u32) {
         let caller = env().caller();
         let current_owner = get_owner();
-        if caller != current_owner {
+        if *caller.as_ref() != current_owner {
             env().return_value(ReturnFlags::REVERT, &[]);
         } else {
             OWNER.set(env(), &new_owner);
@@ -122,7 +122,7 @@ mod contract {
     #[revive(message)]
     pub fn transfer_balance(from: [u8; 20], to: [u8; 20], amount: u64) {
         let caller = env().caller();
-        if caller != from {
+        if *caller.as_ref() != from {
             env().return_value(ReturnFlags::REVERT, &[]);
         }
         if from == to || amount == 0 {

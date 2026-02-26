@@ -5,6 +5,7 @@
 //! Off-chain 实现：内存 Engine，用于单元测试（参考 [ink engine](https://github.com/use-ink/ink/tree/master/crates/engine) test_api）。
 
 use crate::env::{Env, CallResult};
+use crate::types::{Address, BlockNumber, H256, U256};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 #[cfg(feature = "off_chain")]
 use sha3::{Digest, Keccak256};
@@ -87,17 +88,17 @@ where
 pub struct OffChainEnv;
 
 impl Env for OffChainEnv {
-    fn caller(&self) -> [u8; 20] {
-        ENGINE.with(|cell| cell.borrow().caller)
+    fn caller(&self) -> Address {
+        ENGINE.with(|cell| Address::from(cell.borrow().caller))
     }
-    fn set_storage_bytes(&self, _flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
+    fn set_storage(&self, _flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
         ENGINE.with(|cell| {
             let prev = cell.borrow().storage.get(key).map(|v| v.len() as u32);
             cell.borrow_mut().storage.insert(key.to_vec(), value.to_vec());
             prev
         })
     }
-    fn get_storage_bytes(
+    fn get_storage(
         &self,
         _flags: StorageFlags,
         key: &[u8],
@@ -144,9 +145,9 @@ impl Env for OffChainEnv {
         })
     }
 
-    fn address(&self) -> [u8; 20] {
+    fn address(&self) -> Address {
         // Off-chain: return zero address as default
-        [0u8; 20]
+        Address::zero()
     }
 
     fn get_immutable_data(&self, _output: &mut &mut [u8]) {
@@ -157,14 +158,14 @@ impl Env for OffChainEnv {
         // Off-chain: no-op
     }
 
-    fn balance(&self) -> [u8; 32] {
+    fn balance(&self) -> U256 {
         // Off-chain: return zero balance
-        [0u8; 32]
+        U256::ZERO
     }
 
-    fn balance_of(&self, _addr: &[u8; 20]) -> [u8; 32] {
+    fn balance_of(&self, _addr: &[u8; 20]) -> U256 {
         // Off-chain: return zero balance
-        [0u8; 32]
+        U256::ZERO
     }
 
     fn chain_id(&self) -> [u8; 32] {
@@ -179,19 +180,19 @@ impl Env for OffChainEnv {
         1
     }
 
-    fn base_fee(&self) -> [u8; 32] {
+    fn base_fee(&self) -> U256 {
         // Off-chain: return zero base fee
-        [0u8; 32]
+        U256::ZERO
     }
 
     fn call(
         &self,
         _flags: CallFlags,
-        _callee: &[u8; 20],
+        _callee: &Address,
         _ref_time_limit: u64,
         _proof_size_limit: u64,
-        _deposit: &[u8; 32],
-        _value: &[u8; 32],
+        _deposit: &U256,
+        _value: &U256,
         _input_data: &[u8],
         _output: Option<&mut &mut [u8]>,
     ) -> CallResult {
@@ -201,12 +202,12 @@ impl Env for OffChainEnv {
 
     fn origin(&self) -> [u8; 20] {
         // Off-chain: return caller as origin
-        self.caller()
+        *self.caller().as_ref()
     }
 
-    fn code_hash(&self, _addr: &[u8; 20]) -> [u8; 32] {
+    fn code_hash(&self, _addr: &[u8; 20]) -> H256 {
         // Off-chain: return zero hash
-        [0u8; 32]
+        H256::zero()
     }
 
     fn code_size(&self, _addr: &[u8; 20]) -> u64 {
@@ -217,10 +218,10 @@ impl Env for OffChainEnv {
     fn delegate_call(
         &self,
         _flags: CallFlags,
-        _address: &[u8; 20],
+        _address: &Address,
         _ref_time_limit: u64,
         _proof_size_limit: u64,
-        _deposit_limit: &[u8; 32],
+        _deposit_limit: &U256,
         _input_data: &[u8],
         _output: Option<&mut &mut [u8]>,
     ) -> CallResult {
@@ -228,19 +229,19 @@ impl Env for OffChainEnv {
         Err(ReturnErrorCode::CalleeTrapped)
     }
 
-    fn hash_keccak_256(&self, input: &[u8]) -> [u8; 32] {
+    fn hash_keccak_256(&self, input: &[u8]) -> H256 {
         // Off-chain: use sha3 crate for Keccak-256
         #[cfg(feature = "off_chain")]
         {
             let hash = Keccak256::digest(input);
             let mut output = [0u8; 32];
             output.copy_from_slice(&hash);
-            output
+            H256::from(output)
         }
         #[cfg(not(feature = "off_chain"))]
         {
             // Fallback: return zero hash if sha3 is not available
-            [0u8; 32]
+            H256::zero()
         }
     }
 
@@ -276,17 +277,10 @@ impl Env for OffChainEnv {
         Err(ReturnErrorCode::CalleeTrapped)
     }
 
-    /// Return current Unix timestamp as 32-byte big-endian (mock for off-chain).
-    /// 返回当前 Unix 时间戳，32 字节大端序（链下模拟）。
-    fn now(&self) -> [u8; 32] {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let mut output = [0u8; 32];
-        // 高 8 字节存秒数大端 / store seconds in high 8 bytes, big-endian
-        output[24..32].copy_from_slice(&timestamp.to_be_bytes());
-        output
+    /// Return current block number (off-chain mock: 1).
+    /// 返回当前区块高度（链下模拟为 1）。
+    fn now(&self) -> BlockNumber {
+        1
     }
 
     fn gas_limit(&self) -> u64 {
@@ -304,14 +298,14 @@ impl Env for OffChainEnv {
                 prev
             })
         } else {
-            self.set_storage_bytes(flags, key, value)
+            self.set_storage(flags, key, value)
         }
     }
 
     /// Get storage or return 32 zero bytes if key not found.
     /// 获取存储；若 key 不存在则返回 32 字节零。
     fn get_storage_or_zero(&self, flags: StorageFlags, key: &[u8; 32]) -> [u8; 32] {
-        match self.get_storage_bytes(flags, key as &[u8]) {
+        match self.get_storage(flags, key as &[u8]) {
             Ok(data) => {
                 let mut output = [0u8; 32];
                 let len = data.len().min(32);
@@ -322,19 +316,65 @@ impl Env for OffChainEnv {
         }
     }
 
-    fn value_transferred(&self) -> [u8; 32] {
+    fn value_transferred(&self) -> U256 {
         // Off-chain: return zero value
-        [0u8; 32]
-    }
-
-    fn weight_to_fee(&self, _ref_time_limit: u64, _proof_size_limit: u64) -> [u8; 32] {
-        // Off-chain: return zero fee
-        [0u8; 32]
+        U256::ZERO
     }
 
     fn return_data_size(&self) -> u64 {
         // Off-chain: return zero size
         0
+    }
+
+    fn call_evm(
+        &self,
+        _flags: CallFlags,
+        _callee: &Address,
+        _gas: u64,
+        _value: &U256,
+        _input_data: &[u8],
+        _output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        Err(ReturnErrorCode::CalleeTrapped)
+    }
+
+    fn delegate_call_evm(
+        &self,
+        _flags: CallFlags,
+        _address: &Address,
+        _gas: u64,
+        _input_data: &[u8],
+        _output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        Err(ReturnErrorCode::CalleeTrapped)
+    }
+
+    fn return_data_copy(&self, _output: &mut &mut [u8], _offset: u32) {
+        // Off-chain: no return data, no-op
+    }
+
+    fn gas_left(&self) -> u64 {
+        u64::MAX
+    }
+
+    fn block_author(&self) -> Address {
+        Address::zero()
+    }
+
+    fn block_number(&self) -> BlockNumber {
+        0
+    }
+
+    fn block_hash(&self, _block_number: BlockNumber) -> H256 {
+        H256::zero()
+    }
+
+    fn consume_all_gas(&self) -> ! {
+        panic!("off_chain consume_all_gas")
+    }
+
+    fn terminate(&self, _beneficiary: &[u8; 20]) -> ! {
+        panic!("off_chain terminate")
     }
 }
 

@@ -1,7 +1,7 @@
 //! API unit tests: off_chain Engine for storage, caller, Mapping, List, List2D.
 //! API 单元测试：使用 off_chain Engine 测试存储、caller、Mapping、List、List2D。
 
-use super::{env, off_chain, List, List2D, Mapping, StorageFlags};
+use super::{env, off_chain, Address, H256, List, List2D, Mapping, StorageFlags, U256};
 use parity_scale_codec::Encode;
 
 #[test]
@@ -11,9 +11,9 @@ fn off_chain_engine_storage_and_caller() {
         e.set_call_data(&[]);
     });
     let caller = env().caller();
-    assert_eq!(caller, [1u8; 20]);
+    assert_eq!(caller, Address::from([1u8; 20]));
 
-    env().set_storage_bytes(StorageFlags::empty(), b"key", b"value");
+    env().set_storage(StorageFlags::empty(), b"key", b"value");
     off_chain::with_engine(|e| {
         let v = e.get_storage_value(b"key").unwrap();
         assert_eq!(v, b"value");
@@ -51,7 +51,7 @@ fn off_chain_env_call_data_empty() {
     assert_eq!(load, [0u8; 32]);
 }
 
-/// Off-chain Env: address, balance, balance_of, chain_id, gas_price, base_fee, origin, now, gas_limit, value_transferred, weight_to_fee, return_data_size.
+/// Off-chain Env: address, balance, balance_of, chain_id, gas_price, base_fee, origin, now, gas_limit, value_transferred, return_data_size.
 #[test]
 fn off_chain_env_read_only_stubs() {
     off_chain::with_engine(|e| {
@@ -59,22 +59,21 @@ fn off_chain_env_read_only_stubs() {
         e.set_caller([5u8; 20]);
     });
     let addr = env().address();
-    assert_eq!(addr, [0u8; 20]);
+    assert_eq!(addr, Address::zero());
     let balance = env().balance();
-    assert_eq!(balance, [0u8; 32]);
+    assert_eq!(balance, U256::ZERO);
     let balance_of = env().balance_of(&[1u8; 20]);
-    assert_eq!(balance_of, [0u8; 32]);
+    assert_eq!(balance_of, U256::ZERO);
     let chain_id = env().chain_id();
     assert_eq!(chain_id[31], 1);
     assert_eq!(env().gas_price(), 1);
     let base_fee = env().base_fee();
-    assert_eq!(base_fee, [0u8; 32]);
+    assert_eq!(base_fee, U256::ZERO);
     assert_eq!(env().origin(), [5u8; 20]);
     let now = env().now();
-    assert!(now[24..32].iter().any(|&b| b != 0));
+    assert!(now > 0);
     assert_eq!(env().gas_limit(), u64::MAX);
-    assert_eq!(env().value_transferred(), [0u8; 32]);
-    assert_eq!(env().weight_to_fee(0, 0), [0u8; 32]);
+    assert_eq!(env().value_transferred(), U256::ZERO);
     assert_eq!(env().return_data_size(), 0);
 }
 
@@ -82,7 +81,7 @@ fn off_chain_env_read_only_stubs() {
 #[test]
 fn off_chain_env_code() {
     off_chain::with_engine(|e| e.reset());
-    assert_eq!(env().code_hash(&[0u8; 20]), [0u8; 32]);
+    assert_eq!(env().code_hash(&[0u8; 20]), H256::zero());
     assert_eq!(env().code_size(&[0u8; 20]), 0);
 }
 
@@ -92,7 +91,7 @@ fn off_chain_env_storage_or_clear_and_zero() {
     off_chain::with_engine(|e| e.reset());
     let key = [1u8; 32];
     let value = [2u8; 32];
-    env().set_storage_bytes(StorageFlags::empty(), &key, &value);
+    env().set_storage(StorageFlags::empty(), &key, &value);
     let got = env().get_storage_or_zero(StorageFlags::empty(), &key);
     assert_eq!(got, value);
     let zero = [0u8; 32];
@@ -120,7 +119,7 @@ fn off_chain_env_storage_or_clear_non_zero() {
 fn off_chain_env_hash_keccak_256() {
     off_chain::with_engine(|e| e.reset());
     let hash = env().hash_keccak_256(b"hello");
-    assert_eq!(hash.len(), 32);
+    assert_eq!(hash.as_bytes().len(), 32);
     let hash2 = env().hash_keccak_256(b"hello");
     assert_eq!(hash, hash2);
 }
@@ -130,9 +129,9 @@ fn off_chain_env_hash_keccak_256() {
 fn off_chain_env_call_returns_err() {
     off_chain::with_engine(|e| e.reset());
     use pallet_revive_uapi::CallFlags;
-    let callee = [0u8; 20];
-    let deposit = [0u8; 32];
-    let value = [0u8; 32];
+    let callee = Address::zero();
+    let deposit = U256::ZERO;
+    let value = U256::ZERO;
     let r = env().call(
         CallFlags::empty(),
         &callee,

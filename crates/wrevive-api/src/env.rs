@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 #[cfg(any(test, feature = "off_chain"))]
 use std::vec::Vec;
 
+use crate::types::{Address, BlockNumber, H256, U256};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 
 /// Result type for contract calls.
@@ -12,17 +13,17 @@ pub type CallResult = core::result::Result<(), ReturnErrorCode>;
 /// Contract host API: same surface for on-chain and off-chain implementations.
 /// 合约链接口：链上与链下实现同一套 API。
 pub trait Env {
-    /// Returns the caller address (20 bytes).
-    /// 返回调用方地址（20 字节）。
-    fn caller(&self) -> [u8; 20];
+    /// Returns the caller address.
+    /// 返回调用方地址。
+    fn caller(&self) -> Address;
 
     /// Store `value` at `key`; returns previous value length if any.
     /// 在 `key` 处存储 `value`；若有旧值则返回其长度。
-    fn set_storage_bytes(&self, flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32>;
+    fn set_storage(&self, flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32>;
 
     /// Load value at `key`; returns the value bytes.
     /// 获取 `key` 对应的值；返回值的字节。
-    fn get_storage_bytes(
+    fn get_storage(
         &self,
         flags: StorageFlags,
         key: &[u8],
@@ -46,7 +47,7 @@ pub trait Env {
 
     /// Returns the address of the current contract.
     /// 返回当前合约地址。
-    fn address(&self) -> [u8; 20];
+    fn address(&self) -> Address;
 
     /// Get the contract immutable data.
     /// 获取合约不可变数据。
@@ -58,11 +59,11 @@ pub trait Env {
 
     /// Returns the reducible balance of the current account.
     /// 返回当前账户的可减少余额。
-    fn balance(&self) -> [u8; 32];
+    fn balance(&self) -> U256;
 
     /// Returns the reducible balance of the supplied address.
     /// 返回指定地址的可减少余额。
-    fn balance_of(&self, addr: &[u8; 20]) -> [u8; 32];
+    fn balance_of(&self, addr: &[u8; 20]) -> U256;
 
     /// Returns the EIP-155 chain ID.
     /// 返回 EIP-155 链 ID。
@@ -74,18 +75,18 @@ pub trait Env {
 
     /// Returns the base fee, akin to the EVM BASEFEE opcode.
     /// 返回基础费用，类似于 EVM BASEFEE 操作码。
-    fn base_fee(&self) -> [u8; 32];
+    fn base_fee(&self) -> U256;
 
     /// Call (possibly transferring some amount of funds) into the specified account.
     /// 调用（可能转移一些资金）到指定账户。
     fn call(
         &self,
         flags: CallFlags,
-        callee: &[u8; 20],
+        callee: &Address,
         ref_time_limit: u64,
         proof_size_limit: u64,
-        deposit: &[u8; 32],
-        value: &[u8; 32],
+        deposit: &U256,
+        value: &U256,
         input_data: &[u8],
         output: Option<&mut &mut [u8]>,
     ) -> CallResult;
@@ -96,7 +97,7 @@ pub trait Env {
 
     /// Returns the code hash for a specified contract address.
     /// 返回指定合约地址的代码哈希。
-    fn code_hash(&self, addr: &[u8; 20]) -> [u8; 32];
+    fn code_hash(&self, addr: &[u8; 20]) -> H256;
 
     /// Returns the code size for a specified contract address.
     /// 返回指定合约地址的代码大小。
@@ -107,17 +108,17 @@ pub trait Env {
     fn delegate_call(
         &self,
         flags: CallFlags,
-        address: &[u8; 20],
+        address: &Address,
         ref_time_limit: u64,
         proof_size_limit: u64,
-        deposit_limit: &[u8; 32],
+        deposit_limit: &U256,
         input_data: &[u8],
         output: Option<&mut &mut [u8]>,
     ) -> CallResult;
 
     /// Hash input using Keccak-256.
     /// 使用 Keccak-256 对输入进行哈希。
-    fn hash_keccak_256(&self, input: &[u8]) -> [u8; 32];
+    fn hash_keccak_256(&self, input: &[u8]) -> H256;
 
     /// Load 32 bytes from call data at the given offset.
     /// 从给定偏移量的调用数据中加载 32 字节。
@@ -138,9 +139,9 @@ pub trait Env {
         output: Option<&mut &mut [u8]>,
     ) -> CallResult;
 
-    /// Returns the current timestamp.
-    /// 返回当前时间戳。
-    fn now(&self) -> [u8; 32];
+    /// Returns the current block number.
+    /// 返回当前区块高度。
+    fn now(&self) -> BlockNumber;
 
     /// Returns the gas limit.
     /// 返回 gas 限制。
@@ -156,13 +157,61 @@ pub trait Env {
 
     /// Returns the value transferred in the current call.
     /// 返回当前调用中转移的值。
-    fn value_transferred(&self) -> [u8; 32];
-
-    /// Convert weight to fee.
-    /// 将权重转换为费用。
-    fn weight_to_fee(&self, ref_time_limit: u64, proof_size_limit: u64) -> [u8; 32];
+    fn value_transferred(&self) -> U256;
 
     /// Returns the size of the return data.
     /// 返回返回数据的大小。
     fn return_data_size(&self) -> u64;
+
+    /// Same as [call] but with one-dimensional EVM gas. Adds EVM gas stipend for non-zero value. `u64::MAX` = uncapped.
+    /// 与 call 相同但使用一维 EVM gas；非零 value 会加 stipend；gas = u64::MAX 表示无上限。
+    fn call_evm(
+        &self,
+        flags: CallFlags,
+        callee: &Address,
+        gas: u64,
+        value: &U256,
+        input_data: &[u8],
+        output: Option<&mut &mut [u8]>,
+    ) -> CallResult;
+
+    /// Same as [delegate_call] but with one-dimensional EVM gas. `u64::MAX` = uncapped.
+    /// 与 delegate_call 相同但使用一维 EVM gas；u64::MAX 表示无上限。
+    fn delegate_call_evm(
+        &self,
+        flags: CallFlags,
+        address: &Address,
+        gas: u64,
+        input_data: &[u8],
+        output: Option<&mut &mut [u8]>,
+    ) -> CallResult;
+
+    /// Copy return data of the last call/instantiate into the supplied buffer at the given offset.
+    /// 将上一次 call/instantiate 的返回数据从 offset 起写入 output。
+    fn return_data_copy(&self, output: &mut &mut [u8], offset: u32);
+
+    /// Returns the amount of Ethereum gas left.
+    /// 返回剩余 Ethereum gas。
+    fn gas_left(&self) -> u64;
+
+    /// Returns the current block author (miner/validator address).
+    /// 返回当前区块作者（矿工/验证者地址）。
+    fn block_author(&self) -> Address;
+
+    /// Returns the current block number (32-byte buffer in host; we return BlockNumber).
+    /// 返回当前区块高度。
+    fn block_number(&self) -> BlockNumber;
+
+    /// Returns the block hash for the given block number.
+    /// 返回指定区块高度的区块哈希。
+    fn block_hash(&self, block_number: BlockNumber) -> H256;
+
+    /// Reverts and consumes all gas (EVM INVALID opcode). Never returns.
+    /// 消耗全部 gas 并 revert（EVM INVALID）；不返回。
+    fn consume_all_gas(&self) -> !;
+
+    /// Remove the calling account and transfer remaining free balance to beneficiary. Never returns.
+    /// 销毁调用账户并将剩余余额转给 beneficiary；不返回。
+    fn terminate(&self, beneficiary: &[u8; 20]) -> !;
 }
+

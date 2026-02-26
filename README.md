@@ -85,6 +85,20 @@ wrevive/
 
 > `storage!/mapping!/list!/list_2d!` 的 prefix 会通过 Blake2s256 生成 4 字节前缀，并在 `#[revive_contract]` 展开时做重复检查。
 
+### 常见数据类型（wrevive-api）
+
+`wrevive-api` 提供可直接用于存储/消息的 SCALE 可编码类型，可从 `wrevive_api` 引入：
+
+| 类型 | 说明 | 编码 |
+|------|------|------|
+| `Address` | 20 字节地址（EVM/账户兼容） | 20 字节 |
+| `H256` | 32 字节哈希 | 32 字节 |
+| `U256` | 256 位无符号整数（大端，EVM 兼容） | 32 字节 |
+| `BlockNumber` | 区块高度（`u32` 类型别名） | 同 u32 |
+| `Bytes` | 变长字节（`Vec<u8>` 别名，可作“字符串”存储） | 长度前缀 + 字节 |
+
+示例：`Storage<Address>`、`Mapping<Address, U256>`、`Mapping<H256, Bytes>` 等；`Address` / `H256` 与 `[u8;20]` / `[u8;32]` 可互转（`From` / `Into`）。
+
 ## 调用约定（selector + SCALE 参数）
 
 `#[revive_contract]` 生成的 `call()` 会：
