@@ -198,16 +198,19 @@ impl Env for OnChainEnv {
         address: &mut [u8; 20],
         output: Option<&mut &mut [u8]>,
     ) -> CallResult {
-        // HostFnImpl 参数顺序与 trait 略有不同 / parameter order differs from trait
+        // HostFnImpl::instantiate 的 input = code_hash(32 字节) + 构造函数 call data
+        let mut input = Vec::with_capacity(32 + input_data.len());
+        input.extend_from_slice(code_hash);
+        input.extend_from_slice(input_data);
         HostFnImpl::instantiate(
-            proof_size_limit,
             ref_time_limit,
-            code_hash,
-            value,
+            proof_size_limit,
             deposit,
+            value,
+            &input,
             Some(address),
             output,
-            Some(input_data),
+            None, // salt 由上层或 host 决定，此处不传
         )
     }
 

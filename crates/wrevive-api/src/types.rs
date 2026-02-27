@@ -6,6 +6,8 @@ use alloc::vec::Vec;
 #[cfg(any(test, feature = "off_chain"))]
 use std::vec::Vec;
 
+use pvm_contract_macros::SolType;
+
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use core::ops::{Add, Div, Mul, Sub};
@@ -15,7 +17,7 @@ use core::ops::{Add, Div, Mul, Sub};
 // =============================================================================
 
 /// 20-byte address (EVM / account compatible). SCALE 编码为 20 字节。
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
 #[repr(transparent)]
 pub struct Address(pub [u8; 20]);
 
@@ -53,7 +55,7 @@ impl AsRef<[u8; 20]> for Address {
 // =============================================================================
 
 /// 32-byte hash (e.g. Keccak-256). SCALE 编码为 32 字节。
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
 #[repr(transparent)]
 pub struct H256(pub [u8; 32]);
 
@@ -92,7 +94,7 @@ impl AsRef<[u8; 32]> for H256 {
 
 /// 256-bit unsigned integer. Stored and SCALE-encoded as 32 bytes big-endian (EVM-compatible).
 /// 256 位无符号整数；内部及 SCALE 编码均为 32 字节大端（与 EVM 一致）。
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, TypeInfo, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, TypeInfo, SolType, Debug, Default)]
 #[repr(transparent)]
 pub struct U256(pub [u8; 32]);
 
