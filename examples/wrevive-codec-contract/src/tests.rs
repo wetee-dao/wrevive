@@ -11,10 +11,23 @@ fn deploy_sets_owner_and_value() {
         e.reset();
         e.set_caller([1u8; 20]);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
 
     assert_eq!(contract::get_owner(), [1u8; 20]);
     assert_eq!(contract::get_value(), 0);
+}
+
+/// Deploy with initial_value sets VALUE to that. 带参部署时 VALUE 为传入的 initial_value。
+#[test]
+fn deploy_with_initial_value() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller([5u8; 20]);
+    });
+    let _ = contract::deploy(100);
+    assert_eq!(contract::get_value(), 100);
+    let _ = contract::deploy(200);
+    assert_eq!(contract::get_value(), 200);
 }
 
 #[test]
@@ -23,7 +36,7 @@ fn set_value_and_get_value() {
         e.reset();
         e.set_caller([2u8; 20]);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
 
     let _ = contract::set_value(42);
     assert_eq!(contract::get_value(), 42);
@@ -41,7 +54,7 @@ fn set_owner_only_by_current_owner() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
 
     // Alice 可以改 owner 为 Bob
     let _ = contract::set_owner(bob, 0);
@@ -62,7 +75,7 @@ fn deposit_event_on_set_value() {
         e.reset();
         e.set_caller([0u8; 20]);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     let _ = contract::set_value(123);
 
     off_chain::with_engine(|e| {
@@ -81,7 +94,7 @@ fn mapping_balance_works() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
 
     // 设置 Alice 的余额
     contract::set_balance(alice, 1000);
@@ -104,7 +117,7 @@ fn mapping_user_info_works() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
 
     // 设置用户信息
     contract::set_user_info(alice, 0, 25);
@@ -132,7 +145,7 @@ fn mapping_transfer_balance_works() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
 
     // 设置初始余额
     contract::set_balance(alice, 1000);
@@ -159,7 +172,7 @@ fn transfer_balance_insufficient_balance_reverts() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     contract::set_balance(alice, 100);
     contract::transfer_balance(alice, bob, 200);
 }
@@ -174,7 +187,7 @@ fn transfer_balance_only_from_may_call() {
         e.reset();
         e.set_caller(bob);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     contract::set_balance(alice, 1000);
     contract::transfer_balance(alice, bob, 100);
 }
@@ -192,7 +205,7 @@ fn set_owner_reverts_when_not_owner() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     off_chain::with_engine(|e| e.set_caller(bob));
     contract::set_owner(charlie, 0);
 }
@@ -204,7 +217,7 @@ fn get_value_default_before_any_set() {
         e.reset();
         e.set_caller([5u8; 20]);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     assert_eq!(contract::get_value(), 0);
 }
 
@@ -216,7 +229,7 @@ fn get_owner_after_deploy_is_caller() {
         e.reset();
         e.set_caller(addr);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     assert_eq!(contract::get_owner(), addr);
 }
 
@@ -228,7 +241,7 @@ fn records_list_size_zero_returns_empty() {
         e.reset();
         e.set_caller([1u8; 20]);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     contract::records_push(1);
     let empty = contract::records_list(0, 0);
     assert!(empty.is_empty());
@@ -240,7 +253,7 @@ fn records_list_start_beyond_len_returns_empty() {
         e.reset();
         e.set_caller([1u8; 20]);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     contract::records_push(10);
     contract::records_push(20);
     assert_eq!(contract::records_len(), 2);
@@ -254,7 +267,7 @@ fn records_get_nonexistent_id_returns_zero() {
         e.reset();
         e.set_caller([1u8; 20]);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     assert_eq!(contract::records_get(0), 0);
     assert_eq!(contract::records_get(999), 0);
 }
@@ -269,7 +282,7 @@ fn user_items_list_empty_user_returns_empty() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     let empty = contract::user_items_list(bob, 0, 10);
     assert!(empty.is_empty());
     assert_eq!(contract::user_items_len(bob), 0);
@@ -282,7 +295,7 @@ fn user_items_list_size_zero_returns_empty() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     contract::user_items_push(alice, 1);
     let empty = contract::user_items_list(alice, 0, 0);
     assert!(empty.is_empty());
@@ -295,7 +308,7 @@ fn user_items_get_nonexistent_k2_returns_zero() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     contract::user_items_push(alice, 42);
     assert_eq!(contract::user_items_get(alice, 99), 0);
 }
@@ -311,7 +324,7 @@ fn transfer_balance_amount_zero_allowed() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     contract::set_balance(alice, 1000);
     contract::set_balance(bob, 500);
     contract::transfer_balance(alice, bob, 0);
@@ -327,7 +340,7 @@ fn transfer_balance_self_transfer_allowed() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     contract::set_balance(alice, 1000);
     contract::transfer_balance(alice, alice, 100);
     assert_eq!(contract::get_balance(alice), 1000);
@@ -342,7 +355,7 @@ fn get_user_info_never_set_returns_zero() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
     assert_eq!(contract::get_user_info(alice, 0), 0);
     assert_eq!(contract::get_user_info(alice, 255), 0);
 }
@@ -355,7 +368,7 @@ fn records_push_get_len_list() {
         e.reset();
         e.set_caller([1u8; 20]);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
 
     assert_eq!(contract::records_len(), 0);
 
@@ -383,7 +396,7 @@ fn records_list_pagination() {
         e.reset();
         e.set_caller([1u8; 20]);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
 
     for v in [10u64, 20, 30, 40, 50] {
         contract::records_push(v);
@@ -417,7 +430,7 @@ fn user_items_push_get_len_list() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
 
     assert_eq!(contract::user_items_len(alice), 0);
     assert_eq!(contract::user_items_len(bob), 0);
@@ -450,7 +463,7 @@ fn user_items_list_pagination() {
         e.reset();
         e.set_caller(alice);
     });
-    let _ = contract::deploy();
+    let _ = contract::deploy(0);
 
     for v in [1u32, 2, 3, 4, 5] {
         contract::user_items_push(alice, v);

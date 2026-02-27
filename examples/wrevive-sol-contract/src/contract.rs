@@ -27,7 +27,8 @@ mod contract {
     }
 
     #[pvm_contract_macros::constructor]
-    pub fn new() -> Result<(), Error> {
+    pub fn new(value: U256) -> Result<(), Error> {
+        set_total_supply(value);
         Ok(())
     }
 

@@ -87,6 +87,11 @@ where
         self.items.set(api, key, value)
     }
 
+    /// 清除 key 对应的值（不改变 len/next_id）。
+    pub fn clear(&self, api: &dyn Env, key: &K) -> Option<()> {
+        self.items.clear(api, key)
+    }
+
     /// Paginated list (ascending): from start_key, at most size entries.
     /// 分页列表（升序）：从 start_key 起取最多 size 条。
     pub fn list(&self, api: &dyn Env, start_key: K, size: u32) -> Vec<(K, V)> {

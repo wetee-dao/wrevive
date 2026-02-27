@@ -51,14 +51,13 @@ mod contract {
         InsufficientBalance,
     }
 
-    /// Constructor: set caller as owner and init VALUE to 0.
-    /// 构造函数：设置调用者为 owner，VALUE 初始为 0。
+    /// Constructor: set caller as owner and init VALUE to the given initial_value.
+    /// 构造函数：设置调用者为 owner，VALUE 初始为 initial_value。
     #[revive(constructor)]
-    pub fn deploy() -> Result<(), Error> {
+    pub fn deploy(initial_value: u32) -> Result<(), Error> {
         let caller = env().caller();
         OWNER.set(env(), caller.as_ref());
-        let default_value: u32 = 0;
-        VALUE.set(env(), &default_value);
+        VALUE.set(env(), &initial_value);
         Ok(())
     }
 

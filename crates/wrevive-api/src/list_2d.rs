@@ -87,6 +87,13 @@ where
         self.store.set(api, &key, value)
     }
 
+    /// 清除 (k1, k2) 对应的值（不改变该 k1 的 len/next_id）。
+    pub fn clear(&self, api: &dyn Env, k1: &K1, k2: Ix) -> Option<()> {
+        let id = self.k1_to_id.get(api, k1).ok()?;
+        let key = (id, k2);
+        self.store.clear(api, &key)
+    }
+
     /// 按 (k1, k2) 取值。
     pub fn get(&self, api: &dyn Env, k1: &K1, k2: Ix) -> Option<V> {
         let id = self.k1_to_id.get(api, k1).ok()?;

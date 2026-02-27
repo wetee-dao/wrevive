@@ -106,6 +106,12 @@ where
         let data = api.get_storage(StorageFlags::empty(), self.0)?;
         V::decode(&mut &data[..]).map_err(|_| ReturnErrorCode::KeyNotFound)
     }
+
+    /// Clear value at this key; returns previous value length in bytes if any.
+    /// 清除该 key 的值；若有旧值则返回其字节长度。
+    pub fn clear(&self, api: &dyn crate::env::Env) -> Option<u32> {
+        api.clear_storage(StorageFlags::empty(), self.0)
+    }
 }
 
 /// Unit tests use off_chain backend.

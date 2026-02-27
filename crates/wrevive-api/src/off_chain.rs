@@ -94,7 +94,11 @@ impl Env for OffChainEnv {
     fn set_storage(&self, _flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
         ENGINE.with(|cell| {
             let prev = cell.borrow().storage.get(key).map(|v| v.len() as u32);
-            cell.borrow_mut().storage.insert(key.to_vec(), value.to_vec());
+            if value.is_empty() {
+                cell.borrow_mut().storage.remove(key);
+            } else {
+                cell.borrow_mut().storage.insert(key.to_vec(), value.to_vec());
+            }
             prev
         })
     }
@@ -108,6 +112,13 @@ impl Env for OffChainEnv {
         })
     }
 
+    fn clear_storage(&self, _flags: StorageFlags, key: &[u8]) -> Option<u32> {
+        ENGINE.with(|cell| {
+            let prev = cell.borrow().storage.get(key).map(|v| v.len() as u32);
+            cell.borrow_mut().storage.remove(key);
+            prev
+        })
+    }
 
 
     fn deposit_event(&self, topics: &[[u8; 32]], data: &[u8]) {

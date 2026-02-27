@@ -29,6 +29,10 @@ pub trait Env {
         key: &[u8],
     ) -> Result<Vec<u8>, ReturnErrorCode>;
 
+    /// Clear storage at `key`. On-chain uses set_storage_or_clear when key is 32 bytes, else set_storage(key, &[]).
+    /// 清除 `key` 处的存储。链上在 key 为 32 字节时使用 set_storage_or_clear，否则 set_storage(key, &[])。
+    fn clear_storage(&self, flags: StorageFlags, key: &[u8]) -> Option<u32>;
+
     /// Emit an event with `topics` and `data`.
     /// 发出事件，主题为 `topics`，数据为 `data`。
     fn deposit_event(&self, topics: &[[u8; 32]], data: &[u8]);

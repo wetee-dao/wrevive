@@ -133,4 +133,19 @@ where
         let data = api.get_storage(StorageFlags::empty(), full)?;
         V::decode(&mut &data[..]).map_err(MappingError::Decode)
     }
+
+    /// 清除：删除 `mapping[key]` 的存储。通过 Env::clear_storage 实现，链上在 key 为 32 字节时使用 set_storage_or_clear。
+    #[inline]
+    pub fn clear(&self, api: &dyn crate::env::Env, key: &K) -> Option<()> {
+        let key_bytes = key.encode();
+
+        #[cfg(not(any(test, feature = "off_chain")))]
+        let mut buf = alloc::vec![0u8; self.prefix.len() + key_bytes.len()];
+        #[cfg(any(test, feature = "off_chain"))]
+        let mut buf = vec![0u8; self.prefix.len() + key_bytes.len()];
+
+        let full = self.full_key(&key_bytes, &mut buf)?;
+        api.clear_storage(StorageFlags::empty(), full);
+        Some(())
+    }
 }

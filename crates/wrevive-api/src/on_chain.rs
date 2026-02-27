@@ -39,6 +39,17 @@ impl Env for OnChainEnv {
         Ok(buf[..written].to_vec())
     }
 
+    #[inline(always)]
+    fn clear_storage(&self, flags: StorageFlags, key: &[u8]) -> Option<u32> {
+        if key.len() == 32 {
+            let mut k = [0u8; 32];
+            k.copy_from_slice(key);
+            let zero = [0u8; 32];
+            HostFnImpl::set_storage_or_clear(flags, &k, &zero)
+        } else {
+            HostFnImpl::set_storage(flags, key, &[])
+        }
+    }
 
     #[inline(always)]
     fn deposit_event(&self, topics: &[[u8; 32]], data: &[u8]) {
@@ -183,7 +194,7 @@ impl Env for OnChainEnv {
         proof_size_limit: u64,
         deposit: &[u8; 32],
         value: &[u8; 32],
-        _input_data: &[u8],
+        input_data: &[u8],
         address: &mut [u8; 20],
         output: Option<&mut &mut [u8]>,
     ) -> CallResult {
@@ -196,7 +207,7 @@ impl Env for OnChainEnv {
             deposit,
             Some(address),
             output,
-            None,
+            Some(input_data),
         )
     }
 

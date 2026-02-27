@@ -310,13 +310,13 @@ fn selector_hex(sel: [u8; 4]) -> String {
     format!("0x{:02x}{:02x}{:02x}{:02x}", sel[0], sel[1], sel[2], sel[3])
 }
 
-/// Generates ink!-style ABI JSON from contract name, constructor name, and message list.
+/// Generates ink!-style ABI JSON from contract name, constructor, and message list.
 /// Writes to `{CARGO_TARGET_DIR}/contract/{contract_name}.json` at compile time (used by frontend/JS).
-/// 根据合约名、构造函数名与 message 列表，生成 ink! 风格的 ABI JSON，
+/// 根据合约名、构造函数与 message 列表，生成 ink! 风格的 ABI JSON，
 /// 写入 `{CARGO_TARGET_DIR}/contract/{contract_name}.json`（编译时由宏调用，供前端/JS 使用）。
 fn emit_abi(
     contract_name: &str,
-    constructor_name: &str,
+    constructor_fn: &ItemFn,
     message_fns: &[(ItemFn, [u8; 4])],
 ) {
     // Resolve output dir: CARGO_TARGET_DIR first, else try to find workspace root, else {CARGO_MANIFEST_DIR}/target
@@ -366,13 +366,28 @@ fn emit_abi(
     }
     let out_path = contract_dir.join(format!("{}.json", contract_name));
 
-    // Constructor is always "deploy" in ABI with selector 0x00000000
-    // 构造函数在 ABI 中固定为 deploy，selector 0x00000000
+    // Constructor: args from constructor_fn parameters (same format as messages).
+    // 构造函数：参数列表与 message 一致，从 constructor_fn 的形参生成。
+    let mut constructor_args = Vec::new();
+    for arg in &constructor_fn.sig.inputs {
+        let FnArg::Typed(pt) = arg else { continue };
+        let arg_name = match pt.pat.as_ref() {
+            syn::Pat::Ident(pi) => pi.ident.to_string(),
+            _ => continue,
+        };
+        if let Some((ty_name, len)) = type_to_abi(pt.ty.as_ref()) {
+            let mut arg_obj = serde_json::json!({ "label": arg_name, "type": { "type": 0, "displayName": [ty_name] } });
+            if let Some(l) = len {
+                arg_obj["length"] = serde_json::json!(l);
+            }
+            constructor_args.push(arg_obj);
+        }
+    }
     let constructors = vec![serde_json::json!({
-        "label": constructor_name,
+        "label": constructor_fn.sig.ident.to_string(),
         "selector": "0x00000000",
         "payable": false,
-        "args": [],
+        "args": constructor_args,
         "returnType": serde_json::Value::Null,
         "docs": [],
         "default": false
@@ -625,25 +640,83 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Emit ABI to target/{contract_name}.json
     emit_abi(
         &contract_name,
-        &constructor_name.to_string(),
+        &constructor_fn,
         &message_fns,
     );
 
-    // deploy() 体：若构造函数返回 Result，则编码整只 Result，Err 时 REVERT 并带上该编码
+    // Constructor parameter parsing: same as message — SCALE-decode from call data (no selector for deploy).
+    // 构造函数参数解析：与 message 一致，从 call data 按 SCALE 解码（deploy 无 selector，整段即参数）。
+    let mut constructor_input_vars: Vec<(syn::Ident, TokenStream2)> = Vec::new();
+    let mut constructor_call_exprs = Vec::new();
+    for arg in &constructor_fn.sig.inputs {
+        let FnArg::Typed(pt) = arg else { continue };
+        let name = match pt.pat.as_ref() {
+            syn::Pat::Ident(pi) => pi.ident.clone(),
+            _ => continue,
+        };
+        let ty = pt.ty.as_ref();
+        let type_tt = quote! { #ty };
+        constructor_input_vars.push((name.clone(), type_tt));
+        constructor_call_exprs.push(quote! { #name });
+    }
+
+    let constructor_parse: TokenStream2 = if constructor_input_vars.is_empty() {
+        quote! {}
+    } else {
+        let mut scale_stmts = Vec::new();
+        let scale_input = quote! { __scale_input };
+        for (name, type_tt) in &constructor_input_vars {
+            scale_stmts.push(quote! {
+                let #name: #type_tt = match <#type_tt as wrevive_api::Decode>::decode(&mut #scale_input) {
+                    Ok(val) => val,
+                    Err(_) => {
+                        wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                        return;
+                    }
+                };
+            });
+        }
+        quote! {
+            let __input_len = wrevive_api::env().call_data_size().min(1024) as usize;
+            let __input_vec = if __input_len > 0 {
+                wrevive_api::env().call_data_copy(0, __input_len)
+            } else {
+                #[cfg(test)]
+                let empty = vec![];
+                #[cfg(not(test))]
+                let empty = alloc::vec![];
+                empty
+            };
+            let __input: &[u8] = &__input_vec;
+            let mut __scale_input = __input;
+            #(#scale_stmts)*
+        }
+    };
+
+    // deploy() 体：解析构造函数参数（若有）、调用构造函数、按 Result 编码返回或 REVERT。
     let deploy_body: TokenStream2 = match &constructor_fn.sig.output {
         ReturnType::Type(_, ty) if unwrap_result_or_option(ty).map(|(_, r)| r).unwrap_or(false) => {
             quote! {
-                let __ret = #mod_name::#constructor_name();
+                #constructor_parse
+                let __ret = #mod_name::#constructor_name(#(#constructor_call_exprs),*);
                 let __encoded = wrevive_api::Encode::encode(&__ret);
                 if let Err(_) = &__ret {
                     wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &__encoded);
+                } else {
+                    wrevive_api::env().return_value(wrevive_api::ReturnFlags::empty(), &__encoded);
                 }
             }
         }
-        _ => quote! { #mod_name::#constructor_name(); },
+        _ => quote! {
+            #constructor_parse
+            let __ret = #mod_name::#constructor_name(#(#constructor_call_exprs),*);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            wrevive_api::env().return_value(wrevive_api::ReturnFlags::empty(), &__encoded);
+        },
     };
     let deploy_fn: Item = syn::parse2(quote! {
         #[polkavm_derive::polkavm_export]
+        #[allow(unreachable_code)]
         pub extern "C" fn deploy() {
             #deploy_body
         }

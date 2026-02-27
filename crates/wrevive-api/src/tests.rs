@@ -239,6 +239,32 @@ fn mapping_set_overwrite() {
     assert_eq!(m.get(e, &1u32).unwrap(), 200);
 }
 
+/// Mapping clear removes key; get after clear returns Err. set 后 clear，再 get 应得到 Err。
+#[test]
+fn mapping_clear_then_get_err() {
+    off_chain::with_engine(|e| e.reset());
+    let m: Mapping<u32, u64> = Mapping::new(b"cnt_del");
+    let e = env();
+    m.set(e, &1u32, &100u64).unwrap();
+    assert_eq!(m.get(e, &1u32).unwrap(), 100);
+    m.clear(e, &1u32).unwrap();
+    let r = m.get(e, &1u32);
+    assert!(r.is_err());
+}
+
+/// Storage clear removes key; get after clear returns Err. set 后 clear，再 get 应得到 Err。
+#[test]
+fn storage_clear_then_get_err() {
+    off_chain::with_engine(|e| e.reset());
+    let s: super::Storage<u64> = super::Storage::new(b"st_del");
+    let e = env();
+    s.set(e, &123u64);
+    assert_eq!(s.get(e).unwrap(), 123u64);
+    s.clear(e);
+    let r = s.get(e);
+    assert!(r.is_err());
+}
+
 /// Mapping full_key with buf too small returns None. full_key 的 buf 不足时返回 None。
 #[test]
 fn mapping_full_key_buf_too_small() {
@@ -325,6 +351,26 @@ fn list_u32_update() {
     list.update(e, &0, &99u64).unwrap();
     assert_eq!(list.get(e, &0).unwrap(), 99);
     assert_eq!(list.get(e, &1).unwrap(), 20);
+}
+
+#[test]
+fn list_u32_clear() {
+    off_chain::with_engine(|e| e.reset());
+    let list: List<u32, u64> = List::new(b"list_cl_next", b"list_cl_items");
+    let e = env();
+    assert_eq!(list.insert(e, &10u64).unwrap(), 0);
+    assert_eq!(list.insert(e, &20u64).unwrap(), 1);
+    assert_eq!(list.len(e), 2);
+    assert!(list.contains(e, &0));
+    assert!(list.contains(e, &1));
+
+    list.clear(e, &0).unwrap();
+    assert!(!list.contains(e, &0));
+    assert!(list.get(e, &0).is_none());
+    assert_eq!(list.len(e), 2, "clear should not change next_id/len");
+
+    let page = list.list(e, 0, 2);
+    assert_eq!(page, vec![(1, 20)]);
 }
 
 #[test]
@@ -489,6 +535,27 @@ fn list_2d_update() {
     dl.update(e, &alice, 0, &100u64).unwrap();
     assert_eq!(dl.get(e, &alice, 0).unwrap(), 100);
     assert_eq!(dl.get(e, &alice, 1).unwrap(), 20);
+}
+
+#[test]
+fn list_2d_clear() {
+    off_chain::with_engine(|e| e.reset());
+    let dl: List2D<[u8; 20], u32, u64> =
+        List2D::new(b"dl_cl_k1", b"dl_cl_len", b"dl_cl_k2", b"dl_cl_store");
+    let e = env();
+    let alice = [1u8; 20];
+    assert_eq!(dl.insert(e, &alice, &10u64).unwrap(), 0);
+    assert_eq!(dl.insert(e, &alice, &20u64).unwrap(), 1);
+    assert_eq!(dl.len(e, &alice), 2);
+    assert_eq!(dl.get(e, &alice, 0).unwrap(), 10);
+    assert_eq!(dl.get(e, &alice, 1).unwrap(), 20);
+
+    dl.clear(e, &alice, 0).unwrap();
+    assert!(dl.get(e, &alice, 0).is_none());
+    assert_eq!(dl.len(e, &alice), 2, "clear should not change next_id/len");
+
+    let page = dl.list(e, &alice, 0, 2);
+    assert_eq!(page, vec![(1, 20)]);
 }
 
 #[test]
