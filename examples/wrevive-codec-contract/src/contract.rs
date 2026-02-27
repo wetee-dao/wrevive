@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 #[global_allocator]
 static ALLOC: pvm_bump_allocator::BumpAllocator<1024> = pvm_bump_allocator::BumpAllocator::new();
 
-use wrevive_api::{env, Encode, List, List2D, Mapping, ReturnFlags, Storage};
+use wrevive_api::{env, Address, Encode, List, List2D, Mapping, ReturnFlags, Storage};
 use wrevive_macro::{list, list_2d, mapping, revive_contract, storage};
 
 #[revive_contract]
@@ -29,21 +29,21 @@ mod contract {
     const VALUE: Storage<u32> = storage!(b"value");
 
     /// Contract owner address (20 bytes). 合约所有者地址（20 字节）。
-    const OWNER: Storage<[u8; 20]> = storage!(b"owner");
+    const OWNER: Storage<Address> = storage!(b"owner");
 
-    /// Balance per account: key = [u8; 20], value = u64.
+    /// Balance per account: key = Address, value = u64.
     /// 用户余额：key = 用户地址，value = 余额。
-    const BALANCE_MAPPING: Mapping<[u8; 20], u64> = mapping!(b"balance");
+    const BALANCE_MAPPING: Mapping<Address, u64> = mapping!(b"balance");
 
     /// User info by (address, info_type): value = u32 (e.g. score, level).
     /// 用户信息：key = (地址, 类型)，value = u32（如积分、等级）。
-    const USER_INFO_MAPPING: Mapping<([u8; 20], u8), u32> = mapping!(b"user_info");
+    const USER_INFO_MAPPING: Mapping<(Address, u8), u32> = mapping!(b"user_info");
 
     /// Global list: auto-increment id (u32), value u64. 全局列表：自增 id(u32)，值 u64。
     const RECORDS: List<u32, u64> = list!(b"records");
 
-    /// Per-user list: each [u8;20] has a list of u32. 按用户维度的列表：每用户一条 u32 列表。
-    const USER_ITEMS: List2D<[u8; 20], u32, u32> = list_2d!(b"user_items");
+    /// Per-user list: each Address has a list of u32. 按用户维度的列表：每用户一条 u32 列表。
+    const USER_ITEMS: List2D<Address, u32, u32> = list_2d!(b"user_items");
 
     /// Contract error type. 合约错误类型。
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
@@ -56,12 +56,12 @@ mod contract {
     #[revive(constructor)]
     pub fn deploy(initial_value: u32) -> Result<(), Error> {
         let caller = env().caller();
-        OWNER.set(env(), caller.as_ref());
+        OWNER.set(env(), &caller);
         VALUE.set(env(), &initial_value);
         Ok(())
     }
 
-    #[revive(message)]
+    #[revive(message, sol)]
     pub fn set_value(value: u32) -> Result<(), Error> {
         VALUE.set(env(), &value);
         env().deposit_event(EMPTY_TOPICS, &value.to_le_bytes().as_slice());
@@ -76,10 +76,10 @@ mod contract {
     /// Set owner; only current owner may call (else revert).
     /// 设置 owner；仅当前 owner 可调用，否则 revert。
     #[revive(message)]
-    pub fn set_owner(new_owner: [u8; 20], _v: u32) {
+    pub fn set_owner(new_owner: Address, _v: u32) {
         let caller = env().caller();
         let current_owner = get_owner();
-        if *caller.as_ref() != current_owner {
+        if caller != current_owner {
             env().return_value(ReturnFlags::REVERT, &[]);
         } else {
             OWNER.set(env(), &new_owner);
@@ -87,31 +87,31 @@ mod contract {
     }
 
     #[revive(message)]
-    pub fn get_owner() -> [u8; 20] {
-        OWNER.get(env()).unwrap_or([0u8; 20])
+    pub fn get_owner() -> Address {
+        OWNER.get(env()).unwrap_or(Address::zero())
     }
 
     /// 设置用户余额（使用 Mapping）
     #[revive(message)]
-    pub fn set_balance(user: [u8; 20], balance: u64) {
+    pub fn set_balance(user: Address, balance: u64) {
         BALANCE_MAPPING.set(env(), &user, &balance);
     }
 
     /// 获取用户余额（使用 Mapping）
     #[revive(message)]
-    pub fn get_balance(user: [u8; 20]) -> u64 {
+    pub fn get_balance(user: Address) -> u64 {
         BALANCE_MAPPING.get(env(), &user).unwrap_or(0)
     }
 
     /// 设置用户信息（key = (user, info_type)）
     #[revive(message)]
-    pub fn set_user_info(user: [u8; 20], info_type: u8, value: u32) {
+    pub fn set_user_info(user: Address, info_type: u8, value: u32) {
         USER_INFO_MAPPING.set(env(), &(user, info_type), &value);
     }
 
     /// 获取用户信息
     #[revive(message)]
-    pub fn get_user_info(user: [u8; 20], info_type: u8) -> u32 {
+    pub fn get_user_info(user: Address, info_type: u8) -> u32 {
         USER_INFO_MAPPING.get(env(), &(user, info_type)).unwrap_or(0)
     }
 
@@ -119,9 +119,9 @@ mod contract {
     /// Reverts if `from` has insufficient balance. Self-transfer (from == to) is a no-op.
     /// 转账：仅 from 可发起；余额不足时 revert；from == to 时不操作。
     #[revive(message)]
-    pub fn transfer_balance(from: [u8; 20], to: [u8; 20], amount: u64) {
+    pub fn transfer_balance(from: Address, to: Address, amount: u64) {
         let caller = env().caller();
-        if *caller.as_ref() != from {
+        if caller != from {
             env().return_value(ReturnFlags::REVERT, &[]);
         }
         if from == to || amount == 0 {
@@ -166,25 +166,25 @@ mod contract {
 
     /// 在指定用户下追加一条 u32，返回该用户下的 k2
     #[revive(message)]
-    pub fn user_items_push(user: [u8; 20], value: u32) -> Option<u32> {
+    pub fn user_items_push(user: Address, value: u32) -> Option<u32> {
         USER_ITEMS.insert(env(), &user, &value)
     }
 
     /// 取用户 user 下第 k2 条
     #[revive(message)]
-    pub fn user_items_get(user: [u8; 20], k2: u32) -> u32 {
+    pub fn user_items_get(user: Address, k2: u32) -> u32 {
         USER_ITEMS.get(env(), &user, k2).unwrap_or(0)
     }
 
     /// 用户 user 下的条目数量
     #[revive(message)]
-    pub fn user_items_len(user: [u8; 20]) -> u32 {
+    pub fn user_items_len(user: Address) -> u32 {
         USER_ITEMS.len(env(), &user)
     }
 
     /// 分页：用户 user 下从 start 起取最多 size 条 (k2, value)
     #[revive(message)]
-    pub fn user_items_list(user: [u8; 20], start: u32, size: u32) -> Vec<(u32, u32)> {
+    pub fn user_items_list(user: Address, start: u32, size: u32) -> Vec<(u32, u32)> {
         USER_ITEMS.list(env(), &user, start, size)
     }
 }

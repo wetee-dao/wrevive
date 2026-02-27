@@ -2,18 +2,18 @@
 //! 示例合约单元测试；使用 off_chain Engine 模拟存储、调用者与事件。
 
 use crate::contract;
-use wrevive_api::off_chain;
+use wrevive_api::{off_chain, Address};
 
 /// Deploy sets caller as owner and value to 0. 部署后 caller 为 owner，value 为 0。
 #[test]
 fn deploy_sets_owner_and_value() {
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller([1u8; 20]);
+        e.set_caller(Address::from([1u8; 20]).into());
     });
     let _ = contract::deploy(0);
 
-    assert_eq!(contract::get_owner(), [1u8; 20]);
+    assert_eq!(contract::get_owner(), Address::from([1u8; 20]));
     assert_eq!(contract::get_value(), 0);
 }
 
@@ -22,7 +22,7 @@ fn deploy_sets_owner_and_value() {
 fn deploy_with_initial_value() {
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller([5u8; 20]);
+        e.set_caller(Address::from([5u8; 20]).into());
     });
     let _ = contract::deploy(100);
     assert_eq!(contract::get_value(), 100);
@@ -34,7 +34,7 @@ fn deploy_with_initial_value() {
 fn set_value_and_get_value() {
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller([2u8; 20]);
+        e.set_caller(Address::from([2u8; 20]).into());
     });
     let _ = contract::deploy(0);
 
@@ -47,12 +47,12 @@ fn set_value_and_get_value() {
 
 #[test]
 fn set_owner_only_by_current_owner() {
-    let alice = [1u8; 20];
-    let bob = [2u8; 20];
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
 
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
 
@@ -62,9 +62,9 @@ fn set_owner_only_by_current_owner() {
 
     // Bob 为 caller 时才能再改 owner；若用 Alice 作为 caller 调用 set_owner 会 revert
     off_chain::with_engine(|e| {
-        e.set_caller(bob);
+        e.set_caller(bob.into());
     });
-    let new_owner = [3u8; 20];
+    let new_owner = Address::from([3u8; 20]);
     let _ = contract::set_owner(new_owner, 0);
     assert_eq!(contract::get_owner(), new_owner);
 }
@@ -73,7 +73,7 @@ fn set_owner_only_by_current_owner() {
 fn deposit_event_on_set_value() {
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller([0u8; 20]);
+        e.set_caller(Address::from([0u8; 20]).into());
     });
     let _ = contract::deploy(0);
     let _ = contract::set_value(123);
@@ -87,12 +87,12 @@ fn deposit_event_on_set_value() {
 
 #[test]
 fn mapping_balance_works() {
-    let alice = [1u8; 20];
-    let bob = [2u8; 20];
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
 
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
 
@@ -105,17 +105,17 @@ fn mapping_balance_works() {
     assert_eq!(contract::get_balance(bob), 500);
 
     // 初始余额为 0
-    let charlie = [3u8; 20];
+    let charlie = Address::from([3u8; 20]);
     assert_eq!(contract::get_balance(charlie), 0);
 }
 
 #[test]
 fn mapping_user_info_works() {
-    let alice = [1u8; 20];
+    let alice = Address::from([1u8; 20]);
 
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
 
@@ -138,12 +138,12 @@ fn mapping_user_info_works() {
 
 #[test]
 fn mapping_transfer_balance_works() {
-    let alice = [1u8; 20];
-    let bob = [2u8; 20];
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
 
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
 
@@ -166,11 +166,11 @@ fn mapping_transfer_balance_works() {
 #[test]
 #[should_panic(expected = "return_value")]
 fn transfer_balance_insufficient_balance_reverts() {
-    let alice = [1u8; 20];
-    let bob = [2u8; 20];
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
     contract::set_balance(alice, 100);
@@ -181,11 +181,11 @@ fn transfer_balance_insufficient_balance_reverts() {
 #[test]
 #[should_panic(expected = "return_value")]
 fn transfer_balance_only_from_may_call() {
-    let alice = [1u8; 20];
-    let bob = [2u8; 20];
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(bob);
+        e.set_caller(bob.into());
     });
     let _ = contract::deploy(0);
     contract::set_balance(alice, 1000);
@@ -198,15 +198,15 @@ fn transfer_balance_only_from_may_call() {
 #[test]
 #[should_panic(expected = "return_value")]
 fn set_owner_reverts_when_not_owner() {
-    let alice = [1u8; 20];
-    let bob = [2u8; 20];
-    let charlie = [3u8; 20];
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
+    let charlie = Address::from([3u8; 20]);
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
-    off_chain::with_engine(|e| e.set_caller(bob));
+    off_chain::with_engine(|e| e.set_caller(bob.into()));
     contract::set_owner(charlie, 0);
 }
 
@@ -215,7 +215,7 @@ fn set_owner_reverts_when_not_owner() {
 fn get_value_default_before_any_set() {
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller([5u8; 20]);
+        e.set_caller(Address::from([5u8; 20]).into());
     });
     let _ = contract::deploy(0);
     assert_eq!(contract::get_value(), 0);
@@ -224,10 +224,10 @@ fn get_value_default_before_any_set() {
 /// get_owner returns zero address when never set (e.g. storage cleared). 未设置时 get_owner 返回零地址。
 #[test]
 fn get_owner_after_deploy_is_caller() {
-    let addr = [7u8; 20];
+    let addr = Address::from([7u8; 20]);
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(addr);
+        e.set_caller(addr.into());
     });
     let _ = contract::deploy(0);
     assert_eq!(contract::get_owner(), addr);
@@ -239,7 +239,7 @@ fn get_owner_after_deploy_is_caller() {
 fn records_list_size_zero_returns_empty() {
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller([1u8; 20]);
+        e.set_caller(Address::from([1u8; 20]).into());
     });
     let _ = contract::deploy(0);
     contract::records_push(1);
@@ -251,7 +251,7 @@ fn records_list_size_zero_returns_empty() {
 fn records_list_start_beyond_len_returns_empty() {
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller([1u8; 20]);
+        e.set_caller(Address::from([1u8; 20]).into());
     });
     let _ = contract::deploy(0);
     contract::records_push(10);
@@ -265,7 +265,7 @@ fn records_list_start_beyond_len_returns_empty() {
 fn records_get_nonexistent_id_returns_zero() {
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller([1u8; 20]);
+        e.set_caller(Address::from([1u8; 20]).into());
     });
     let _ = contract::deploy(0);
     assert_eq!(contract::records_get(0), 0);
@@ -276,11 +276,11 @@ fn records_get_nonexistent_id_returns_zero() {
 
 #[test]
 fn user_items_list_empty_user_returns_empty() {
-    let alice = [1u8; 20];
-    let bob = [2u8; 20];
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
     let empty = contract::user_items_list(bob, 0, 10);
@@ -290,10 +290,10 @@ fn user_items_list_empty_user_returns_empty() {
 
 #[test]
 fn user_items_list_size_zero_returns_empty() {
-    let alice = [1u8; 20];
+    let alice = Address::from([1u8; 20]);
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
     contract::user_items_push(alice, 1);
@@ -303,10 +303,10 @@ fn user_items_list_size_zero_returns_empty() {
 
 #[test]
 fn user_items_get_nonexistent_k2_returns_zero() {
-    let alice = [1u8; 20];
+    let alice = Address::from([1u8; 20]);
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
     contract::user_items_push(alice, 42);
@@ -318,11 +318,11 @@ fn user_items_get_nonexistent_k2_returns_zero() {
 /// Transfer amount 0 is allowed (no-op). 转账 0 允许（无操作）。
 #[test]
 fn transfer_balance_amount_zero_allowed() {
-    let alice = [1u8; 20];
-    let bob = [2u8; 20];
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
     contract::set_balance(alice, 1000);
@@ -335,10 +335,10 @@ fn transfer_balance_amount_zero_allowed() {
 /// Self-transfer (from == to) is allowed when caller is from. 自己转给自己允许（caller 为 from）。
 #[test]
 fn transfer_balance_self_transfer_allowed() {
-    let alice = [1u8; 20];
+    let alice = Address::from([1u8; 20]);
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
     contract::set_balance(alice, 1000);
@@ -350,10 +350,10 @@ fn transfer_balance_self_transfer_allowed() {
 
 #[test]
 fn get_user_info_never_set_returns_zero() {
-    let alice = [1u8; 20];
+    let alice = Address::from([1u8; 20]);
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
     assert_eq!(contract::get_user_info(alice, 0), 0);
@@ -366,7 +366,7 @@ fn get_user_info_never_set_returns_zero() {
 fn records_push_get_len_list() {
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller([1u8; 20]);
+        e.set_caller(Address::from([1u8; 20]).into());
     });
     let _ = contract::deploy(0);
 
@@ -394,7 +394,7 @@ fn records_push_get_len_list() {
 fn records_list_pagination() {
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller([1u8; 20]);
+        e.set_caller(Address::from([1u8; 20]).into());
     });
     let _ = contract::deploy(0);
 
@@ -423,12 +423,12 @@ fn records_list_pagination() {
 
 #[test]
 fn user_items_push_get_len_list() {
-    let alice = [1u8; 20];
-    let bob = [2u8; 20];
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
 
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
 
@@ -456,12 +456,12 @@ fn user_items_push_get_len_list() {
 
 #[test]
 fn user_items_list_pagination() {
-    let alice = [1u8; 20];
-    let bob = [2u8; 20];
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
 
     off_chain::with_engine(|e| {
         e.reset();
-        e.set_caller(alice);
+        e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
 

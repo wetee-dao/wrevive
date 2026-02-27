@@ -9,8 +9,16 @@
 //!
 //! ## Usage / 用法
 //!
-//! Apply `#[revive_contract]` on a module. The module must contain:
-//! 在模块上标注 `#[revive_contract]`，模块内包含：
+//! Apply `#[revive_contract]` or `#[revive_contract(encoding = "codec")]` / `#[revive_contract(encoding = "sol")]` on a module.
+//! 在模块上标注 `#[revive_contract]` 或 `#[revive_contract(encoding = "codec")]` / `#[revive_contract(encoding = "sol")]`。
+//!
+//! **Encoding 模式 / Encoding mode:** 可在合约级或每个函数级指定。
+//! - **codec**（默认）：参数与返回值用 SCALE（parity-scale-codec）编解码；与 ink! 一致。
+//! - **sol**：参数用 `pvm_contract_types::SolDecode` 读取，返回值用 `SolEncode` 格式化（Solidity ABI）；合约需依赖 `pvm-contract-types`。
+//! - 合约级：`#[revive_contract(encoding = "sol")]`；函数级：`#[revive(message, sol)]` / `#[revive(message, encoding = "sol")]` 或 `#[revive(constructor, codec)]`。函数级覆盖合约级默认。
+//!
+//! The module must contain:
+//! 模块内包含：
 //!
 //! - **Exactly one** `#[revive(constructor)] fn deploy() { ... }` — called when the contract is instantiated.
 //!   **恰好一个** `#[revive(constructor)] fn deploy() { ... }`：合约部署时调用的构造函数；
@@ -59,6 +67,72 @@ use syn::{
 fn selector_from_name(name: &str) -> [u8; 4] {
     let hash = Blake2s256::digest(name.as_bytes());
     [hash[0], hash[1], hash[2], hash[3]]
+}
+
+/// Encoding mode for contract messages: codec (SCALE) or sol (Solidity ABI).
+/// 合约 message 的编码模式：codec（SCALE）或 sol（Solidity ABI）。
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EncodingMode {
+    Codec,
+    Sol,
+}
+
+/// Parses `encoding = "codec"` or `encoding = "sol"` from `#[revive_contract(...)]` attribute.
+/// Default is Codec when absent or unrecognized.
+fn parse_encoding_from_contract_attr(attr: &TokenStream) -> EncodingMode {
+    use syn::parse::Parser;
+    let parser = Punctuated::<Meta, Token![,]>::parse_terminated;
+    let attr2 = TokenStream2::from(attr.clone());
+    let Ok(nested) = parser.parse2(attr2) else {
+        return EncodingMode::Codec;
+    };
+    for meta in nested {
+        let Meta::NameValue(nv) = meta else { continue };
+        if !nv.path.is_ident("encoding") {
+            continue;
+        }
+        let syn::Expr::Lit(expr_lit) = &nv.value else { continue };
+        let Lit::Str(s) = &expr_lit.lit else { continue };
+        if s.value() == "sol" {
+            return EncodingMode::Sol;
+        }
+        if s.value() == "codec" {
+            return EncodingMode::Codec;
+        }
+    }
+    EncodingMode::Codec
+}
+
+/// Parses `encoding = "codec"` / `encoding = "sol"` or path `codec` / `sol` from `#[revive(message, ...)]` or `#[revive(constructor, ...)]`.
+/// 从函数的 revive 属性中解析 encoding，未指定时使用 default。
+fn parse_encoding_from_fn_attrs(attrs: &[Attribute], default: EncodingMode) -> EncodingMode {
+    for attr in attrs {
+        if !attr.path().is_ident("revive") {
+            continue;
+        }
+        let syn::Meta::List(list) = &attr.meta else { continue };
+        let Ok(nested) = list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) else {
+            continue;
+        };
+        for meta in nested {
+            match &meta {
+                Meta::NameValue(nv) if nv.path.is_ident("encoding") => {
+                    let syn::Expr::Lit(expr_lit) = &nv.value else { continue };
+                    let Lit::Str(s) = &expr_lit.lit else { continue };
+                    if s.value() == "sol" {
+                        return EncodingMode::Sol;
+                    }
+                    if s.value() == "codec" {
+                        return EncodingMode::Codec;
+                    }
+                }
+                Meta::Path(p) if p.is_ident("sol") => return EncodingMode::Sol,
+                Meta::Path(p) if p.is_ident("codec") => return EncodingMode::Codec,
+                _ => {}
+            }
+        }
+    }
+    default
 }
 
 /// Parses the 4-byte selector from `#[revive(message, selector = 0x...)]`.
@@ -494,9 +568,14 @@ fn unwrap_result_or_option(ty: &syn::Type) -> Option<(&syn::Type, bool)> {
     }
 }
 
+/// 是否为单元类型 ()。
+fn is_unit_type(ty: &syn::Type) -> bool {
+    matches!(ty, syn::Type::Tuple(t) if t.elems.is_empty())
+}
+
 /// Generates code that encodes the return value `__ret` and passes it to `wrevive_api::env().return_value`.
-/// 支持 ()、T、Result<T,E>、Option<T>；统一为：编码一次，按类型决定 flags（仅 Result 的 Err 为 REVERT），再统一 return_value。
-fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
+/// 支持 ()、T、Result<T,E>、Option<T>；codec 用 Encode；sol 时 Result 只编码 Ok 值，Err 时 REVERT。
+fn return_encode(ret_ty: &ReturnType, encoding: EncodingMode) -> TokenStream2 {
     match ret_ty {
         ReturnType::Default => quote! {
             wrevive_api::env().return_value(ReturnFlags::empty(), &[]);
@@ -513,10 +592,44 @@ fn return_encode(ret_ty: &ReturnType) -> TokenStream2 {
             } else {
                 quote! { wrevive_api::ReturnFlags::empty() }
             };
-            quote! {
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = #flags_expr;
-                wrevive_api::env().return_value(__flags, &__encoded);
+            match encoding {
+                EncodingMode::Codec => quote! {
+                    let __encoded = wrevive_api::Encode::encode(&__ret);
+                    let __flags = #flags_expr;
+                    wrevive_api::env().return_value(__flags, &__encoded);
+                },
+                EncodingMode::Sol => {
+                    // Result<T,E> 在 sol 下不整体 SolEncode，而是 Ok 时只编码 T，Err 时 REVERT（与 pvm 风格一致）
+                    if is_result {
+                        let inner_ty = unwrap_result_or_option(ty).map(|(t, _)| t).unwrap_or(ty);
+                        let ok_encode = if is_unit_type(inner_ty) {
+                            quote! {
+                                wrevive_api::env().return_value(wrevive_api::ReturnFlags::empty(), &[]);
+                            }
+                        } else {
+                            quote! {
+                                let __len = pvm_contract_types::SolEncode::encode_len(ok_val);
+                                let mut __buf = alloc::vec![0u8; __len];
+                                pvm_contract_types::SolEncode::encode_to(ok_val, &mut __buf);
+                                wrevive_api::env().return_value(wrevive_api::ReturnFlags::empty(), &__buf);
+                            }
+                        };
+                        quote! {
+                            match &__ret {
+                                Ok(ok_val) => { #ok_encode }
+                                Err(_) => wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]),
+                            }
+                        }
+                    } else {
+                        quote! {
+                            let __len = pvm_contract_types::SolEncode::encode_len(&__ret);
+                            let mut __buf = alloc::vec![0u8; __len];
+                            pvm_contract_types::SolEncode::encode_to(&__ret, &mut __buf);
+                            let __flags = #flags_expr;
+                            wrevive_api::env().return_value(__flags, &__buf);
+                        }
+                    }
+                }
             }
         }
     }
@@ -556,7 +669,10 @@ fn bin_name_from_manifest() -> Option<String> {
 /// 2. 在 crate 根生成 `deploy()` 和 `call()` 两个 `extern "C"` 函数；
 /// 3. 编译时把 ABI 写入 target/contract/{name}.json（name 取自 [[bin]] 或 CONTRACT_NAME）。
 #[proc_macro_attribute]
-pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn revive_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // 解析 encoding = "codec" | "sol"，默认 codec
+    let encoding_mode = parse_encoding_from_contract_attr(&attr);
+
     // ABI 名：CARGO_BIN_NAME（编 binary 时）-> CONTRACT_NAME -> Cargo.toml 首个 [[bin]] name -> "contract"
     let contract_name = env::var("CARGO_BIN_NAME")
         .or_else(|_| env::var("CONTRACT_NAME"))
@@ -599,10 +715,10 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    // Classify: exactly one constructor, messages with selectors, other items (kept as-is)
-    // 分类：构造函数（恰好一个）、带 selector 的 message、其他项（原样保留）
-    let mut constructor_fn: Option<ItemFn> = None;
-    let mut message_fns: Vec<(ItemFn, [u8; 4])> = Vec::new();
+    // Classify: exactly one constructor (with per-fn encoding), messages with selectors and per-fn encoding
+    // 分类：构造函数（带各自 encoding）、message（带 selector 与各自 encoding）
+    let mut constructor_fn: Option<(ItemFn, EncodingMode)> = None;
+    let mut message_fns: Vec<(ItemFn, [u8; 4], EncodingMode)> = Vec::new();
     let mut other_items: Vec<Item> = Vec::new();
 
     for item in std::mem::take(mod_content) {
@@ -611,14 +727,16 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 let is_constructor = is_revive_constructor(&f.attrs);
                 let selector = parse_selector_from_attrs(&f.attrs);
                 if is_constructor {
+                    let enc = parse_encoding_from_fn_attrs(&f.attrs, encoding_mode);
                     f.attrs = strip_revive_attrs(&f.attrs);
-                    constructor_fn = Some(f);
+                    constructor_fn = Some((f, enc));
                 } else if is_revive_message(&f.attrs) {
+                    let enc = parse_encoding_from_fn_attrs(&f.attrs, encoding_mode);
                     let sel = selector.unwrap_or_else(|| {
                         selector_from_name(&f.sig.ident.to_string())
                     });
                     f.attrs = strip_revive_attrs(&f.attrs);
-                    message_fns.push((f, sel));
+                    message_fns.push((f, sel, enc));
                 } else {
                     other_items.push(Item::Fn(f));
                 }
@@ -627,8 +745,8 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    let constructor_fn = match constructor_fn {
-        Some(f) => f,
+    let (constructor_fn, constructor_encoding) = match constructor_fn {
+        Some((f, enc)) => (f, enc),
         None => {
             return syn::Error::new_spanned(&module, "exactly one #[revive(constructor)] function required / 需要恰好一个 #[revive(constructor)] 函数")
                 .to_compile_error()
@@ -638,14 +756,11 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let constructor_name = constructor_fn.sig.ident.clone();
 
     // Emit ABI to target/{contract_name}.json
-    emit_abi(
-        &contract_name,
-        &constructor_fn,
-        &message_fns,
-    );
+    let message_fns_abi: Vec<(ItemFn, [u8; 4])> = message_fns.iter().map(|(f, sel, _)| (f.clone(), *sel)).collect();
+    emit_abi(&contract_name, &constructor_fn, &message_fns_abi);
 
-    // Constructor parameter parsing: same as message — SCALE-decode from call data (no selector for deploy).
-    // 构造函数参数解析：与 message 一致，从 call data 按 SCALE 解码（deploy 无 selector，整段即参数）。
+    // Constructor parameter parsing: codec = SCALE-decode; sol = SolDecode::decode_at with running offset.
+    // 构造函数参数解析：codec 用 SCALE 解码，sol 用 SolDecode::decode_at 与偏移。
     let mut constructor_input_vars: Vec<(syn::Ident, TokenStream2)> = Vec::new();
     let mut constructor_call_exprs = Vec::new();
     for arg in &constructor_fn.sig.inputs {
@@ -663,20 +778,7 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let constructor_parse: TokenStream2 = if constructor_input_vars.is_empty() {
         quote! {}
     } else {
-        let mut scale_stmts = Vec::new();
-        let scale_input = quote! { __scale_input };
-        for (name, type_tt) in &constructor_input_vars {
-            scale_stmts.push(quote! {
-                let #name: #type_tt = match <#type_tt as wrevive_api::Decode>::decode(&mut #scale_input) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-            });
-        }
-        quote! {
+        let input_setup = quote! {
             let __input_len = wrevive_api::env().call_data_size().min(1024) as usize;
             let __input_vec = if __input_len > 0 {
                 wrevive_api::env().call_data_copy(0, __input_len)
@@ -688,31 +790,73 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 empty
             };
             let __input: &[u8] = &__input_vec;
-            let mut __scale_input = __input;
-            #(#scale_stmts)*
-        }
-    };
-
-    // deploy() 体：解析构造函数参数（若有）、调用构造函数、按 Result 编码返回或 REVERT。
-    let deploy_body: TokenStream2 = match &constructor_fn.sig.output {
-        ReturnType::Type(_, ty) if unwrap_result_or_option(ty).map(|(_, r)| r).unwrap_or(false) => {
-            quote! {
-                #constructor_parse
-                let __ret = #mod_name::#constructor_name(#(#constructor_call_exprs),*);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                if let Err(_) = &__ret {
-                    wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &__encoded);
-                } else {
-                    wrevive_api::env().return_value(wrevive_api::ReturnFlags::empty(), &__encoded);
+        };
+        match constructor_encoding {
+            EncodingMode::Codec => {
+                let mut scale_stmts = Vec::new();
+                let scale_input = quote! { __scale_input };
+                for (name, type_tt) in &constructor_input_vars {
+                    scale_stmts.push(quote! {
+                        let #name: #type_tt = match <#type_tt as wrevive_api::Decode>::decode(&mut #scale_input) {
+                            Ok(val) => val,
+                            Err(_) => {
+                                wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                                return;
+                            }
+                        };
+                    });
+                }
+                quote! {
+                    #input_setup
+                    let mut __scale_input = __input;
+                    #(#scale_stmts)*
+                }
+            }
+            EncodingMode::Sol => {
+                let mut sol_stmts = Vec::new();
+                for (name, type_tt) in &constructor_input_vars {
+                    sol_stmts.push(quote! {
+                        let #name: #type_tt = <#type_tt as pvm_contract_types::SolDecode>::decode_at(__input, __sol_off);
+                        __sol_off += pvm_contract_types::SolEncode::encode_len(&#name);
+                    });
+                }
+                quote! {
+                    #input_setup
+                    let mut __sol_off: usize = 0;
+                    #(#sol_stmts)*
                 }
             }
         }
-        _ => quote! {
-            #constructor_parse
-            let __ret = #mod_name::#constructor_name(#(#constructor_call_exprs),*);
-            let __encoded = wrevive_api::Encode::encode(&__ret);
-            wrevive_api::env().return_value(wrevive_api::ReturnFlags::empty(), &__encoded);
-        },
+    };
+
+    // deploy() 体：解析构造函数参数、调用构造函数、按 encoding 编码返回。
+    let constructor_return_encode = match &constructor_fn.sig.output {
+        ReturnType::Default => quote! { wrevive_api::env().return_value(wrevive_api::ReturnFlags::empty(), &[]); },
+        ReturnType::Type(_, ty) => {
+            let is_result = unwrap_result_or_option(ty).map(|(_, r)| r).unwrap_or(false);
+            let flags = if is_result {
+                quote! { if let Err(_) = &__ret { wrevive_api::ReturnFlags::REVERT } else { wrevive_api::ReturnFlags::empty() } }
+            } else {
+                quote! { wrevive_api::ReturnFlags::empty() }
+            };
+            match constructor_encoding {
+                EncodingMode::Codec => quote! {
+                    let __encoded = wrevive_api::Encode::encode(&__ret);
+                    wrevive_api::env().return_value(#flags, &__encoded);
+                },
+                EncodingMode::Sol => quote! {
+                    let __len = pvm_contract_types::SolEncode::encode_len(&__ret);
+                    let mut __buf = alloc::vec![0u8; __len];
+                    pvm_contract_types::SolEncode::encode_to(&__ret, &mut __buf);
+                    wrevive_api::env().return_value(#flags, &__buf);
+                },
+            }
+        }
+    };
+    let deploy_body: TokenStream2 = quote! {
+        #constructor_parse
+        let __ret = #mod_name::#constructor_name(#(#constructor_call_exprs),*);
+        #constructor_return_encode
     };
     let deploy_fn: Item = syn::parse2(quote! {
         #[polkavm_derive::polkavm_export]
@@ -726,16 +870,16 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Put constructor, messages, and other items back into the mod (deploy/call are emitted outside)
     // 把用户的 constructor、message、其他项重新放回 mod（deploy/call 生成在 mod 外）
     mod_content.push(Item::Fn(constructor_fn));
-    for (f, _) in &message_fns {
+    for (f, _, _) in &message_fns {
         mod_content.push(Item::Fn(f.clone()));
     }
     mod_content.extend(other_items);
 
-    // Build match arms for call(): decode __input[4..] as SCALE stream, one decode per parameter.
-    // 为 call() 生成 match 分支：从 __input[4..] 按 SCALE 流依次解码每个参数。
+    // Build match arms for call(): decode __input[4..] by each message's encoding (codec or sol).
+    // 为 call() 生成 match 分支：每个 message 按自己的 encoding 解码与编码。
     let match_arms: Vec<TokenStream2> = message_fns
         .iter()
-        .map(|(f, sel)| {
+        .map(|(f, sel, fn_enc)| {
             let fn_name = &f.sig.ident;
             let sig = &f.sig;
             let min_len: usize = 4; // selector 占 4 字节 / selector is 4 bytes
@@ -753,31 +897,47 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 input_vars.push((name.clone(), type_tt));
                 call_exprs.push(quote! { #name });
             }
-            
-            // 统一使用 SCALE 解码（测试和正式环境一致）
+
             let input_parse = if input_vars.is_empty() {
                 quote! {}
             } else {
-                let mut scale_stmts = Vec::new();
-                let scale_input = quote! { __scale_input };
-                for (name, type_tt) in &input_vars {
-                    scale_stmts.push(quote! {
-                        let #name: #type_tt = match <#type_tt as wrevive_api::Decode>::decode(&mut #scale_input) {
-                            Ok(val) => val,
-                            Err(_) => {
-                                wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                                return;
-                            }
-                        };
-                    });
-                }
-                quote! {
-                    let mut __scale_input = &__input[4..];
-                    #(#scale_stmts)*
+                match fn_enc {
+                    EncodingMode::Codec => {
+                        let mut scale_stmts = Vec::new();
+                        let scale_input = quote! { __scale_input };
+                        for (name, type_tt) in &input_vars {
+                            scale_stmts.push(quote! {
+                                let #name: #type_tt = match <#type_tt as wrevive_api::Decode>::decode(&mut #scale_input) {
+                                    Ok(val) => val,
+                                    Err(_) => {
+                                        wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                                        return;
+                                    }
+                                };
+                            });
+                        }
+                        quote! {
+                            let mut __scale_input = &__input[4..];
+                            #(#scale_stmts)*
+                        }
+                    }
+                    EncodingMode::Sol => {
+                        let mut sol_stmts = Vec::new();
+                        for (name, type_tt) in &input_vars {
+                            sol_stmts.push(quote! {
+                                let #name: #type_tt = <#type_tt as pvm_contract_types::SolDecode>::decode_at(&__input[4..], __sol_off);
+                                __sol_off += pvm_contract_types::SolEncode::encode_len(&#name);
+                            });
+                        }
+                        quote! {
+                            let mut __sol_off: usize = 0;
+                            #(#sol_stmts)*
+                        }
+                    }
                 }
             };
             let ret_ty = &sig.output;
-            let encode_and_return = return_encode(ret_ty);
+            let encode_and_return = return_encode(ret_ty, *fn_enc);
             let sel_u32 = u32::from_be_bytes(*sel);
             quote! {
                 #sel_u32 => {
@@ -823,17 +983,21 @@ pub fn revive_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
     })
     .unwrap();
 
-    // 在 crate 根自动添加必要的导入（SCALE 编码/解码）
-    // Automatically add necessary imports at crate root (for SCALE encode/decode)
-    let use_scale_codec: Item = syn::parse2(quote! {
-        use wrevive_api::Decode;
-    })
-    .unwrap();
+    // 在 crate 根自动添加必要的导入：有任一 codec 则 use Decode，有任一 sol 则 use SolDecode/SolEncode（合约需依赖 pvm-contract-types）
+    let any_sol = constructor_encoding == EncodingMode::Sol || message_fns.iter().any(|(_, _, enc)| *enc == EncodingMode::Sol);
+    let use_encoding: TokenStream2 = if any_sol {
+        quote! {
+            use wrevive_api::Decode;
+            use pvm_contract_types::{SolDecode, SolEncode};
+        }
+    } else {
+        quote! { use wrevive_api::Decode; }
+    };
 
     // Expansion: imports + original mod + deploy() + call()
     // 展开结果：导入 + 原 mod + deploy() + call()
     quote! {
-        #use_scale_codec
+        #use_encoding
 
         #module
 
