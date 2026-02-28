@@ -1,11 +1,11 @@
 [package]
-name = "wrevive-codec-contract"
+name = "wrevive-contract"
 version = "0.1.0"
 edition = "2024"
 description = "示例合约：value/owner 存储与 message，供 PolkaVM 部署"
 
 [[bin]]
-name = "wrevive-codec"
+name = "wrevive-example"
 path = "src/contract.rs"
 
 [dependencies]

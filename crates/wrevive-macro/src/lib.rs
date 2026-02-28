@@ -354,6 +354,7 @@ fn type_to_abi(ty: &syn::Type) -> Option<(String, Option<u32>)> {
                 "u8" | "u16" | "u32" | "u64" | "u128"
                 | "i8" | "i16" | "i32" | "i64" | "i128"
                 | "bool" => return Some((name, None)),
+                "Address" => return Some(("Address".into(), Some(20))),
                 _ => {}
             }
         }
@@ -433,8 +434,15 @@ fn emit_abi(
             manifest_path.join("target").to_string_lossy().into_owned()
         }
     });
-    // ABI 写入 target/contract/{contract_name}.json（与文档一致）
-    let contract_dir = Path::new(&target_dir).join("contract");
+    // 当 cargo wrevive build 时 CARGO_TARGET_DIR 为 .../pvmbuild，ABI 写到 workspace target/contract/ 便于查找
+    let contract_dir = {
+        let p = Path::new(&target_dir);
+        if p.file_name().map(|n| n == "pvmbuild").unwrap_or(false) {
+            p.parent().map(|parent| parent.join("contract")).unwrap_or_else(|| p.join("contract"))
+        } else {
+            p.join("contract")
+        }
+    };
     if fs::create_dir_all(&contract_dir).is_err() {
         return;
     }
@@ -519,6 +527,80 @@ fn emit_abi(
         messages.push(msg);
     }
 
+    // -------------------------------------------------------------------------
+    // interface: 扁平格式，供 JS/Go 等直接解析所有参数与返回值类型
+    // 格式: { contract, constructor: { name, selector, args: [{name, type, length?}], returnType }, messages: [...] }
+    // 类型统一为字符串: u8,u16,u32,u64,u128, i8..i128, bool, Address, Option<T>, Result<T,E>, Vec<T>, ScaleBytes 等
+    // -------------------------------------------------------------------------
+    let constructor_args_flat: Vec<serde_json::Value> = constructor_fn
+        .sig
+        .inputs
+        .iter()
+        .filter_map(|arg| {
+            let FnArg::Typed(pt) = arg else { return None };
+            let name = pt.pat.as_ref();
+            let syn::Pat::Ident(pi) = name else { return None };
+            let arg_name = pi.ident.to_string();
+            let (ty_name, len) = type_to_abi(pt.ty.as_ref())?;
+            let mut obj = serde_json::json!({ "name": arg_name, "type": ty_name });
+            if let Some(l) = len {
+                obj["length"] = serde_json::json!(l);
+            }
+            Some(obj)
+        })
+        .collect();
+    let constructor_return_str: serde_json::Value = match &constructor_fn.sig.output {
+        ReturnType::Default => serde_json::Value::Null,
+        ReturnType::Type(_, ty) => type_to_abi(ty)
+            .map(|(name, _)| serde_json::json!(name))
+            .unwrap_or(serde_json::Value::Null),
+    };
+    let constructor_interface = serde_json::json!({
+        "name": constructor_fn.sig.ident.to_string(),
+        "selector": "0x00000000",
+        "args": constructor_args_flat,
+        "returnType": constructor_return_str
+    });
+
+    let messages_interface: Vec<serde_json::Value> = message_fns
+        .iter()
+        .map(|(f, sel)| {
+            let args_flat: Vec<serde_json::Value> = f
+                .sig
+                .inputs
+                .iter()
+                .filter_map(|arg| {
+                    let FnArg::Typed(pt) = arg else { return None };
+                    let syn::Pat::Ident(pi) = pt.pat.as_ref() else { return None };
+                    let (ty_name, len) = type_to_abi(pt.ty.as_ref())?;
+                    let mut obj = serde_json::json!({ "name": pi.ident.to_string(), "type": ty_name });
+                    if let Some(l) = len {
+                        obj["length"] = serde_json::json!(l);
+                    }
+                    Some(obj)
+                })
+                .collect();
+            let return_str = match &f.sig.output {
+                ReturnType::Default => serde_json::Value::Null,
+                ReturnType::Type(_, ty) => type_to_abi(ty)
+                    .map(|(name, _)| serde_json::json!(name))
+                    .unwrap_or(serde_json::Value::Null),
+            };
+            serde_json::json!({
+                "name": f.sig.ident.to_string(),
+                "selector": selector_hex(*sel),
+                "args": args_flat,
+                "returnType": return_str
+            })
+        })
+        .collect();
+
+    let interface = serde_json::json!({
+        "contract": contract_name,
+        "constructor": constructor_interface,
+        "messages": messages_interface
+    });
+
     let abi = serde_json::json!({
         "metadataVersion": "0.1",
         "contract": {
@@ -529,7 +611,8 @@ fn emit_abi(
             "messages": messages,
             "events": [],
             "docs": []
-        }
+        },
+        "interface": interface
     });
 
     let json_str = serde_json::to_string_pretty(&abi).unwrap_or_default();

@@ -4,7 +4,7 @@ members = [
     "crates/wrevive-macro",
     "crates/wrevive-api",
     "examples/wrevive-sol-contract",
-    "examples/wrevive-codec-contract",
+    "examples/wrevive-contract",
 ]
 resolver = "2"
 
