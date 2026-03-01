@@ -54,10 +54,7 @@ mod contract {
     /// Constructor: set caller as owner and init VALUE to the given initial_value.
     /// 构造函数：设置调用者为 owner，VALUE 初始为 initial_value。
     #[revive(constructor)]
-    pub fn deploy(initial_value: u32) -> Result<(), Error> {
-        let caller = env().caller();
-        OWNER.set(env(), &caller);
-        VALUE.set(env(), &initial_value);
+    pub fn deploy() -> Result<(), Error> {
         Ok(())
     }
 
