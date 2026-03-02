@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 #[global_allocator]
 static ALLOC: pvm_bump_allocator::BumpAllocator<1024> = pvm_bump_allocator::BumpAllocator::new();
 
-use wrevive_api::{env, Address, Encode, List, List2D, Mapping, ReturnFlags, Storage};
+use wrevive_api::{Address, Encode, List, List2D, Mapping, ReturnFlags, Storage, env};
 use wrevive_macro::{list, list_2d, mapping, revive_contract, storage};
 
 #[revive_contract]
@@ -49,6 +49,7 @@ mod contract {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
     pub enum Error {
         InsufficientBalance,
+        Unauthorized,
     }
 
     /// Constructor: set caller as owner and init VALUE to the given initial_value.
@@ -58,8 +59,15 @@ mod contract {
         Ok(())
     }
 
-    #[revive(message, sol)]
+    #[revive(message)]
     pub fn set_value(value: u32) -> Result<(), Error> {
+        VALUE.set(env(), &value);
+        env().deposit_event(EMPTY_TOPICS, &value.to_le_bytes().as_slice());
+        Ok(())
+    }
+
+    #[revive(message, sol)]
+    pub fn set_value_sol(value: u32) -> Result<(), Error> {
         VALUE.set(env(), &value);
         env().deposit_event(EMPTY_TOPICS, &value.to_le_bytes().as_slice());
         Ok(())
@@ -73,14 +81,14 @@ mod contract {
     /// Set owner; only current owner may call (else revert).
     /// 设置 owner；仅当前 owner 可调用，否则 revert。
     #[revive(message)]
-    pub fn set_owner(new_owner: Address, _v: u32) {
+    pub fn set_owner(new_owner: Address, _v: u32) -> Result<(), Error> {
         let caller = env().caller();
         let current_owner = get_owner();
         if caller != current_owner {
-            env().return_value(ReturnFlags::REVERT, &[]);
-        } else {
-            OWNER.set(env(), &new_owner);
+            return Err(Error::Unauthorized);
         }
+        OWNER.set(env(), &new_owner);
+        Ok(())
     }
 
     #[revive(message)]
@@ -90,8 +98,9 @@ mod contract {
 
     /// 设置用户余额（使用 Mapping）
     #[revive(message)]
-    pub fn set_balance(user: Address, balance: u64) {
+    pub fn set_balance(user: Address, balance: u64) -> Result<(), Error> {
         BALANCE_MAPPING.set(env(), &user, &balance);
+        Ok(())
     }
 
     /// 获取用户余额（使用 Mapping）
@@ -102,35 +111,39 @@ mod contract {
 
     /// 设置用户信息（key = (user, info_type)）
     #[revive(message)]
-    pub fn set_user_info(user: Address, info_type: u8, value: u32) {
+    pub fn set_user_info(user: Address, info_type: u8, value: u32) -> Result<(), Error> {
         USER_INFO_MAPPING.set(env(), &(user, info_type), &value);
+        Ok(())
     }
 
     /// 获取用户信息
     #[revive(message)]
     pub fn get_user_info(user: Address, info_type: u8) -> u32 {
-        USER_INFO_MAPPING.get(env(), &(user, info_type)).unwrap_or(0)
+        USER_INFO_MAPPING
+            .get(env(), &(user, info_type))
+            .unwrap_or(0)
     }
 
     /// Transfer balance from one account to another. Only the sender (`from`) may call (else revert).
     /// Reverts if `from` has insufficient balance. Self-transfer (from == to) is a no-op.
     /// 转账：仅 from 可发起；余额不足时 revert；from == to 时不操作。
     #[revive(message)]
-    pub fn transfer_balance(from: Address, to: Address, amount: u64) {
+    pub fn transfer_balance(from: Address, to: Address, amount: u64) -> Result<(), Error> {
         let caller = env().caller();
         if caller != from {
-            env().return_value(ReturnFlags::REVERT, &[]);
+            return Err(Error::Unauthorized);
         }
         if from == to || amount == 0 {
-            return;
+            return Ok(());
         }
         let from_balance = BALANCE_MAPPING.get(env(), &from).unwrap_or(0);
         if from_balance < amount {
-            env().return_value(ReturnFlags::REVERT, &[]);
+            return Err(Error::InsufficientBalance);
         }
         let to_balance = BALANCE_MAPPING.get(env(), &to).unwrap_or(0);
         BALANCE_MAPPING.set(env(), &from, &(from_balance - amount));
         BALANCE_MAPPING.set(env(), &to, &(to_balance + amount));
+        Ok(())
     }
 
     // ======================== List 示例 ========================
@@ -188,4 +201,3 @@ mod contract {
 
 #[cfg(test)]
 mod tests;
-

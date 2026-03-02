@@ -2,11 +2,11 @@ package contracts
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
 	"os"
 	"testing"
+	"wetee/test/wrevive_example"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	chain "github.com/wetee-dao/ink.go"
@@ -32,68 +32,50 @@ func TestDeployContract(t *testing.T) {
 		panic(err)
 	}
 
+	// upload pod code
+	codeHash, err := client.UploadInkCode(podData, &pk)
+	if err != nil {
+		util.LogWithPurple("UploadInkCode", err)
+		panic(err)
+	}
+
 	// fmt.Println("podCode", podCode)
 	salt := genSalt()
-	address, err := client.DeployContract(
-		util.InkCode{Upload: &podData},
-		&pk, types.NewU128(*big.NewInt(0)),
-		util.InkContractInput{
-			Selector: "0x00000000",
-			Args:     []any{},
-		},
-		util.NewSome(salt),
-	)
-
+	address, err := wrevive_example.DeployWreviveExampleWithDeploy(chain.DeployParams{
+		Client: client,
+		Signer: &pk,
+		Code:   util.InkCode{Existing: codeHash},
+		Salt:   util.NewSome(salt),
+	})
 	if err != nil {
-		util.LogWithPurple("DeployContract", err)
+		util.LogWithPurple("DeployWreviveExampleWithDeploy", err)
 		panic(err)
 	}
 	fmt.Println("address", address.Hex())
 
-	value, _, err := QueryFunction(*address, client, chain.DefaultParamWithOrigin(pk.AccountID()))
+	contract, err := wrevive_example.InitWreviveExampleContract(client, address.Hex())
 	if err != nil {
-		util.LogWithPurple("QueryFunction", err)
+		util.LogWithPurple("InitWreviveExampleContract", err)
 		panic(err)
 	}
-	fmt.Println("value", value)
-}
+	fmt.Println("contract", contract)
 
-type Contract struct {
-	ChainClient *chain.ChainClient
-	Address     types.H160
-}
-
-func (c *Contract) Client() *chain.ChainClient {
-	return c.ChainClient
-}
-
-func (c *Contract) ContractAddress() types.H160 {
-	return c.Address
-}
-
-func QueryFunction(
-	address types.H160,
-	client *chain.ChainClient,
-	__ink_params chain.DryRunParams,
-) (*uint32, *chain.DryRunReturnGas, error) {
-	v, gas, err := chain.DryRunInk[uint32](
-		&Contract{
-			ChainClient: client,
-			Address:     address,
-		},
-		__ink_params.Origin,
-		__ink_params.PayAmount,
-		__ink_params.GasLimit,
-		__ink_params.StorageDepositLimit,
-		util.InkContractInput{
-			Selector: "0xfac42ee4",
-			Args:     []any{},
-		},
-	)
-	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
-		return nil, nil, err
+	err = contract.ExecSetValue(100, chain.ExecParams{
+		Signer:    &pk,
+		PayAmount: types.NewU128(*big.NewInt(0)),
+	})
+	if err != nil {
+		util.LogWithPurple("ExecSetValue", err)
+		panic(err)
 	}
-	return v, gas, nil
+
+	value, _, err := contract.QueryGetValue(chain.DefaultParamWithOrigin(pk.AccountID()))
+	if err != nil {
+		util.LogWithPurple("QueryGetValue", err)
+		panic(err)
+	}
+	fmt.Println("value", *value)
+
 }
 
 func genSalt() [32]byte {
