@@ -1,6 +1,5 @@
 //! ink! 风格 ABI JSON 生成与写入 target/contract/{name}.json。
 
-use crate::type_abi;
 use crate::type_reg::TypeReg;
 use std::env;
 use std::fs;
@@ -132,19 +131,19 @@ pub fn fn_mutates_state(f: &ItemFn) -> bool {
     block_contains_mutating_call(&f.block)
 }
 
-/// 根据合约名、构造函数与 message 列表生成 ink! 风格 ABI JSON，写入 target/contract/{name}.json。
+/// 根据合约名、构造函数与 message 列表生成 ink! 风格 ABI JSON。
+/// 输出路径：以当前项目根或 workspace 根为基准，写入 `target/contract/{name}.json`。
+/// 返回 `Ok(())` 表示成功，`Err(msg)` 表示失败（调用方负责打印结果）。
 pub fn emit_abi(
     contract_name: &str,
     constructor_fn: &ItemFn,
     message_fns: &[(ItemFn, [u8; 4])],
-) {
+) -> Result<(), String> {
     if env::var("CARGO_BIN_NAME").is_err() {
-        return;
+        return Ok(());
     }
-    let manifest_dir = match env::var("CARGO_MANIFEST_DIR") {
-        Ok(d) => d,
-        Err(_) => return,
-    };
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR")
+        .map_err(|_| "CARGO_MANIFEST_DIR 未设置".to_string())?;
     let manifest_path = Path::new(&manifest_dir);
     let manifest_abs = if manifest_path.is_absolute() {
         manifest_path.to_path_buf()
@@ -174,39 +173,13 @@ pub fn emit_abi(
         None
     }
 
-    let target_dir = env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| {
-        if let Some(workspace_root) = find_workspace_root(&manifest_abs) {
-            workspace_root.join("target").to_string_lossy().into_owned()
-        } else {
-            manifest_abs.join("target").to_string_lossy().into_owned()
-        }
-    });
-    let contract_dir = {
-        let p = Path::new(&target_dir);
-        if p.file_name().map(|n| n == "pvmbuild").unwrap_or(false) {
-            p.parent()
-                .map(|parent| parent.join("contract"))
-                .unwrap_or_else(|| p.join("contract"))
-        } else {
-            p.join("contract")
-        }
-    };
-    let out_path = contract_dir.join(format!("{}.json", contract_name));
-    let fallback_contract_dir = manifest_abs.join("target").join("contract");
-    let fallback_out_path = fallback_contract_dir.join(format!("{}.json", contract_name));
-
-    if fs::create_dir_all(&contract_dir).is_err() {
-        eprintln!(
-            "wrevive-macro: failed to create ABI dir {}",
-            contract_dir.display()
-        );
-    }
-    if fs::create_dir_all(&fallback_contract_dir).is_err() {
-        eprintln!(
-            "wrevive-macro: failed to create fallback ABI dir {}",
-            fallback_contract_dir.display()
-        );
-    }
+    // 基准目录：优先 workspace 根，否则当前项目（包）根
+    let base_dir = find_workspace_root(&manifest_abs).unwrap_or(manifest_abs);
+    let out_dir = base_dir.join("target");
+    fs::create_dir_all(&out_dir).map_err(|e| {
+        format!("创建目录 {} 失败: {}", out_dir.display(), e)
+    })?;
+    let out_path = out_dir.join(format!("{}.json", contract_name));
 
     let mut reg = TypeReg::new();
 
@@ -327,64 +300,7 @@ pub fn emit_abi(
     });
 
     let types_array: Vec<serde_json::Value> = reg.types_array().to_vec();
-
-    let constructor_args_flat: Vec<serde_json::Value> = constructor_fn
-        .sig
-        .inputs
-        .iter()
-        .filter_map(|arg| {
-            let FnArg::Typed(pt) = arg else { return None };
-            let Pat::Ident(pi) = pt.pat.as_ref() else { return None };
-            let (ty_name, _) = type_abi::type_to_abi(pt.ty.as_ref())?;
-            Some(serde_json::json!({ "name": pi.ident.to_string(), "type": ty_name }))
-        })
-        .collect();
-    let constructor_return_str: serde_json::Value = match &constructor_fn.sig.output {
-        ReturnType::Default => serde_json::Value::Null,
-        ReturnType::Type(_, ty) => type_abi::type_to_abi(ty)
-            .map(|(name, _)| serde_json::json!(name))
-            .unwrap_or(serde_json::Value::Null),
-    };
-    let constructor_interface = serde_json::json!({
-        "name": constructor_fn.sig.ident.to_string(),
-        "selector": "0x00000000",
-        "args": constructor_args_flat,
-        "returnType": constructor_return_str
-    });
-    let messages_interface: Vec<serde_json::Value> = message_fns
-        .iter()
-        .map(|(f, sel)| {
-            let args_flat: Vec<serde_json::Value> = f
-                .sig
-                .inputs
-                .iter()
-                .filter_map(|arg| {
-                    let FnArg::Typed(pt) = arg else { return None };
-                    let Pat::Ident(pi) = pt.pat.as_ref() else { return None };
-                    let (ty_name, _) = type_abi::type_to_abi(pt.ty.as_ref())?;
-                    Some(serde_json::json!({ "name": pi.ident.to_string(), "type": ty_name }))
-                })
-                .collect();
-            let return_str = match &f.sig.output {
-                ReturnType::Default => serde_json::Value::Null,
-                ReturnType::Type(_, ty) => type_abi::type_to_abi(ty)
-                    .map(|(name, _)| serde_json::json!(name))
-                    .unwrap_or(serde_json::Value::Null),
-            };
-            serde_json::json!({
-                "name": f.sig.ident.to_string(),
-                "selector": selector_hex(*sel),
-                "args": args_flat,
-                "returnType": return_str
-            })
-        })
-        .collect();
     let name_go = contract_name_go_safe(contract_name);
-    let interface = serde_json::json!({
-        "contract": name_go,
-        "constructor": constructor_interface,
-        "messages": messages_interface
-    });
 
     let spec_obj = serde_json::json!({
         "constructors": constructors,
@@ -395,36 +311,27 @@ pub fn emit_abi(
         "environment": environment
     });
     let abi = serde_json::json!({
-        "contract": {
-            "name": name_go,
-            "version": "0.1.0"
-        },
-        "spec": spec_obj,
-        "types": types_array,
-        "version": 6,
         "source": {
             "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
             "language": "wrevive",
             "compiler": "rustc"
         },
+        "contract": {
+            "name": name_go,
+            "version": "0.1.0"
+        },
         "image": null,
+        "spec": spec_obj,
         "storage": null,
-        "interface": interface
+        "types": types_array,
+        "version": 6
     });
 
-    let json_str = serde_json::to_string_pretty(&abi).unwrap_or_default();
-    let ok_primary = fs::write(&out_path, &json_str).is_ok();
-    let ok_fallback = fs::write(&fallback_out_path, &json_str).is_ok();
-    if !ok_primary && !ok_fallback {
-        eprintln!(
-            "wrevive-macro: failed to write ABI (tried {} and {})",
-            out_path.display(),
-            fallback_out_path.display()
-        );
-    } else if !ok_primary {
-        eprintln!(
-            "wrevive-macro: ABI written to fallback only: {}",
-            fallback_out_path.display()
-        );
-    }
+    let json_str = serde_json::to_string_pretty(&abi).map_err(|e| {
+        format!("序列化 ABI JSON 失败: {}", e)
+    })?;
+    fs::write(&out_path, &json_str).map_err(|e| {
+        format!("写入 ABI 文件失败 {}: {}", out_path.display(), e)
+    })?;
+    Ok(())
 }

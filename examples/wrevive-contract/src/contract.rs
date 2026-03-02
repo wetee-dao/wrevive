@@ -66,6 +66,7 @@ mod contract {
         Ok(())
     }
 
+    /// Set value; only current owner may call (else revert). for solidity.
     #[revive(message, sol)]
     pub fn set_value_sol(value: u32) -> Result<(), Error> {
         VALUE.set(env(), &value);
@@ -73,8 +74,9 @@ mod contract {
         Ok(())
     }
 
-    #[revive(message)]
-    pub fn get_value() -> u32 {
+    /// Get value; only current owner may call (else revert). for solidity.
+    #[revive(message, sol)]
+    pub fn get_value_sol() -> u32 {
         VALUE.get(env()).unwrap_or(0)
     }
 
