@@ -266,7 +266,7 @@ pub fn gen_interface_module(
 
     quote! {
         /// 合约间调用接口：selector 常量、encode_*、call_raw、call_*、constructor 的 encode_* / instantiate_*。
-        pub mod interface {
+        pub mod api {
             use super::*;
             use wrevive_api::{Address, Decode, Encode, ReturnErrorCode};
 
