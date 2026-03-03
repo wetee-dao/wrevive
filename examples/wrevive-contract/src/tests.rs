@@ -80,8 +80,9 @@ fn deposit_event_on_set_value() {
 
     off_chain::with_engine(|e| {
         let events = e.take_events();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].1, 123u32.to_le_bytes());
+        // deploy + set_value 都会触发事件，这里检查最后一条事件的 payload 是否为 123
+        let last = events.last().expect("at least one event");
+        assert_eq!(last.1, 123u32.to_le_bytes());
     });
 }
 
@@ -97,11 +98,11 @@ fn mapping_balance_works() {
     let _ = contract::deploy(0);
 
     // 设置 Alice 的余额
-    contract::set_balance(alice, 1000);
+    let _ = contract::set_balance(alice, 1000);
     assert_eq!(contract::get_balance(alice), 1000);
 
     // 设置 Bob 的余额
-    contract::set_balance(bob, 500);
+    let _ = contract::set_balance(bob, 500);
     assert_eq!(contract::get_balance(bob), 500);
 
     // 初始余额为 0
@@ -120,15 +121,15 @@ fn mapping_user_info_works() {
     let _ = contract::deploy(0);
 
     // 设置用户信息
-    contract::set_user_info(alice, 0, 25);
+    let _ = contract::set_user_info(alice, 0, 25);
     assert_eq!(contract::get_user_info(alice, 0), 25);
 
     // 设置用户信息：info_type 1 = 积分
-    contract::set_user_info(alice, 1, 100);
+    let _ = contract::set_user_info(alice, 1, 100);
     assert_eq!(contract::get_user_info(alice, 1), 100);
 
     // 设置用户信息：info_type 2 = 等级
-    contract::set_user_info(alice, 2, 5);
+    let _ = contract::set_user_info(alice, 2, 5);
     assert_eq!(contract::get_user_info(alice, 2), 5);
 
     // 不同 info_type 的值互不影响
@@ -148,23 +149,22 @@ fn mapping_transfer_balance_works() {
     let _ = contract::deploy(0);
 
     // 设置初始余额
-    contract::set_balance(alice, 1000);
-    contract::set_balance(bob, 500);
+    let _ = contract::set_balance(alice, 1000);
+    let _ = contract::set_balance(bob, 500);
 
     // 转账 200 从 Alice 到 Bob
-    contract::transfer_balance(alice, bob, 200);
+    let _ = contract::transfer_balance(alice, bob, 200);
     assert_eq!(contract::get_balance(alice), 800);
     assert_eq!(contract::get_balance(bob), 700);
 
     // 再次转账 100
-    contract::transfer_balance(alice, bob, 100);
+    let _ = contract::transfer_balance(alice, bob, 100);
     assert_eq!(contract::get_balance(alice), 700);
     assert_eq!(contract::get_balance(bob), 800);
 }
 
 /// Insufficient balance must revert (off_chain: panic). 余额不足必须 revert（链下会 panic）。
 #[test]
-#[should_panic(expected = "return_value")]
 fn transfer_balance_insufficient_balance_reverts() {
     let alice = Address::from([1u8; 20]);
     let bob = Address::from([2u8; 20]);
@@ -173,13 +173,13 @@ fn transfer_balance_insufficient_balance_reverts() {
         e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
-    contract::set_balance(alice, 100);
-    contract::transfer_balance(alice, bob, 200);
+    let _ = contract::set_balance(alice, 100);
+    let res = contract::transfer_balance(alice, bob, 200);
+    assert_eq!(res, Err(contract::Error::InsufficientBalance));
 }
 
 /// Only `from` may call transfer_balance; else revert (off_chain: panic). 仅 from 可调用转账，否则 revert。
 #[test]
-#[should_panic(expected = "return_value")]
 fn transfer_balance_only_from_may_call() {
     let alice = Address::from([1u8; 20]);
     let bob = Address::from([2u8; 20]);
@@ -188,15 +188,15 @@ fn transfer_balance_only_from_may_call() {
         e.set_caller(bob.into());
     });
     let _ = contract::deploy(0);
-    contract::set_balance(alice, 1000);
-    contract::transfer_balance(alice, bob, 100);
+    let _ = contract::set_balance(alice, 1000);
+    let res = contract::transfer_balance(alice, bob, 100);
+    assert_eq!(res, Err(contract::Error::Unauthorized));
 }
 
 // ======================== 异常 / 边界：owner 与 value ========================
 
 /// Non-owner calling set_owner must revert. 非 owner 调用 set_owner 必须 revert。
 #[test]
-#[should_panic(expected = "return_value")]
 fn set_owner_reverts_when_not_owner() {
     let alice = Address::from([1u8; 20]);
     let bob = Address::from([2u8; 20]);
@@ -207,7 +207,8 @@ fn set_owner_reverts_when_not_owner() {
     });
     let _ = contract::deploy(0);
     off_chain::with_engine(|e| e.set_caller(bob.into()));
-    contract::set_owner(charlie, 0);
+    let res = contract::set_owner(charlie, 0);
+    assert_eq!(res, Err(contract::Error::Unauthorized));
 }
 
 /// get_value returns 0 when never set (after deploy). 未设置时 get_value 返回 0。
@@ -325,9 +326,9 @@ fn transfer_balance_amount_zero_allowed() {
         e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
-    contract::set_balance(alice, 1000);
-    contract::set_balance(bob, 500);
-    contract::transfer_balance(alice, bob, 0);
+    let _ = contract::set_balance(alice, 1000);
+    let _ = contract::set_balance(bob, 500);
+    let _ = contract::transfer_balance(alice, bob, 0);
     assert_eq!(contract::get_balance(alice), 1000);
     assert_eq!(contract::get_balance(bob), 500);
 }
@@ -341,8 +342,8 @@ fn transfer_balance_self_transfer_allowed() {
         e.set_caller(alice.into());
     });
     let _ = contract::deploy(0);
-    contract::set_balance(alice, 1000);
-    contract::transfer_balance(alice, alice, 100);
+    let _ = contract::set_balance(alice, 1000);
+    let _ = contract::transfer_balance(alice, alice, 100);
     assert_eq!(contract::get_balance(alice), 1000);
 }
 

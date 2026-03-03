@@ -1,8 +1,9 @@
-//! #[revive_contract] 主宏：解析 mod、生成 deploy/call、写入 ABI。
+//! #[revive_contract] 主宏：解析 mod、生成 deploy/call、写入 ABI、生成合约间调用 interface。
 
 use crate::abi;
 use crate::attrs;
 use crate::codegen;
+use crate::interface;
 use crate::manifest;
 use crate::prefix;
 use proc_macro::TokenStream;
@@ -251,6 +252,11 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
         mod_content.push(Item::Fn(f.clone()));
     }
     mod_content.extend(other_items);
+
+    // 生成合约间调用接口子模块：SELECTOR_*、encode_*、call_raw、constructor 的 encode_* / instantiate_*
+    let interface_ts = interface::gen_interface_module(&message_fns, Some((&constructor_fn, constructor_encoding)));
+    let interface_item: Item = syn::parse2(interface_ts).expect("interface 代码生成失败");
+    mod_content.push(interface_item);
 
     let match_arms: Vec<TokenStream2> = message_fns
         .iter()

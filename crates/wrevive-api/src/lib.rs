@@ -25,13 +25,11 @@ pub mod list_2d;
 pub mod types;
 pub use types::{Address, BlockNumber, Bytes, H256, U256};
 
-/// Vec 再导出：非 test 且非 off_chain 时用 alloc::vec::Vec（no_std 合约）；test 或 off_chain 时用 std::vec::Vec。
-#[cfg(test)]
+/// Vec 再导出：test 或 off_chain 用 std；否则 no_std 合约用 alloc。
+#[cfg(any(test, feature = "off_chain"))]
 pub use std::vec::Vec;
 #[cfg(all(not(test), not(feature = "off_chain")))]
 pub use alloc::vec::Vec;
-#[cfg(all(not(test), feature = "off_chain"))]
-pub use std::vec::Vec;
 
 /// Re-export from pallet_revive_uapi for contract code (input!, HostFn, flags).
 /// 从 pallet_revive_uapi 再导出，供合约使用（input!、HostFn、flags）。

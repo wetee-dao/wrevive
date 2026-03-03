@@ -20,10 +20,10 @@ mod abi;
 mod attrs;
 mod codegen;
 mod contract;
+mod interface;
 mod manifest;
 mod prefix;
 mod storage;
-mod type_abi;
 mod type_reg;
 
 #[proc_macro_attribute]

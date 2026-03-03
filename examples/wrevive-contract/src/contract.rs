@@ -4,17 +4,13 @@
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
 
-#[cfg(not(test))]
 extern crate alloc;
-
-#[cfg(not(test))]
-use alloc::vec::Vec;
 
 #[cfg(not(test))]
 #[global_allocator]
 static ALLOC: pvm_bump_allocator::BumpAllocator<1024> = pvm_bump_allocator::BumpAllocator::new();
 
-use wrevive_api::{Address, Encode, List, List2D, Mapping, ReturnFlags, Storage, env};
+use wrevive_api::{Address, Encode, List, List2D, Mapping, ReturnFlags, Storage, Vec, env};
 use wrevive_macro::{list, list_2d, mapping, revive_contract, storage};
 
 #[revive_contract]
@@ -55,7 +51,10 @@ mod contract {
     /// Constructor: set caller as owner and init VALUE to the given initial_value.
     /// 构造函数：设置调用者为 owner，VALUE 初始为 initial_value。
     #[revive(constructor)]
-    pub fn deploy() -> Result<(), Error> {
+    pub fn deploy(initial_value: u32) -> Result<(), Error> {
+        VALUE.set(env(), &initial_value);
+        OWNER.set(env(), &env().caller());
+        env().deposit_event(EMPTY_TOPICS, &initial_value.to_le_bytes().as_slice());
         Ok(())
     }
 
@@ -64,6 +63,11 @@ mod contract {
         VALUE.set(env(), &value);
         env().deposit_event(EMPTY_TOPICS, &value.to_le_bytes().as_slice());
         Ok(())
+    }
+
+    #[revive(message)]
+    pub fn get_value() -> u32 {
+        VALUE.get(env()).unwrap_or(0)
     }
 
     /// Set value; only current owner may call (else revert). for solidity.
