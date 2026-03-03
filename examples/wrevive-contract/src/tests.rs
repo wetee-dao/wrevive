@@ -484,3 +484,90 @@ fn user_items_list_pagination() {
     let empty = contract::user_items_list(alice, 10, 5);
     assert!(empty.is_empty());
 }
+
+// ======================== Solidity-style messages (set_value_sol / get_value_sol) ========================
+
+/// set_value_sol and get_value_sol behave like set_value/get_value (same storage).
+#[test]
+fn set_value_sol_get_value_sol_work() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(Address::from([1u8; 20]).into());
+    });
+    let _ = contract::deploy(0);
+
+    let _ = contract::set_value_sol(77);
+    assert_eq!(contract::get_value_sol(), 77);
+
+    let _ = contract::set_value_sol(999);
+    assert_eq!(contract::get_value_sol(), 999);
+
+    // Shared storage with set_value/get_value
+    let _ = contract::set_value(111);
+    assert_eq!(contract::get_value_sol(), 111);
+    assert_eq!(contract::get_value(), 111);
+}
+
+// ======================== Deploy event ========================
+
+/// deploy deposits an event with initial_value as payload.
+#[test]
+fn deploy_deposits_event_with_initial_value() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(Address::from([0u8; 20]).into());
+    });
+    let _ = contract::deploy(123);
+
+    off_chain::with_engine(|e| {
+        let events = e.take_events();
+        assert!(!events.is_empty(), "deploy should emit at least one event");
+        let deploy_event = &events[0];
+        assert_eq!(deploy_event.1, 123u32.to_le_bytes());
+    });
+}
+
+// ======================== Records edge: empty list ========================
+
+/// records_len is 0 before any records_push.
+#[test]
+fn records_len_zero_before_any_push() {
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(Address::from([1u8; 20]).into());
+    });
+    let _ = contract::deploy(0);
+    assert_eq!(contract::records_len(), 0);
+}
+
+// ======================== User items edge: multiple users isolated ========================
+
+/// user_items for different users are isolated; len per user is correct.
+#[test]
+fn user_items_multiple_users_isolated() {
+    let alice = Address::from([1u8; 20]);
+    let bob = Address::from([2u8; 20]);
+    let charlie = Address::from([3u8; 20]);
+
+    off_chain::with_engine(|e| {
+        e.reset();
+        e.set_caller(alice.into());
+    });
+    let _ = contract::deploy(0);
+
+    contract::user_items_push(alice, 1);
+    contract::user_items_push(alice, 2);
+    contract::user_items_push(bob, 10);
+    contract::user_items_push(charlie, 20);
+    contract::user_items_push(charlie, 21);
+
+    assert_eq!(contract::user_items_len(alice), 2);
+    assert_eq!(contract::user_items_len(bob), 1);
+    assert_eq!(contract::user_items_len(charlie), 2);
+
+    assert_eq!(contract::user_items_get(alice, 0), 1);
+    assert_eq!(contract::user_items_get(alice, 1), 2);
+    assert_eq!(contract::user_items_get(bob, 0), 10);
+    assert_eq!(contract::user_items_get(charlie, 0), 20);
+    assert_eq!(contract::user_items_get(charlie, 1), 21);
+}

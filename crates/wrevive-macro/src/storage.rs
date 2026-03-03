@@ -15,7 +15,7 @@ pub fn storage_impl(input: TokenStream) -> TokenStream {
         None => {
             return syn::Error::new_spanned(
                 lit,
-                "storage! expects a string or byte string literal, e.g. storage!(b\"value\") or storage!(\"value\")",
+                "storage! expects a string or byte string literal, e.g. storage!(b\"value\") or storage!(\"value\") / storage! 需要字符串或字节串字面量，例如 storage!(b\"value\") 或 storage!(\"value\")",
             )
             .to_compile_error()
             .into();
@@ -39,7 +39,7 @@ pub fn mapping_impl(input: TokenStream) -> TokenStream {
         None => {
             return syn::Error::new_spanned(
                 lit,
-                "mapping! expects a string or byte string literal, e.g. mapping!(b\"balance\") or mapping!(\"balance\")",
+                "mapping! expects a string or byte string literal, e.g. mapping!(b\"balance\") or mapping!(\"balance\") / mapping! 需要字符串或字节串字面量，例如 mapping!(b\"balance\") 或 mapping!(\"balance\")",
             )
             .to_compile_error()
             .into();
@@ -63,7 +63,7 @@ pub fn list_impl(input: TokenStream) -> TokenStream {
         None => {
             return syn::Error::new_spanned(
                 lit,
-                "list! expects a string or byte string literal, e.g. list!(b\"mylist\")",
+                "list! expects a string or byte string literal, e.g. list!(b\"mylist\") / list! 需要字符串或字节串字面量，例如 list!(b\"mylist\")",
             )
             .to_compile_error()
             .into();
@@ -89,7 +89,7 @@ pub fn list_2d_impl(input: TokenStream) -> TokenStream {
         None => {
             return syn::Error::new_spanned(
                 lit,
-                "list_2d! expects a string or byte string literal, e.g. list_2d!(b\"dl\")",
+                "list_2d! expects a string or byte string literal, e.g. list_2d!(b\"dl\") / list_2d! 需要字符串或字节串字面量，例如 list_2d!(b\"dl\")",
             )
             .to_compile_error()
             .into();

@@ -54,7 +54,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     for (prefix, names) in &prefix_to_names {
         if names.len() > 1 {
             let msg = format!(
-                "duplicate storage prefix: {:?} used by: {} (Storage/Mapping/List/List2D prefix must be unique)",
+                "duplicate storage prefix: {:?} used by: {} (Storage/Mapping/List/List2D prefix must be unique / 存储前缀重复，被以下项使用，前缀必须唯一)",
                 prefix,
                 names.join(", ")
             );
@@ -132,7 +132,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     if let Err(e) = abi::emit_abi(&contract_name, &constructor_fn, &message_fns_abi) {
         return syn::Error::new_spanned(
             &module,
-            format!("ABI 生成失败，编译终止: {}", e),
+            format!("ABI generation failed, build aborted: {0} / ABI 生成失败，编译终止: {0}", e),
         )
         .to_compile_error()
         .into();
@@ -255,7 +255,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
 
     // 生成合约间调用接口子模块：SELECTOR_*、encode_*、call_raw、constructor 的 encode_* / instantiate_*
     let interface_ts = interface::gen_interface_module(&message_fns, Some((&constructor_fn, constructor_encoding)));
-    let interface_item: Item = syn::parse2(interface_ts).expect("interface 代码生成失败");
+    let interface_item: Item = syn::parse2(interface_ts).expect("interface code generation failed / interface 代码生成失败");
     mod_content.push(interface_item);
 
     let match_arms: Vec<TokenStream2> = message_fns
