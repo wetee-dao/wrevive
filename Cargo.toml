@@ -3,7 +3,6 @@ members = [
     "crates/cargo-wrevive",
     "crates/wrevive-macro",
     "crates/wrevive-api",
-    "examples/wrevive-sol-contract",
     "examples/wrevive-contract",
 ]
 resolver = "2"

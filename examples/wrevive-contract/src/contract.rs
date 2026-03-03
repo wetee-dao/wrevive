@@ -10,7 +10,7 @@ extern crate alloc;
 #[global_allocator]
 static ALLOC: pvm_bump_allocator::BumpAllocator<1024> = pvm_bump_allocator::BumpAllocator::new();
 
-use wrevive_api::{Address, Encode, List, List2D, Mapping, ReturnFlags, Storage, Vec, env};
+use wrevive_api::{Address, Encode, List, List2D, Mapping, Storage, Vec, env};
 use wrevive_macro::{list, list_2d, mapping, revive_contract, storage};
 
 #[revive_contract]
