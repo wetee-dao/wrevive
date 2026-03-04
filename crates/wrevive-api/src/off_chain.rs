@@ -211,6 +211,11 @@ impl Env for OffChainEnv {
         Err(ReturnErrorCode::CalleeTrapped)
     }
 
+    /// Off-chain: native transfer not tracked; no-op for tests.
+    fn transfer(&self, _to: &Address, _value: &U256) -> CallResult {
+        Ok(())
+    }
+
     fn origin(&self) -> [u8; 20] {
         // Off-chain: return caller as origin
         *self.caller().as_ref()

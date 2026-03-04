@@ -95,6 +95,11 @@ pub trait Env {
         output: Option<&mut &mut [u8]>,
     ) -> CallResult;
 
+    /// Transfer native balance from the current contract to the given account.
+    /// No contract code is executed; use [Env::call] if you need to invoke the recipient.
+    /// 合约向指定账户转帐（从当前合约余额转出 value 到 to）；不执行目标代码，仅转帐。
+    fn transfer(&self, to: &Address, value: &U256) -> CallResult;
+
     /// Returns the origin address (initator of the call stack).
     /// 返回原始地址（调用栈的发起者）。
     fn origin(&self) -> [u8; 20];

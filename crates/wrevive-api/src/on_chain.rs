@@ -157,6 +157,22 @@ impl Env for OnChainEnv {
         HostFnImpl::call(flags, callee.as_ref(), ref_time_limit, proof_size_limit, deposit.as_bytes(), value.as_bytes(), input_data, output)
     }
 
+    /// 合约向账户转帐：通过 call 空 data + value 实现。
+    #[inline(always)]
+    fn transfer(&self, to: &Address, value: &U256) -> CallResult {
+        let deposit = U256::ZERO;
+        HostFnImpl::call(
+            CallFlags::empty(),
+            to.as_ref(),
+            10_000_000,
+            10_000_000,
+            deposit.as_bytes(),
+            value.as_bytes(),
+            &[],
+            None,
+        )
+    }
+
     #[inline(always)]
     fn delegate_call(
         &self,
