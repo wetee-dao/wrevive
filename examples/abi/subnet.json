@@ -1,0 +1,5802 @@
+{
+    "source": {
+      "hash": "0x6573e422875a7d64d2709626aa08355743b764449c3b0b9b75ce9c42674ba966",
+      "language": "ink! 6.0.0-beta.1",
+      "compiler": "rustc 1.90.0",
+      "build_info": {
+        "build_mode": "Release",
+        "cargo_contract_version": "6.0.0-beta",
+        "rust_toolchain": "stable-x86_64-unknown-linux-gnu"
+      }
+    },
+    "contract": {
+      "name": "subnet",
+      "version": "0.1.0",
+      "authors": [
+        "BaiL"
+      ]
+    },
+    "image": null,
+    "spec": {
+      "constructors": [
+        {
+          "args": [],
+          "default": false,
+          "docs": [],
+          "label": "new",
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink_primitives",
+              "ConstructorResult"
+            ],
+            "type": 86
+          },
+          "selector": "0x9bae9d5e"
+        }
+      ],
+      "docs": [],
+      "environment": {
+        "accountId": {
+          "displayName": [
+            "AccountId"
+          ],
+          "type": 11
+        },
+        "balance": {
+          "displayName": [
+            "Balance"
+          ],
+          "type": 13
+        },
+        "blockNumber": {
+          "displayName": [
+            "BlockNumber"
+          ],
+          "type": 3
+        },
+        "hash": {
+          "displayName": [
+            "Hash"
+          ],
+          "type": 125
+        },
+        "nativeToEthRatio": 100000000,
+        "staticBufferSize": 16384,
+        "timestamp": {
+          "displayName": [
+            "Timestamp"
+          ],
+          "type": 10
+        }
+      },
+      "events": [],
+      "lang_error": {
+        "displayName": [
+          "ink",
+          "LangError"
+        ],
+        "type": 87
+      },
+      "messages": [
+        {
+          "args": [],
+          "default": false,
+          "docs": [
+            " boot nodes"
+          ],
+          "label": "boot_nodes",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 88
+          },
+          "selector": "0x3fd8cc61"
+        },
+        {
+          "args": [
+            {
+              "label": "nodes",
+              "type": {
+                "displayName": [
+                  "Vec"
+                ],
+                "type": 78
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " set boot nodes"
+          ],
+          "label": "set_boot_nodes",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0xe6b90091"
+        },
+        {
+          "args": [
+            {
+              "label": "name",
+              "type": {
+                "displayName": [
+                  "Vec"
+                ],
+                "type": 4
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " add or update region"
+          ],
+          "label": "set_region",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0xb6993f90"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " get region name"
+          ],
+          "label": "region",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 94
+          },
+          "selector": "0x69197ade"
+        },
+        {
+          "args": [
+            {
+              "label": "level",
+              "type": {
+                "displayName": [
+                  "u8"
+                ],
+                "type": 2
+              }
+            },
+            {
+              "label": "price",
+              "type": {
+                "displayName": [
+                  "RunPrice"
+                ],
+                "type": 75
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " set price for different levels"
+          ],
+          "label": "set_level_price",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0xa09455ad"
+        },
+        {
+          "args": [
+            {
+              "label": "level",
+              "type": {
+                "displayName": [
+                  "u8"
+                ],
+                "type": 2
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " get price for different levels (USD"
+          ],
+          "label": "level_price",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 95
+          },
+          "selector": "0x577c9777"
+        },
+        {
+          "args": [
+            {
+              "label": "info",
+              "type": {
+                "displayName": [
+                  "AssetInfo"
+                ],
+                "type": 68
+              }
+            },
+            {
+              "label": "price",
+              "type": {
+                "displayName": [
+                  "U256"
+                ],
+                "type": 46
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " set asset info"
+          ],
+          "label": "set_asset",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0x7d4c67bc"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " get asset info"
+          ],
+          "label": "asset",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 97
+          },
+          "selector": "0x005b0899"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " worker info"
+          ],
+          "label": "worker",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 100
+          },
+          "selector": "0xdfcf3455"
+        },
+        {
+          "args": [
+            {
+              "label": "start",
+              "type": {
+                "displayName": [
+                  "Option"
+                ],
+                "type": 102
+              }
+            },
+            {
+              "label": "size",
+              "type": {
+                "displayName": [
+                  "u64"
+                ],
+                "type": 10
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " get all workers"
+          ],
+          "label": "workers",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 103
+          },
+          "selector": "0xc9dfba3b"
+        },
+        {
+          "args": [
+            {
+              "label": "user",
+              "type": {
+                "displayName": [
+                  "Address"
+                ],
+                "type": 0
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " get user worker"
+          ],
+          "label": "user_worker",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 106
+          },
+          "selector": "0x936d50f4"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "AccountId"
+                ],
+                "type": 11
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " get mint worker"
+          ],
+          "label": "mint_worker",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 106
+          },
+          "selector": "0x59a206f7"
+        },
+        {
+          "args": [
+            {
+              "label": "name",
+              "type": {
+                "displayName": [
+                  "Vec"
+                ],
+                "type": 4
+              }
+            },
+            {
+              "label": "p2p_id",
+              "type": {
+                "displayName": [
+                  "AccountId"
+                ],
+                "type": 11
+              }
+            },
+            {
+              "label": "ip",
+              "type": {
+                "displayName": [
+                  "Ip"
+                ],
+                "type": 17
+              }
+            },
+            {
+              "label": "port",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            },
+            {
+              "label": "level",
+              "type": {
+                "displayName": [
+                  "u8"
+                ],
+                "type": 2
+              }
+            },
+            {
+              "label": "region_id",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " register worker"
+          ],
+          "label": "worker_register",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 108
+          },
+          "selector": "0xb90fc981"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            },
+            {
+              "label": "name",
+              "type": {
+                "displayName": [
+                  "Vec"
+                ],
+                "type": 4
+              }
+            },
+            {
+              "label": "ip",
+              "type": {
+                "displayName": [
+                  "Ip"
+                ],
+                "type": 17
+              }
+            },
+            {
+              "label": "port",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            }
+          ],
+          "default": false,
+          "docs": [],
+          "label": "worker_update",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0x79bdb96f"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            },
+            {
+              "label": "cpu",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            },
+            {
+              "label": "mem",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            },
+            {
+              "label": "cvm_cpu",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            },
+            {
+              "label": "cvm_mem",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            },
+            {
+              "label": "disk",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            },
+            {
+              "label": "gpu",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            },
+            {
+              "label": "deposit",
+              "type": {
+                "displayName": [
+                  "U256"
+                ],
+                "type": 46
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " Mortgage worker"
+          ],
+          "label": "worker_mortgage",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 110
+          },
+          "selector": "0xf70c3369"
+        },
+        {
+          "args": [
+            {
+              "label": "worker_id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            },
+            {
+              "label": "mortgage_id",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " Unmortgage worker"
+          ],
+          "label": "worker_unmortgage",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 110
+          },
+          "selector": "0x6d25dbe9"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " Start worker"
+          ],
+          "label": "worker_start",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0x6efe8ecf"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " Stop worker"
+          ],
+          "label": "worker_stop",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 108
+          },
+          "selector": "0xeab3ba14"
+        },
+        {
+          "args": [],
+          "default": false,
+          "docs": [
+            " list secrets"
+          ],
+          "label": "secrets",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 112
+          },
+          "selector": "0xd91d379f"
+        },
+        {
+          "args": [
+            {
+              "label": "name",
+              "type": {
+                "displayName": [
+                  "Vec"
+                ],
+                "type": 4
+              }
+            },
+            {
+              "label": "validator_id",
+              "type": {
+                "displayName": [
+                  "AccountId"
+                ],
+                "type": 11
+              }
+            },
+            {
+              "label": "p2p_id",
+              "type": {
+                "displayName": [
+                  "AccountId"
+                ],
+                "type": 11
+              }
+            },
+            {
+              "label": "ip",
+              "type": {
+                "displayName": [
+                  "Ip"
+                ],
+                "type": 17
+              }
+            },
+            {
+              "label": "port",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " register secret"
+          ],
+          "label": "secret_register",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 108
+          },
+          "selector": "0x55719146"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            },
+            {
+              "label": "name",
+              "type": {
+                "displayName": [
+                  "Vec"
+                ],
+                "type": 4
+              }
+            },
+            {
+              "label": "ip",
+              "type": {
+                "displayName": [
+                  "Ip"
+                ],
+                "type": 17
+              }
+            },
+            {
+              "label": "port",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            }
+          ],
+          "default": false,
+          "docs": [],
+          "label": "secret_update",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0x032511ea"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            },
+            {
+              "label": "deposit",
+              "type": {
+                "displayName": [
+                  "U256"
+                ],
+                "type": 46
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " deposit secret"
+          ],
+          "label": "secret_deposit",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0x4d815cac"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " Delete secret"
+          ],
+          "label": "secret_delete",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0x016716ab"
+        },
+        {
+          "args": [],
+          "default": false,
+          "docs": [
+            " Secret nodes that are currently acting as network validation nodes."
+          ],
+          "label": "validators",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 115
+          },
+          "selector": "0xcc64f718"
+        },
+        {
+          "args": [],
+          "default": false,
+          "docs": [
+            " Modifications to the nodes that will be acting as validation nodes in the next epoch"
+          ],
+          "label": "get_pending_secrets",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 118
+          },
+          "selector": "0x8c922079"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " Add nodes to the validation set through governance"
+          ],
+          "label": "validator_join",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0x3c10643c"
+        },
+        {
+          "args": [
+            {
+              "label": "id",
+              "type": {
+                "displayName": [
+                  "NodeID"
+                ],
+                "type": 10
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " delete secret node form pending and runing validator for next epoch"
+          ],
+          "label": "validator_delete",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0xdbac71a8"
+        },
+        {
+          "args": [],
+          "default": false,
+          "docs": [
+            " get current epoch info"
+          ],
+          "label": "epoch_info",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 119
+          },
+          "selector": "0xfd83a947"
+        },
+        {
+          "args": [
+            {
+              "label": "epoch_solt",
+              "type": {
+                "displayName": [
+                  "u32"
+                ],
+                "type": 3
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " set epoch solt"
+          ],
+          "label": "set_epoch_solt",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 86
+          },
+          "selector": "0x6f527ac8"
+        },
+        {
+          "args": [
+            {
+              "label": "_node_id",
+              "type": {
+                "displayName": [
+                  "u64"
+                ],
+                "type": 10
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " goto next epoch"
+          ],
+          "label": "set_next_epoch",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0xfc3bf295"
+        },
+        {
+          "args": [],
+          "default": false,
+          "docs": [
+            " get next epoch validators"
+          ],
+          "label": "next_epoch_validators",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 121
+          },
+          "selector": "0x9f8ccaab"
+        },
+        {
+          "args": [
+            {
+              "label": "code_hash",
+              "type": {
+                "displayName": [
+                  "H256"
+                ],
+                "type": 123
+              }
+            }
+          ],
+          "default": false,
+          "docs": [
+            " update contract"
+          ],
+          "label": "set_code",
+          "mutates": true,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 92
+          },
+          "selector": "0x694fb50f"
+        },
+        {
+          "args": [],
+          "default": false,
+          "docs": [],
+          "label": "side_chain_key",
+          "mutates": false,
+          "payable": false,
+          "returnType": {
+            "displayName": [
+              "ink",
+              "MessageResult"
+            ],
+            "type": 124
+          },
+          "selector": "0x6484abad"
+        }
+      ]
+    },
+    "storage": {
+      "root": {
+        "layout": {
+          "struct": {
+            "fields": [
+              {
+                "layout": {
+                  "leaf": {
+                    "key": "0x00000000",
+                    "ty": 0
+                  }
+                },
+                "name": "gov_contract"
+              },
+              {
+                "layout": {
+                  "struct": {
+                    "fields": [
+                      {
+                        "layout": {
+                          "leaf": {
+                            "key": "0x00000000",
+                            "ty": 3
+                          }
+                        },
+                        "name": "next_id"
+                      },
+                      {
+                        "layout": {
+                          "root": {
+                            "layout": {
+                              "leaf": {
+                                "key": "0x0f273c89",
+                                "ty": 4
+                              }
+                            },
+                            "root_key": "0x0f273c89",
+                            "ty": 5
+                          }
+                        },
+                        "name": "store"
+                      }
+                    ],
+                    "name": "Regions"
+                  }
+                },
+                "name": "regions"
+              },
+              {
+                "layout": {
+                  "struct": {
+                    "fields": [
+                      {
+                        "layout": {
+                          "leaf": {
+                            "key": "0x00000000",
+                            "ty": 10
+                          }
+                        },
+                        "name": "next_id"
+                      },
+                      {
+                        "layout": {
+                          "root": {
+                            "layout": {
+                              "struct": {
+                                "fields": [
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf6e29ac9",
+                                        "ty": 4
+                                      }
+                                    },
+                                    "name": "name"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf6e29ac9",
+                                        "ty": 0
+                                      }
+                                    },
+                                    "name": "owner"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf6e29ac9",
+                                        "ty": 2
+                                      }
+                                    },
+                                    "name": "level"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf6e29ac9",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "region_id"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf6e29ac9",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "start_block"
+                                  },
+                                  {
+                                    "layout": {
+                                      "enum": {
+                                        "dispatchKey": "0xf6e29ac9",
+                                        "name": "Option",
+                                        "variants": {
+                                          "0": {
+                                            "fields": [],
+                                            "name": "None"
+                                          },
+                                          "1": {
+                                            "fields": [
+                                              {
+                                                "layout": {
+                                                  "leaf": {
+                                                    "key": "0xf6e29ac9",
+                                                    "ty": 3
+                                                  }
+                                                },
+                                                "name": "0"
+                                              }
+                                            ],
+                                            "name": "Some"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": "stop_block"
+                                  },
+                                  {
+                                    "layout": {
+                                      "enum": {
+                                        "dispatchKey": "0xf6e29ac9",
+                                        "name": "Option",
+                                        "variants": {
+                                          "0": {
+                                            "fields": [],
+                                            "name": "None"
+                                          },
+                                          "1": {
+                                            "fields": [
+                                              {
+                                                "layout": {
+                                                  "leaf": {
+                                                    "key": "0xf6e29ac9",
+                                                    "ty": 3
+                                                  }
+                                                },
+                                                "name": "0"
+                                              }
+                                            ],
+                                            "name": "Some"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": "terminal_block"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf6e29ac9",
+                                        "ty": 11
+                                      }
+                                    },
+                                    "name": "p2p_id"
+                                  },
+                                  {
+                                    "layout": {
+                                      "struct": {
+                                        "fields": [
+                                          {
+                                            "layout": {
+                                              "enum": {
+                                                "dispatchKey": "0xf6e29ac9",
+                                                "name": "Option",
+                                                "variants": {
+                                                  "0": {
+                                                    "fields": [],
+                                                    "name": "None"
+                                                  },
+                                                  "1": {
+                                                    "fields": [
+                                                      {
+                                                        "layout": {
+                                                          "leaf": {
+                                                            "key": "0xf6e29ac9",
+                                                            "ty": 3
+                                                          }
+                                                        },
+                                                        "name": "0"
+                                                      }
+                                                    ],
+                                                    "name": "Some"
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "name": "ipv4"
+                                          },
+                                          {
+                                            "layout": {
+                                              "enum": {
+                                                "dispatchKey": "0xf6e29ac9",
+                                                "name": "Option",
+                                                "variants": {
+                                                  "0": {
+                                                    "fields": [],
+                                                    "name": "None"
+                                                  },
+                                                  "1": {
+                                                    "fields": [
+                                                      {
+                                                        "layout": {
+                                                          "leaf": {
+                                                            "key": "0xf6e29ac9",
+                                                            "ty": 13
+                                                          }
+                                                        },
+                                                        "name": "0"
+                                                      }
+                                                    ],
+                                                    "name": "Some"
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "name": "ipv6"
+                                          },
+                                          {
+                                            "layout": {
+                                              "enum": {
+                                                "dispatchKey": "0xf6e29ac9",
+                                                "name": "Option",
+                                                "variants": {
+                                                  "0": {
+                                                    "fields": [],
+                                                    "name": "None"
+                                                  },
+                                                  "1": {
+                                                    "fields": [
+                                                      {
+                                                        "layout": {
+                                                          "leaf": {
+                                                            "key": "0xf6e29ac9",
+                                                            "ty": 4
+                                                          }
+                                                        },
+                                                        "name": "0"
+                                                      }
+                                                    ],
+                                                    "name": "Some"
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "name": "domain"
+                                          }
+                                        ],
+                                        "name": "Ip"
+                                      }
+                                    },
+                                    "name": "ip"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf6e29ac9",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "port"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf6e29ac9",
+                                        "ty": 2
+                                      }
+                                    },
+                                    "name": "status"
+                                  }
+                                ],
+                                "name": "K8sCluster"
+                              }
+                            },
+                            "root_key": "0xf6e29ac9",
+                            "ty": 14
+                          }
+                        },
+                        "name": "store"
+                      }
+                    ],
+                    "name": "Workers"
+                  }
+                },
+                "name": "workers"
+              },
+              {
+                "layout": {
+                  "root": {
+                    "layout": {
+                      "leaf": {
+                        "key": "0x523aad41",
+                        "ty": 2
+                      }
+                    },
+                    "root_key": "0x523aad41",
+                    "ty": 22
+                  }
+                },
+                "name": "worker_status"
+              },
+              {
+                "layout": {
+                  "root": {
+                    "layout": {
+                      "leaf": {
+                        "key": "0xfcdeb3ac",
+                        "ty": 10
+                      }
+                    },
+                    "root_key": "0xfcdeb3ac",
+                    "ty": 25
+                  }
+                },
+                "name": "owner_of_worker"
+              },
+              {
+                "layout": {
+                  "root": {
+                    "layout": {
+                      "leaf": {
+                        "key": "0xd8dae871",
+                        "ty": 10
+                      }
+                    },
+                    "root_key": "0xd8dae871",
+                    "ty": 28
+                  }
+                },
+                "name": "mint_of_worker"
+              },
+              {
+                "layout": {
+                  "struct": {
+                    "fields": [
+                      {
+                        "layout": {
+                          "root": {
+                            "layout": {
+                              "leaf": {
+                                "key": "0xc9ff81bf",
+                                "ty": 3
+                              }
+                            },
+                            "root_key": "0xc9ff81bf",
+                            "ty": 31
+                          }
+                        },
+                        "name": "k1"
+                      },
+                      {
+                        "layout": {
+                          "leaf": {
+                            "key": "0x00000000",
+                            "ty": 3
+                          }
+                        },
+                        "name": "k1_length"
+                      },
+                      {
+                        "layout": {
+                          "root": {
+                            "layout": {
+                              "leaf": {
+                                "key": "0x2fc744da",
+                                "ty": 3
+                              }
+                            },
+                            "root_key": "0x2fc744da",
+                            "ty": 34
+                          }
+                        },
+                        "name": "k2_next_id"
+                      },
+                      {
+                        "layout": {
+                          "root": {
+                            "layout": {
+                              "leaf": {
+                                "key": "0xfec5287b",
+                                "ty": 10
+                              }
+                            },
+                            "root_key": "0xfec5287b",
+                            "ty": 37
+                          }
+                        },
+                        "name": "store"
+                      }
+                    ],
+                    "name": "RegionWorkers"
+                  }
+                },
+                "name": "regions_workers"
+              },
+              {
+                "layout": {
+                  "struct": {
+                    "fields": [
+                      {
+                        "layout": {
+                          "root": {
+                            "layout": {
+                              "leaf": {
+                                "key": "0xbabfe33b",
+                                "ty": 3
+                              }
+                            },
+                            "root_key": "0xbabfe33b",
+                            "ty": 40
+                          }
+                        },
+                        "name": "k1"
+                      },
+                      {
+                        "layout": {
+                          "leaf": {
+                            "key": "0x00000000",
+                            "ty": 3
+                          }
+                        },
+                        "name": "k1_length"
+                      },
+                      {
+                        "layout": {
+                          "root": {
+                            "layout": {
+                              "leaf": {
+                                "key": "0x88d86326",
+                                "ty": 3
+                              }
+                            },
+                            "root_key": "0x88d86326",
+                            "ty": 43
+                          }
+                        },
+                        "name": "k2_next_id"
+                      },
+                      {
+                        "layout": {
+                          "root": {
+                            "layout": {
+                              "struct": {
+                                "fields": [
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0x0107eeb8",
+                                        "ty": 46
+                                      }
+                                    },
+                                    "name": "amount"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0x0107eeb8",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "cpu"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0x0107eeb8",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "cvm_cpu"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0x0107eeb8",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "mem"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0x0107eeb8",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "cvm_mem"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0x0107eeb8",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "disk"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0x0107eeb8",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "gpu"
+                                  },
+                                  {
+                                    "layout": {
+                                      "enum": {
+                                        "dispatchKey": "0x0107eeb8",
+                                        "name": "Option",
+                                        "variants": {
+                                          "0": {
+                                            "fields": [],
+                                            "name": "None"
+                                          },
+                                          "1": {
+                                            "fields": [
+                                              {
+                                                "layout": {
+                                                  "leaf": {
+                                                    "key": "0x0107eeb8",
+                                                    "ty": 3
+                                                  }
+                                                },
+                                                "name": "0"
+                                              }
+                                            ],
+                                            "name": "Some"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": "deleted"
+                                  }
+                                ],
+                                "name": "AssetDeposit"
+                              }
+                            },
+                            "root_key": "0x0107eeb8",
+                            "ty": 48
+                          }
+                        },
+                        "name": "store"
+                      }
+                    ],
+                    "name": "WorkerMortgages"
+                  }
+                },
+                "name": "worker_mortgages"
+              },
+              {
+                "layout": {
+                  "struct": {
+                    "fields": [
+                      {
+                        "layout": {
+                          "leaf": {
+                            "key": "0x00000000",
+                            "ty": 10
+                          }
+                        },
+                        "name": "next_id"
+                      },
+                      {
+                        "layout": {
+                          "root": {
+                            "layout": {
+                              "struct": {
+                                "fields": [
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf4e5d4ef",
+                                        "ty": 4
+                                      }
+                                    },
+                                    "name": "name"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf4e5d4ef",
+                                        "ty": 0
+                                      }
+                                    },
+                                    "name": "owner"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf4e5d4ef",
+                                        "ty": 11
+                                      }
+                                    },
+                                    "name": "validator_id"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf4e5d4ef",
+                                        "ty": 11
+                                      }
+                                    },
+                                    "name": "p2p_id"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf4e5d4ef",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "start_block"
+                                  },
+                                  {
+                                    "layout": {
+                                      "enum": {
+                                        "dispatchKey": "0xf4e5d4ef",
+                                        "name": "Option",
+                                        "variants": {
+                                          "0": {
+                                            "fields": [],
+                                            "name": "None"
+                                          },
+                                          "1": {
+                                            "fields": [
+                                              {
+                                                "layout": {
+                                                  "leaf": {
+                                                    "key": "0xf4e5d4ef",
+                                                    "ty": 3
+                                                  }
+                                                },
+                                                "name": "0"
+                                              }
+                                            ],
+                                            "name": "Some"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": "terminal_block"
+                                  },
+                                  {
+                                    "layout": {
+                                      "struct": {
+                                        "fields": [
+                                          {
+                                            "layout": {
+                                              "enum": {
+                                                "dispatchKey": "0xf4e5d4ef",
+                                                "name": "Option",
+                                                "variants": {
+                                                  "0": {
+                                                    "fields": [],
+                                                    "name": "None"
+                                                  },
+                                                  "1": {
+                                                    "fields": [
+                                                      {
+                                                        "layout": {
+                                                          "leaf": {
+                                                            "key": "0xf4e5d4ef",
+                                                            "ty": 3
+                                                          }
+                                                        },
+                                                        "name": "0"
+                                                      }
+                                                    ],
+                                                    "name": "Some"
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "name": "ipv4"
+                                          },
+                                          {
+                                            "layout": {
+                                              "enum": {
+                                                "dispatchKey": "0xf4e5d4ef",
+                                                "name": "Option",
+                                                "variants": {
+                                                  "0": {
+                                                    "fields": [],
+                                                    "name": "None"
+                                                  },
+                                                  "1": {
+                                                    "fields": [
+                                                      {
+                                                        "layout": {
+                                                          "leaf": {
+                                                            "key": "0xf4e5d4ef",
+                                                            "ty": 13
+                                                          }
+                                                        },
+                                                        "name": "0"
+                                                      }
+                                                    ],
+                                                    "name": "Some"
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "name": "ipv6"
+                                          },
+                                          {
+                                            "layout": {
+                                              "enum": {
+                                                "dispatchKey": "0xf4e5d4ef",
+                                                "name": "Option",
+                                                "variants": {
+                                                  "0": {
+                                                    "fields": [],
+                                                    "name": "None"
+                                                  },
+                                                  "1": {
+                                                    "fields": [
+                                                      {
+                                                        "layout": {
+                                                          "leaf": {
+                                                            "key": "0xf4e5d4ef",
+                                                            "ty": 4
+                                                          }
+                                                        },
+                                                        "name": "0"
+                                                      }
+                                                    ],
+                                                    "name": "Some"
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "name": "domain"
+                                          }
+                                        ],
+                                        "name": "Ip"
+                                      }
+                                    },
+                                    "name": "ip"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf4e5d4ef",
+                                        "ty": 3
+                                      }
+                                    },
+                                    "name": "port"
+                                  },
+                                  {
+                                    "layout": {
+                                      "leaf": {
+                                        "key": "0xf4e5d4ef",
+                                        "ty": 2
+                                      }
+                                    },
+                                    "name": "status"
+                                  }
+                                ],
+                                "name": "SecretNode"
+                              }
+                            },
+                            "root_key": "0xf4e5d4ef",
+                            "ty": 52
+                          }
+                        },
+                        "name": "store"
+                      }
+                    ],
+                    "name": "Secrets"
+                  }
+                },
+                "name": "secrets"
+              },
+              {
+                "layout": {
+                  "root": {
+                    "layout": {
+                      "leaf": {
+                        "key": "0x2afe0f3e",
+                        "ty": 10
+                      }
+                    },
+                    "root_key": "0x2afe0f3e",
+                    "ty": 56
+                  }
+                },
+                "name": "secret_of_user"
+              },
+              {
+                "layout": {
+                  "root": {
+                    "layout": {
+                      "leaf": {
+                        "key": "0x5535efd9",
+                        "ty": 46
+                      }
+                    },
+                    "root_key": "0x5535efd9",
+                    "ty": 59
+                  }
+                },
+                "name": "secret_mortgages"
+              },
+              {
+                "layout": {
+                  "leaf": {
+                    "key": "0x00000000",
+                    "ty": 3
+                  }
+                },
+                "name": "epoch"
+              },
+              {
+                "layout": {
+                  "leaf": {
+                    "key": "0x00000000",
+                    "ty": 3
+                  }
+                },
+                "name": "epoch_solt"
+              },
+              {
+                "layout": {
+                  "leaf": {
+                    "key": "0x00000000",
+                    "ty": 0
+                  }
+                },
+                "name": "side_chain_multi_key"
+              },
+              {
+                "layout": {
+                  "leaf": {
+                    "key": "0x00000000",
+                    "ty": 3
+                  }
+                },
+                "name": "last_epoch_block"
+              },
+              {
+                "layout": {
+                  "leaf": {
+                    "key": "0x00000000",
+                    "ty": 62
+                  }
+                },
+                "name": "runing_secrets"
+              },
+              {
+                "layout": {
+                  "leaf": {
+                    "key": "0x00000000",
+                    "ty": 62
+                  }
+                },
+                "name": "pending_secrets"
+              },
+              {
+                "layout": {
+                  "struct": {
+                    "fields": [
+                      {
+                        "layout": {
+                          "leaf": {
+                            "key": "0x00000000",
+                            "ty": 4
+                          }
+                        },
+                        "name": "0"
+                      },
+                      {
+                        "layout": {
+                          "leaf": {
+                            "key": "0x00000000",
+                            "ty": 4
+                          }
+                        },
+                        "name": "1"
+                      }
+                    ],
+                    "name": "(A, B)"
+                  }
+                },
+                "name": "worker_code"
+              },
+              {
+                "layout": {
+                  "struct": {
+                    "fields": [
+                      {
+                        "layout": {
+                          "leaf": {
+                            "key": "0x00000000",
+                            "ty": 4
+                          }
+                        },
+                        "name": "0"
+                      },
+                      {
+                        "layout": {
+                          "leaf": {
+                            "key": "0x00000000",
+                            "ty": 4
+                          }
+                        },
+                        "name": "1"
+                      }
+                    ],
+                    "name": "(A, B)"
+                  }
+                },
+                "name": "secret_code"
+              },
+              {
+                "layout": {
+                  "root": {
+                    "layout": {
+                      "leaf": {
+                        "key": "0xb10c02b9",
+                        "ty": 46
+                      }
+                    },
+                    "root_key": "0xb10c02b9",
+                    "ty": 64
+                  }
+                },
+                "name": "deposit_prices"
+              },
+              {
+                "layout": {
+                  "leaf": {
+                    "key": "0x00000000",
+                    "ty": 3
+                  }
+                },
+                "name": "next_asset_id"
+              },
+              {
+                "layout": {
+                  "root": {
+                    "layout": {
+                      "enum": {
+                        "dispatchKey": "0xef90efa6",
+                        "name": "AssetInfo",
+                        "variants": {
+                          "0": {
+                            "fields": [
+                              {
+                                "layout": {
+                                  "leaf": {
+                                    "key": "0xef90efa6",
+                                    "ty": 4
+                                  }
+                                },
+                                "name": "0"
+                              }
+                            ],
+                            "name": "Native"
+                          },
+                          "1": {
+                            "fields": [
+                              {
+                                "layout": {
+                                  "leaf": {
+                                    "key": "0xef90efa6",
+                                    "ty": 4
+                                  }
+                                },
+                                "name": "0"
+                              },
+                              {
+                                "layout": {
+                                  "leaf": {
+                                    "key": "0xef90efa6",
+                                    "ty": 3
+                                  }
+                                },
+                                "name": "1"
+                              }
+                            ],
+                            "name": "ERC20"
+                          }
+                        }
+                      }
+                    },
+                    "root_key": "0xef90efa6",
+                    "ty": 67
+                  }
+                },
+                "name": "asset_infos"
+              },
+              {
+                "layout": {
+                  "root": {
+                    "layout": {
+                      "leaf": {
+                        "key": "0xb68c1e52",
+                        "ty": 46
+                      }
+                    },
+                    "root_key": "0xb68c1e52",
+                    "ty": 71
+                  }
+                },
+                "name": "asset_prices"
+              },
+              {
+                "layout": {
+                  "root": {
+                    "layout": {
+                      "struct": {
+                        "fields": [
+                          {
+                            "layout": {
+                              "leaf": {
+                                "key": "0x3a2bbd34",
+                                "ty": 10
+                              }
+                            },
+                            "name": "cpu_per"
+                          },
+                          {
+                            "layout": {
+                              "leaf": {
+                                "key": "0x3a2bbd34",
+                                "ty": 10
+                              }
+                            },
+                            "name": "cvm_cpu_per"
+                          },
+                          {
+                            "layout": {
+                              "leaf": {
+                                "key": "0x3a2bbd34",
+                                "ty": 10
+                              }
+                            },
+                            "name": "memory_per"
+                          },
+                          {
+                            "layout": {
+                              "leaf": {
+                                "key": "0x3a2bbd34",
+                                "ty": 10
+                              }
+                            },
+                            "name": "cvm_memory_per"
+                          },
+                          {
+                            "layout": {
+                              "leaf": {
+                                "key": "0x3a2bbd34",
+                                "ty": 10
+                              }
+                            },
+                            "name": "disk_per"
+                          },
+                          {
+                            "layout": {
+                              "leaf": {
+                                "key": "0x3a2bbd34",
+                                "ty": 10
+                              }
+                            },
+                            "name": "gpu_per"
+                          }
+                        ],
+                        "name": "RunPrice"
+                      }
+                    },
+                    "root_key": "0x3a2bbd34",
+                    "ty": 74
+                  }
+                },
+                "name": "level_prices"
+              },
+              {
+                "layout": {
+                  "leaf": {
+                    "key": "0x00000000",
+                    "ty": 78
+                  }
+                },
+                "name": "boot_nodes"
+              }
+            ],
+            "name": "Subnet"
+          }
+        },
+        "root_key": "0x00000000",
+        "ty": 79
+      }
+    },
+    "types": [
+      {
+        "id": 0,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "type": 1,
+                  "typeName": "[u8; 20]"
+                }
+              ]
+            }
+          },
+          "path": [
+            "primitive_types",
+            "H160"
+          ]
+        }
+      },
+      {
+        "id": 1,
+        "type": {
+          "def": {
+            "array": {
+              "len": 20,
+              "type": 2
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "type": {
+          "def": {
+            "primitive": "u8"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": {
+          "def": {
+            "primitive": "u32"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "type": {
+          "def": {
+            "sequence": {
+              "type": 2
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 3
+            },
+            {
+              "name": "V",
+              "type": 4
+            },
+            {
+              "name": "KeyType",
+              "type": 6
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 6,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 8
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 7,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "AutoKey"
+          ]
+        }
+      },
+      {
+        "id": 8,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 9,
+        "type": {
+          "def": {
+            "tuple": []
+          }
+        }
+      },
+      {
+        "id": 10,
+        "type": {
+          "def": {
+            "primitive": "u64"
+          }
+        }
+      },
+      {
+        "id": 11,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "type": 12,
+                  "typeName": "[u8; 32]"
+                }
+              ]
+            }
+          },
+          "path": [
+            "ink_primitives",
+            "types",
+            "AccountId"
+          ]
+        }
+      },
+      {
+        "id": 12,
+        "type": {
+          "def": {
+            "array": {
+              "len": 32,
+              "type": 2
+            }
+          }
+        }
+      },
+      {
+        "id": 13,
+        "type": {
+          "def": {
+            "primitive": "u128"
+          }
+        }
+      },
+      {
+        "id": 14,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 10
+            },
+            {
+              "name": "V",
+              "type": 15
+            },
+            {
+              "name": "KeyType",
+              "type": 20
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 15,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "name",
+                  "type": 4,
+                  "typeName": "Vec<u8>"
+                },
+                {
+                  "name": "owner",
+                  "type": 0,
+                  "typeName": "Address"
+                },
+                {
+                  "name": "level",
+                  "type": 2,
+                  "typeName": "u8"
+                },
+                {
+                  "name": "region_id",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "start_block",
+                  "type": 3,
+                  "typeName": "BlockNumber"
+                },
+                {
+                  "name": "stop_block",
+                  "type": 16,
+                  "typeName": "Option<BlockNumber>"
+                },
+                {
+                  "name": "terminal_block",
+                  "type": 16,
+                  "typeName": "Option<BlockNumber>"
+                },
+                {
+                  "name": "p2p_id",
+                  "type": 11,
+                  "typeName": "AccountId"
+                },
+                {
+                  "name": "ip",
+                  "type": 17,
+                  "typeName": "Ip"
+                },
+                {
+                  "name": "port",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "status",
+                  "type": 2,
+                  "typeName": "u8"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "K8sCluster"
+          ]
+        }
+      },
+      {
+        "id": 16,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "index": 0,
+                  "name": "None"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 3
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Some"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 3
+            }
+          ],
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "id": 17,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "ipv4",
+                  "type": 16,
+                  "typeName": "Option<u32>"
+                },
+                {
+                  "name": "ipv6",
+                  "type": 18,
+                  "typeName": "Option<u128>"
+                },
+                {
+                  "name": "domain",
+                  "type": 19,
+                  "typeName": "Option<Vec<u8>>"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "Ip"
+          ]
+        }
+      },
+      {
+        "id": 18,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "index": 0,
+                  "name": "None"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 13
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Some"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 13
+            }
+          ],
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "id": 19,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "index": 0,
+                  "name": "None"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 4
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Some"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 4
+            }
+          ],
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "id": 20,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 21
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 21,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 22,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 10
+            },
+            {
+              "name": "V",
+              "type": 2
+            },
+            {
+              "name": "KeyType",
+              "type": 23
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 23,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 24
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 24,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 25,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 0
+            },
+            {
+              "name": "V",
+              "type": 10
+            },
+            {
+              "name": "KeyType",
+              "type": 26
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 26,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 27
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 27,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 28,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 11
+            },
+            {
+              "name": "V",
+              "type": 10
+            },
+            {
+              "name": "KeyType",
+              "type": 29
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 29,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 30
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 30,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 31,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 3
+            },
+            {
+              "name": "V",
+              "type": 3
+            },
+            {
+              "name": "KeyType",
+              "type": 32
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 32,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 33
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 33,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 34,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 3
+            },
+            {
+              "name": "V",
+              "type": 3
+            },
+            {
+              "name": "KeyType",
+              "type": 35
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 35,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 36
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 36,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 37,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 10
+            },
+            {
+              "name": "V",
+              "type": 10
+            },
+            {
+              "name": "KeyType",
+              "type": 38
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 38,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 39
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 39,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 40,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 10
+            },
+            {
+              "name": "V",
+              "type": 3
+            },
+            {
+              "name": "KeyType",
+              "type": 41
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 41,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 42
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 42,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 43,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 3
+            },
+            {
+              "name": "V",
+              "type": 3
+            },
+            {
+              "name": "KeyType",
+              "type": 44
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 44,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 45
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 45,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 46,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "type": 47,
+                  "typeName": "[u64; 4]"
+                }
+              ]
+            }
+          },
+          "path": [
+            "primitive_types",
+            "U256"
+          ]
+        }
+      },
+      {
+        "id": 47,
+        "type": {
+          "def": {
+            "array": {
+              "len": 4,
+              "type": 10
+            }
+          }
+        }
+      },
+      {
+        "id": 48,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 10
+            },
+            {
+              "name": "V",
+              "type": 49
+            },
+            {
+              "name": "KeyType",
+              "type": 50
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 49,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "amount",
+                  "type": 46,
+                  "typeName": "U256"
+                },
+                {
+                  "name": "cpu",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "cvm_cpu",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "mem",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "cvm_mem",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "disk",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "gpu",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "deleted",
+                  "type": 16,
+                  "typeName": "Option<BlockNumber>"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "AssetDeposit"
+          ]
+        }
+      },
+      {
+        "id": 50,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 51
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 51,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 52,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 10
+            },
+            {
+              "name": "V",
+              "type": 53
+            },
+            {
+              "name": "KeyType",
+              "type": 54
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 53,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "name",
+                  "type": 4,
+                  "typeName": "Vec<u8>"
+                },
+                {
+                  "name": "owner",
+                  "type": 0,
+                  "typeName": "Address"
+                },
+                {
+                  "name": "validator_id",
+                  "type": 11,
+                  "typeName": "AccountId"
+                },
+                {
+                  "name": "p2p_id",
+                  "type": 11,
+                  "typeName": "AccountId"
+                },
+                {
+                  "name": "start_block",
+                  "type": 3,
+                  "typeName": "BlockNumber"
+                },
+                {
+                  "name": "terminal_block",
+                  "type": 16,
+                  "typeName": "Option<BlockNumber>"
+                },
+                {
+                  "name": "ip",
+                  "type": 17,
+                  "typeName": "Ip"
+                },
+                {
+                  "name": "port",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "status",
+                  "type": 2,
+                  "typeName": "u8"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "SecretNode"
+          ]
+        }
+      },
+      {
+        "id": 54,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 55
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 55,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 56,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 0
+            },
+            {
+              "name": "V",
+              "type": 10
+            },
+            {
+              "name": "KeyType",
+              "type": 57
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 57,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 58
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 58,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 59,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 10
+            },
+            {
+              "name": "V",
+              "type": 46
+            },
+            {
+              "name": "KeyType",
+              "type": 60
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 60,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 61
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 61,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 62,
+        "type": {
+          "def": {
+            "sequence": {
+              "type": 63
+            }
+          }
+        }
+      },
+      {
+        "id": 63,
+        "type": {
+          "def": {
+            "tuple": [
+              10,
+              3
+            ]
+          }
+        }
+      },
+      {
+        "id": 64,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 2
+            },
+            {
+              "name": "V",
+              "type": 46
+            },
+            {
+              "name": "KeyType",
+              "type": 65
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 65,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 66
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 66,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 67,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 3
+            },
+            {
+              "name": "V",
+              "type": 68
+            },
+            {
+              "name": "KeyType",
+              "type": 69
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 68,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 4,
+                      "typeName": "Vec<u8>"
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Native"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 4,
+                      "typeName": "Vec<u8>"
+                    },
+                    {
+                      "type": 3,
+                      "typeName": "AssetId"
+                    }
+                  ],
+                  "index": 1,
+                  "name": "ERC20"
+                }
+              ]
+            }
+          },
+          "path": [
+            "primitives",
+            "types",
+            "AssetInfo"
+          ]
+        }
+      },
+      {
+        "id": 69,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 70
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 70,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 71,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 3
+            },
+            {
+              "name": "V",
+              "type": 46
+            },
+            {
+              "name": "KeyType",
+              "type": 72
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 72,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 73
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 73,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 74,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "K",
+              "type": 2
+            },
+            {
+              "name": "V",
+              "type": 75
+            },
+            {
+              "name": "KeyType",
+              "type": 76
+            }
+          ],
+          "path": [
+            "ink_storage",
+            "lazy",
+            "mapping",
+            "Mapping"
+          ]
+        }
+      },
+      {
+        "id": 75,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "cpu_per",
+                  "type": 10,
+                  "typeName": "u64"
+                },
+                {
+                  "name": "cvm_cpu_per",
+                  "type": 10,
+                  "typeName": "u64"
+                },
+                {
+                  "name": "memory_per",
+                  "type": 10,
+                  "typeName": "u64"
+                },
+                {
+                  "name": "cvm_memory_per",
+                  "type": 10,
+                  "typeName": "u64"
+                },
+                {
+                  "name": "disk_per",
+                  "type": 10,
+                  "typeName": "u64"
+                },
+                {
+                  "name": "gpu_per",
+                  "type": 10,
+                  "typeName": "u64"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "RunPrice"
+          ]
+        }
+      },
+      {
+        "id": 76,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "L",
+              "type": 7
+            },
+            {
+              "name": "R",
+              "type": 77
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ResolverKey"
+          ]
+        }
+      },
+      {
+        "id": 77,
+        "type": {
+          "def": {
+            "composite": {}
+          },
+          "params": [
+            {
+              "name": "ParentKey",
+              "type": 9
+            }
+          ],
+          "path": [
+            "ink_storage_traits",
+            "impls",
+            "ManualKey"
+          ]
+        }
+      },
+      {
+        "id": 78,
+        "type": {
+          "def": {
+            "sequence": {
+              "type": 10
+            }
+          }
+        }
+      },
+      {
+        "id": 79,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "gov_contract",
+                  "type": 0,
+                  "typeName": "<Address as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<3870245756u32, ()>,>>::Type"
+                },
+                {
+                  "name": "regions",
+                  "type": 80,
+                  "typeName": "<Regions as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<761544134u32, ()>,>>::Type"
+                },
+                {
+                  "name": "workers",
+                  "type": 81,
+                  "typeName": "<Workers as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<1839609358u32, ()>,>>::Type"
+                },
+                {
+                  "name": "worker_status",
+                  "type": 22,
+                  "typeName": "<Mapping<NodeID, u8> as::ink::storage::traits::AutoStorableHint<\n::ink::storage::traits::ManualKey<1101871698u32, ()>,>>::Type"
+                },
+                {
+                  "name": "owner_of_worker",
+                  "type": 25,
+                  "typeName": "<Mapping<Address, NodeID> as::ink::storage::traits::\nAutoStorableHint<::ink::storage::traits::ManualKey<2897469180u32,\n()>,>>::Type"
+                },
+                {
+                  "name": "mint_of_worker",
+                  "type": 28,
+                  "typeName": "<Mapping<AccountId, NodeID> as::ink::storage::traits::\nAutoStorableHint<::ink::storage::traits::ManualKey<1911085784u32,\n()>,>>::Type"
+                },
+                {
+                  "name": "regions_workers",
+                  "type": 82,
+                  "typeName": "<RegionWorkers as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<1156809157u32, ()>,>>::Type"
+                },
+                {
+                  "name": "worker_mortgages",
+                  "type": 83,
+                  "typeName": "<WorkerMortgages as::ink::storage::traits::AutoStorableHint<::ink\n::storage::traits::ManualKey<2382045541u32, ()>,>>::Type"
+                },
+                {
+                  "name": "secrets",
+                  "type": 84,
+                  "typeName": "<Secrets as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<2927588268u32, ()>,>>::Type"
+                },
+                {
+                  "name": "secret_of_user",
+                  "type": 56,
+                  "typeName": "<Mapping<Address, NodeID> as::ink::storage::traits::\nAutoStorableHint<::ink::storage::traits::ManualKey<1041235498u32,\n()>,>>::Type"
+                },
+                {
+                  "name": "secret_mortgages",
+                  "type": 59,
+                  "typeName": "<Mapping<NodeID, U256> as::ink::storage::traits::AutoStorableHint\n<::ink::storage::traits::ManualKey<3656332629u32, ()>,>>::Type"
+                },
+                {
+                  "name": "epoch",
+                  "type": 3,
+                  "typeName": "<u32 as::ink::storage::traits::AutoStorableHint<::ink::storage\n::traits::ManualKey<812186708u32, ()>,>>::Type"
+                },
+                {
+                  "name": "epoch_solt",
+                  "type": 3,
+                  "typeName": "<u32 as::ink::storage::traits::AutoStorableHint<::ink::storage\n::traits::ManualKey<3816918884u32, ()>,>>::Type"
+                },
+                {
+                  "name": "side_chain_multi_key",
+                  "type": 0,
+                  "typeName": "<Address as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<1449359353u32, ()>,>>::Type"
+                },
+                {
+                  "name": "last_epoch_block",
+                  "type": 3,
+                  "typeName": "<BlockNumber as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<465680660u32, ()>,>>::Type"
+                },
+                {
+                  "name": "runing_secrets",
+                  "type": 62,
+                  "typeName": "<Vec<(NodeID, u32)> as::ink::storage::traits::AutoStorableHint<\n::ink::storage::traits::ManualKey<4014176974u32, ()>,>>::Type"
+                },
+                {
+                  "name": "pending_secrets",
+                  "type": 62,
+                  "typeName": "<Vec<(NodeID, u32)> as::ink::storage::traits::AutoStorableHint<\n::ink::storage::traits::ManualKey<1933472571u32, ()>,>>::Type"
+                },
+                {
+                  "name": "worker_code",
+                  "type": 85,
+                  "typeName": "<(Vec<u8>, Vec<u8>) as::ink::storage::traits::AutoStorableHint\n<::ink::storage::traits::ManualKey<1179998655u32, ()>,>>::Type"
+                },
+                {
+                  "name": "secret_code",
+                  "type": 85,
+                  "typeName": "<(Vec<u8>, Vec<u8>) as::ink::storage::traits::AutoStorableHint\n<::ink::storage::traits::ManualKey<2528729481u32, ()>,>>::Type"
+                },
+                {
+                  "name": "deposit_prices",
+                  "type": 64,
+                  "typeName": "<Mapping<u8, U256> as::ink::storage::traits::AutoStorableHint<::\nink::storage::traits::ManualKey<3103919281u32, ()>,>>::Type"
+                },
+                {
+                  "name": "next_asset_id",
+                  "type": 3,
+                  "typeName": "<u32 as::ink::storage::traits::AutoStorableHint<::ink::storage\n::traits::ManualKey<3439478468u32, ()>,>>::Type"
+                },
+                {
+                  "name": "asset_infos",
+                  "type": 67,
+                  "typeName": "<Mapping<u32, AssetInfo> as::ink::storage::traits::\nAutoStorableHint<::ink::storage::traits::ManualKey<2800718063u32,\n()>,>>::Type"
+                },
+                {
+                  "name": "asset_prices",
+                  "type": 71,
+                  "typeName": "<Mapping<u32, U256> as::ink::storage::traits::AutoStorableHint<\n::ink::storage::traits::ManualKey<1377733814u32, ()>,>>::Type"
+                },
+                {
+                  "name": "level_prices",
+                  "type": 74,
+                  "typeName": "<Mapping<u8, RunPrice> as::ink::storage::traits::AutoStorableHint\n<::ink::storage::traits::ManualKey<884812602u32, ()>,>>::Type"
+                },
+                {
+                  "name": "boot_nodes",
+                  "type": 78,
+                  "typeName": "<Vec<NodeID> as::ink::storage::traits::AutoStorableHint<::ink\n::storage::traits::ManualKey<3766173931u32, ()>,>>::Type"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "subnet",
+            "Subnet"
+          ]
+        }
+      },
+      {
+        "id": 80,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "next_id",
+                  "type": 3,
+                  "typeName": "<u32 as::ink::storage::traits::AutoStorableHint<::ink::storage\n::traits::ManualKey<1831523232u32, ()>,>>::Type"
+                },
+                {
+                  "name": "store",
+                  "type": 5,
+                  "typeName": "<ink::storage::Mapping<u32, Vec<u8>, ink::storage::traits::\nAutoKey> as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<2302420751u32, ()>,>>::Type"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "Regions"
+          ]
+        }
+      },
+      {
+        "id": 81,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "next_id",
+                  "type": 10,
+                  "typeName": "<NodeID as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<560417924u32, ()>,>>::Type"
+                },
+                {
+                  "name": "store",
+                  "type": 14,
+                  "typeName": "<ink::storage::Mapping<NodeID, K8sCluster, ink::storage::traits::\nAutoKey> as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<3382371062u32, ()>,>>::Type"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "Workers"
+          ]
+        }
+      },
+      {
+        "id": 82,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "k1",
+                  "type": 31,
+                  "typeName": "<ink::storage::Mapping<u32, u32> as::ink::storage::traits::\nAutoStorableHint<::ink::storage::traits::ManualKey<3212967881u32,\n()>,>>::Type"
+                },
+                {
+                  "name": "k1_length",
+                  "type": 3,
+                  "typeName": "<u32 as::ink::storage::traits::AutoStorableHint<::ink::storage\n::traits::ManualKey<3518814450u32, ()>,>>::Type"
+                },
+                {
+                  "name": "k2_next_id",
+                  "type": 34,
+                  "typeName": "<ink::storage::Mapping<u32, u32> as::ink::storage::traits::\nAutoStorableHint<::ink::storage::traits::ManualKey<3661940527u32,\n()>,>>::Type"
+                },
+                {
+                  "name": "store",
+                  "type": 37,
+                  "typeName": "<ink::storage::Mapping<u64, NodeID> as::ink::storage::traits::\nAutoStorableHint<::ink::storage::traits::ManualKey<2066269694u32,\n()>,>>::Type"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "RegionWorkers"
+          ]
+        }
+      },
+      {
+        "id": 83,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "k1",
+                  "type": 40,
+                  "typeName": "<ink::storage::Mapping<NodeID, u32> as::ink::storage::traits::\nAutoStorableHint<::ink::storage::traits::ManualKey<1004781498u32,\n()>,>>::Type"
+                },
+                {
+                  "name": "k1_length",
+                  "type": 3,
+                  "typeName": "<u32 as::ink::storage::traits::AutoStorableHint<::ink::storage\n::traits::ManualKey<3494608279u32, ()>,>>::Type"
+                },
+                {
+                  "name": "k2_next_id",
+                  "type": 43,
+                  "typeName": "<ink::storage::Mapping<u32, u32> as::ink::storage::traits::\nAutoStorableHint<::ink::storage::traits::ManualKey<644077704u32, ()\n>,>>::Type"
+                },
+                {
+                  "name": "store",
+                  "type": 48,
+                  "typeName": "<ink::storage::Mapping<u64, AssetDeposit> as::ink::storage::\ntraits::AutoStorableHint<::ink::storage::traits::ManualKey<\n3102607105u32, ()>,>>::Type"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "WorkerMortgages"
+          ]
+        }
+      },
+      {
+        "id": 84,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "next_id",
+                  "type": 10,
+                  "typeName": "<NodeID as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<1353626287u32, ()>,>>::Type"
+                },
+                {
+                  "name": "store",
+                  "type": 52,
+                  "typeName": "<ink::storage::Mapping<NodeID, SecretNode, ink::storage::traits::\nAutoKey> as::ink::storage::traits::AutoStorableHint<::ink::\nstorage::traits::ManualKey<4023707124u32, ()>,>>::Type"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "Secrets"
+          ]
+        }
+      },
+      {
+        "id": 85,
+        "type": {
+          "def": {
+            "tuple": [
+              4,
+              4
+            ]
+          }
+        }
+      },
+      {
+        "id": 86,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 9
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 9
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 87,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "index": 1,
+                  "name": "CouldNotReadInput"
+                }
+              ]
+            }
+          },
+          "path": [
+            "ink_primitives",
+            "LangError"
+          ]
+        }
+      },
+      {
+        "id": 88,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 89
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 89
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 89,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 90
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 91
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 90
+            },
+            {
+              "name": "E",
+              "type": 91
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 90,
+        "type": {
+          "def": {
+            "sequence": {
+              "type": 53
+            }
+          }
+        }
+      },
+      {
+        "id": 91,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "index": 0,
+                  "name": "NotEnoughBalance"
+                },
+                {
+                  "index": 1,
+                  "name": "MustCallByMainContract"
+                },
+                {
+                  "index": 2,
+                  "name": "WorkerNotExist"
+                },
+                {
+                  "index": 3,
+                  "name": "WorkerNotOwnedByCaller"
+                },
+                {
+                  "index": 4,
+                  "name": "WorkerStatusNotReady"
+                },
+                {
+                  "index": 5,
+                  "name": "WorkerMortgageNotExist"
+                },
+                {
+                  "index": 6,
+                  "name": "TransferFailed"
+                },
+                {
+                  "index": 7,
+                  "name": "WorkerIsUseByUser"
+                },
+                {
+                  "index": 8,
+                  "name": "NodeNotExist"
+                },
+                {
+                  "index": 9,
+                  "name": "SecretNodeAlreadyExists"
+                },
+                {
+                  "index": 10,
+                  "name": "SetCodeFailed"
+                },
+                {
+                  "index": 11,
+                  "name": "EpochNotExpired"
+                },
+                {
+                  "index": 12,
+                  "name": "InvalidSideChainSignature"
+                },
+                {
+                  "index": 13,
+                  "name": "NodeIsRunning"
+                },
+                {
+                  "index": 14,
+                  "name": "InvalidSideChainCaller"
+                },
+                {
+                  "index": 15,
+                  "name": "RegionNotExist"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "errors",
+            "Error"
+          ]
+        }
+      },
+      {
+        "id": 92,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 93
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 93
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 93,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 9
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 91
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 9
+            },
+            {
+              "name": "E",
+              "type": 91
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 94,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 19
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 19
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 95,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 96
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 96
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 96,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "index": 0,
+                  "name": "None"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 75
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Some"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 75
+            }
+          ],
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "id": 97,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 98
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 98
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 98,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "index": 0,
+                  "name": "None"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 99
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Some"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 99
+            }
+          ],
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "id": 99,
+        "type": {
+          "def": {
+            "tuple": [
+              68,
+              46
+            ]
+          }
+        }
+      },
+      {
+        "id": 100,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 101
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 101
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 101,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "index": 0,
+                  "name": "None"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 15
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Some"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 15
+            }
+          ],
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "id": 102,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "index": 0,
+                  "name": "None"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 10
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Some"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 10
+            }
+          ],
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "id": 103,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 104
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 104
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 104,
+        "type": {
+          "def": {
+            "sequence": {
+              "type": 105
+            }
+          }
+        }
+      },
+      {
+        "id": 105,
+        "type": {
+          "def": {
+            "tuple": [
+              10,
+              15
+            ]
+          }
+        }
+      },
+      {
+        "id": 106,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 107
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 107
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 107,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "index": 0,
+                  "name": "None"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 105
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Some"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 105
+            }
+          ],
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "id": 108,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 109
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 109
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 109,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 10
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 91
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 10
+            },
+            {
+              "name": "E",
+              "type": 91
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 110,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 111
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 111
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 111,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 3
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 91
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 3
+            },
+            {
+              "name": "E",
+              "type": 91
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 112,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 113
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 113
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 113,
+        "type": {
+          "def": {
+            "sequence": {
+              "type": 114
+            }
+          }
+        }
+      },
+      {
+        "id": 114,
+        "type": {
+          "def": {
+            "tuple": [
+              10,
+              53
+            ]
+          }
+        }
+      },
+      {
+        "id": 115,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 116
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 116
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 116,
+        "type": {
+          "def": {
+            "sequence": {
+              "type": 117
+            }
+          }
+        }
+      },
+      {
+        "id": 117,
+        "type": {
+          "def": {
+            "tuple": [
+              10,
+              53,
+              3
+            ]
+          }
+        }
+      },
+      {
+        "id": 118,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 62
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 62
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 119,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 120
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 120
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 120,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "name": "epoch",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "epoch_solt",
+                  "type": 3,
+                  "typeName": "u32"
+                },
+                {
+                  "name": "last_epoch_block",
+                  "type": 3,
+                  "typeName": "BlockNumber"
+                },
+                {
+                  "name": "now",
+                  "type": 3,
+                  "typeName": "BlockNumber"
+                },
+                {
+                  "name": "side_chain_pub",
+                  "type": 0,
+                  "typeName": "Address"
+                }
+              ]
+            }
+          },
+          "path": [
+            "subnet",
+            "datas",
+            "EpochInfo"
+          ]
+        }
+      },
+      {
+        "id": 121,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 122
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 122
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 122,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 116
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 91
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 116
+            },
+            {
+              "name": "E",
+              "type": 91
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 123,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "type": 12,
+                  "typeName": "[u8; 32]"
+                }
+              ]
+            }
+          },
+          "path": [
+            "primitive_types",
+            "H256"
+          ]
+        }
+      },
+      {
+        "id": 124,
+        "type": {
+          "def": {
+            "variant": {
+              "variants": [
+                {
+                  "fields": [
+                    {
+                      "type": 0
+                    }
+                  ],
+                  "index": 0,
+                  "name": "Ok"
+                },
+                {
+                  "fields": [
+                    {
+                      "type": 87
+                    }
+                  ],
+                  "index": 1,
+                  "name": "Err"
+                }
+              ]
+            }
+          },
+          "params": [
+            {
+              "name": "T",
+              "type": 0
+            },
+            {
+              "name": "E",
+              "type": 87
+            }
+          ],
+          "path": [
+            "Result"
+          ]
+        }
+      },
+      {
+        "id": 125,
+        "type": {
+          "def": {
+            "composite": {
+              "fields": [
+                {
+                  "type": 12,
+                  "typeName": "[u8; 32]"
+                }
+              ]
+            }
+          },
+          "path": [
+            "ink_primitives",
+            "types",
+            "Hash"
+          ]
+        }
+      }
+    ],
+    "version": 6
+  }

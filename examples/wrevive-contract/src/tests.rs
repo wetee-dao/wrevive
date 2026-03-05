@@ -57,7 +57,7 @@ fn set_owner_only_by_current_owner() {
     let _ = contract::deploy(0);
 
     // Alice 可以改 owner 为 Bob
-    let _ = contract::set_owner(bob, 0);
+    let _ = contract::set_owner(bob);
     assert_eq!(contract::get_owner(), bob);
 
     // Bob 为 caller 时才能再改 owner；若用 Alice 作为 caller 调用 set_owner 会 revert
@@ -65,7 +65,7 @@ fn set_owner_only_by_current_owner() {
         e.set_caller(bob.into());
     });
     let new_owner = Address::from([3u8; 20]);
-    let _ = contract::set_owner(new_owner, 0);
+    let _ = contract::set_owner(new_owner);
     assert_eq!(contract::get_owner(), new_owner);
 }
 
@@ -207,7 +207,7 @@ fn set_owner_reverts_when_not_owner() {
     });
     let _ = contract::deploy(0);
     off_chain::with_engine(|e| e.set_caller(bob.into()));
-    let res = contract::set_owner(charlie, 0);
+    let res = contract::set_owner(charlie);
     assert_eq!(res, Err(contract::Error::Unauthorized));
 }
 

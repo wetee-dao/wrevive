@@ -4,7 +4,7 @@ go 1.23.12
 
 require (
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.2.2-0.20240919131012-e3b938563803
-	github.com/wetee-dao/ink.go v0.1.33
+	github.com/wetee-dao/ink.go v0.1.35
 )
 
 require (
@@ -36,5 +36,3 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/wetee-dao/ink.go => ../../../../ink.go/

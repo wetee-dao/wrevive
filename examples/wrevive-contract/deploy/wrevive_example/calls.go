@@ -10,12 +10,12 @@ import (
 	"github.com/wetee-dao/ink.go/util"
 )
 
-func DeployWreviveExampleWithDeploy(__ink_params chain.DeployParams) (*types.H160, error) {
+func DeployWreviveExampleWithDeploy(initial_value uint32, __ink_params chain.DeployParams) (*types.H160, error) {
 	return __ink_params.Client.DeployContract(
 		__ink_params.Code, __ink_params.Signer, types.NewU128(*big.NewInt(0)),
 		util.InkContractInput{
 			Selector: "0x00000000",
-			Args:     []any{},
+			Args:     []any{initial_value},
 		},
 		__ink_params.Salt,
 	)
@@ -47,12 +47,12 @@ func (c *WreviveExample) ContractAddress() types.H160 {
 
 func (c *WreviveExample) DryRunSetValue(
 	value uint32, __ink_params chain.DryRunParams,
-) (*util.NullTuple, *chain.DryRunReturnGas, error) {
+) (*util.Result[util.NullTuple, Error], *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
 		util.LogWithPurple("[ DryRun   method ]", "set_value")
 	}
-	v, gas, err := chain.DryRunInk[util.NullTuple](
+	v, gas, err := chain.DryRunInk[util.Result[util.NullTuple, Error]](
 		c,
 		__ink_params.Origin,
 		__ink_params.PayAmount,
@@ -66,6 +66,10 @@ func (c *WreviveExample) DryRunSetValue(
 	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
 		return nil, nil, err
 	}
+	if v != nil && v.IsErr {
+		return nil, nil, errors.New("Contract Reverted: " + v.E.Error())
+	}
+
 	return v, gas, nil
 }
 
@@ -109,14 +113,62 @@ func (c *WreviveExample) CallOfSetValue(
 	)
 }
 
+func (c *WreviveExample) QueryGetValue(
+	__ink_params chain.DryRunParams,
+) (*uint32, *chain.DryRunReturnGas, error) {
+	if c.ChainClient.Debug {
+		fmt.Println()
+		util.LogWithPurple("[ DryRun   method ]", "get_value")
+	}
+	v, gas, err := chain.DryRunInk[uint32](
+		c,
+		__ink_params.Origin,
+		__ink_params.PayAmount,
+		__ink_params.GasLimit,
+		__ink_params.StorageDepositLimit,
+		util.InkContractInput{
+			Selector: "0xfac42ee4",
+			Args:     []any{},
+		},
+	)
+	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
+		return nil, nil, err
+	}
+	return v, gas, nil
+}
+
+func (c *WreviveExample) QueryGetValueOption(
+	__ink_params chain.DryRunParams,
+) (*util.Option[uint32], *chain.DryRunReturnGas, error) {
+	if c.ChainClient.Debug {
+		fmt.Println()
+		util.LogWithPurple("[ DryRun   method ]", "get_value_option")
+	}
+	v, gas, err := chain.DryRunInk[util.Option[uint32]](
+		c,
+		__ink_params.Origin,
+		__ink_params.PayAmount,
+		__ink_params.GasLimit,
+		__ink_params.StorageDepositLimit,
+		util.InkContractInput{
+			Selector: "0x994d2873",
+			Args:     []any{},
+		},
+	)
+	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
+		return nil, nil, err
+	}
+	return v, gas, nil
+}
+
 func (c *WreviveExample) DryRunSetValueSol(
 	value uint32, __ink_params chain.DryRunParams,
-) (*util.NullTuple, *chain.DryRunReturnGas, error) {
+) (*util.Result[util.NullTuple, Error], *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
 		util.LogWithPurple("[ DryRun   method ]", "set_value_sol")
 	}
-	v, gas, err := chain.DryRunInk[util.NullTuple](
+	v, gas, err := chain.DryRunInk[util.Result[util.NullTuple, Error]](
 		c,
 		__ink_params.Origin,
 		__ink_params.PayAmount,
@@ -130,6 +182,10 @@ func (c *WreviveExample) DryRunSetValueSol(
 	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
 		return nil, nil, err
 	}
+	if v != nil && v.IsErr {
+		return nil, nil, errors.New("Contract Reverted: " + v.E.Error())
+	}
+
 	return v, gas, nil
 }
 
@@ -173,12 +229,12 @@ func (c *WreviveExample) CallOfSetValueSol(
 	)
 }
 
-func (c *WreviveExample) QueryGetValue(
+func (c *WreviveExample) QueryGetValueSol(
 	__ink_params chain.DryRunParams,
 ) (*uint32, *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
-		util.LogWithPurple("[ DryRun   method ]", "get_value")
+		util.LogWithPurple("[ DryRun   method ]", "get_value_sol")
 	}
 	v, gas, err := chain.DryRunInk[uint32](
 		c,
@@ -187,7 +243,7 @@ func (c *WreviveExample) QueryGetValue(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xfac42ee4",
+			Selector: "0x51c4aa4d",
 			Args:     []any{},
 		},
 	)
@@ -197,22 +253,22 @@ func (c *WreviveExample) QueryGetValue(
 	return v, gas, nil
 }
 
-func (c *WreviveExample) DryRunSetOwner(
-	new_owner types.H160, _v uint32, __ink_params chain.DryRunParams,
-) (*util.NullTuple, *chain.DryRunReturnGas, error) {
+func (c *WreviveExample) QueryGetCluster(
+	__ink_params chain.DryRunParams,
+) (*Cluster, *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
-		util.LogWithPurple("[ DryRun   method ]", "set_owner")
+		util.LogWithPurple("[ DryRun   method ]", "get_cluster")
 	}
-	v, gas, err := chain.DryRunInk[util.NullTuple](
+	v, gas, err := chain.DryRunInk[Cluster](
 		c,
 		__ink_params.Origin,
 		__ink_params.PayAmount,
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x30c7240f",
-			Args:     []any{new_owner, _v},
+			Selector: "0x06b5d385",
+			Args:     []any{},
 		},
 	)
 	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
@@ -221,12 +277,108 @@ func (c *WreviveExample) DryRunSetOwner(
 	return v, gas, nil
 }
 
-func (c *WreviveExample) ExecSetOwner(
-	new_owner types.H160, _v uint32, __ink_params chain.ExecParams,
+func (c *WreviveExample) DryRunSetCluster(
+	cluster Cluster, __ink_params chain.DryRunParams,
+) (*util.Result[util.NullTuple, Error], *chain.DryRunReturnGas, error) {
+	if c.ChainClient.Debug {
+		fmt.Println()
+		util.LogWithPurple("[ DryRun   method ]", "set_cluster")
+	}
+	v, gas, err := chain.DryRunInk[util.Result[util.NullTuple, Error]](
+		c,
+		__ink_params.Origin,
+		__ink_params.PayAmount,
+		__ink_params.GasLimit,
+		__ink_params.StorageDepositLimit,
+		util.InkContractInput{
+			Selector: "0xdbbbd708",
+			Args:     []any{cluster},
+		},
+	)
+	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
+		return nil, nil, err
+	}
+	if v != nil && v.IsErr {
+		return nil, nil, errors.New("Contract Reverted: " + v.E.Error())
+	}
+
+	return v, gas, nil
+}
+
+func (c *WreviveExample) ExecSetCluster(
+	cluster Cluster, __ink_params chain.ExecParams,
 ) error {
 	_param := chain.DefaultParamWithOrigin(__ink_params.Signer.AccountID())
 	_param.PayAmount = __ink_params.PayAmount
-	_, gas, err := c.DryRunSetOwner(new_owner, _v, _param)
+	_, gas, err := c.DryRunSetCluster(cluster, _param)
+	if err != nil {
+		return err
+	}
+	return chain.CallInk(
+		c,
+		gas.GasRequired,
+		gas.StorageDeposit,
+		util.InkContractInput{
+			Selector: "0xdbbbd708",
+			Args:     []any{cluster},
+		},
+		__ink_params,
+	)
+}
+
+func (c *WreviveExample) CallOfSetCluster(
+	cluster Cluster, __ink_params chain.DryRunParams,
+) (*types.Call, error) {
+	_, gas, err := c.DryRunSetCluster(cluster, __ink_params)
+	if err != nil {
+		return nil, err
+	}
+	return chain.CallOfTransaction(
+		c,
+		__ink_params.PayAmount,
+		gas.GasRequired,
+		gas.StorageDeposit,
+		util.InkContractInput{
+			Selector: "0xdbbbd708",
+			Args:     []any{cluster},
+		},
+	)
+}
+
+func (c *WreviveExample) DryRunSetOwner(
+	new_owner types.H160, __ink_params chain.DryRunParams,
+) (*util.Result[util.NullTuple, Error], *chain.DryRunReturnGas, error) {
+	if c.ChainClient.Debug {
+		fmt.Println()
+		util.LogWithPurple("[ DryRun   method ]", "set_owner")
+	}
+	v, gas, err := chain.DryRunInk[util.Result[util.NullTuple, Error]](
+		c,
+		__ink_params.Origin,
+		__ink_params.PayAmount,
+		__ink_params.GasLimit,
+		__ink_params.StorageDepositLimit,
+		util.InkContractInput{
+			Selector: "0x30c7240f",
+			Args:     []any{new_owner},
+		},
+	)
+	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
+		return nil, nil, err
+	}
+	if v != nil && v.IsErr {
+		return nil, nil, errors.New("Contract Reverted: " + v.E.Error())
+	}
+
+	return v, gas, nil
+}
+
+func (c *WreviveExample) ExecSetOwner(
+	new_owner types.H160, __ink_params chain.ExecParams,
+) error {
+	_param := chain.DefaultParamWithOrigin(__ink_params.Signer.AccountID())
+	_param.PayAmount = __ink_params.PayAmount
+	_, gas, err := c.DryRunSetOwner(new_owner, _param)
 	if err != nil {
 		return err
 	}
@@ -236,16 +388,16 @@ func (c *WreviveExample) ExecSetOwner(
 		gas.StorageDeposit,
 		util.InkContractInput{
 			Selector: "0x30c7240f",
-			Args:     []any{new_owner, _v},
+			Args:     []any{new_owner},
 		},
 		__ink_params,
 	)
 }
 
 func (c *WreviveExample) CallOfSetOwner(
-	new_owner types.H160, _v uint32, __ink_params chain.DryRunParams,
+	new_owner types.H160, __ink_params chain.DryRunParams,
 ) (*types.Call, error) {
-	_, gas, err := c.DryRunSetOwner(new_owner, _v, __ink_params)
+	_, gas, err := c.DryRunSetOwner(new_owner, __ink_params)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +408,7 @@ func (c *WreviveExample) CallOfSetOwner(
 		gas.StorageDeposit,
 		util.InkContractInput{
 			Selector: "0x30c7240f",
-			Args:     []any{new_owner, _v},
+			Args:     []any{new_owner},
 		},
 	)
 }
@@ -287,12 +439,12 @@ func (c *WreviveExample) QueryGetOwner(
 
 func (c *WreviveExample) DryRunSetBalance(
 	user types.H160, balance uint64, __ink_params chain.DryRunParams,
-) (*util.NullTuple, *chain.DryRunReturnGas, error) {
+) (*util.Result[util.NullTuple, Error], *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
 		util.LogWithPurple("[ DryRun   method ]", "set_balance")
 	}
-	v, gas, err := chain.DryRunInk[util.NullTuple](
+	v, gas, err := chain.DryRunInk[util.Result[util.NullTuple, Error]](
 		c,
 		__ink_params.Origin,
 		__ink_params.PayAmount,
@@ -306,6 +458,10 @@ func (c *WreviveExample) DryRunSetBalance(
 	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
 		return nil, nil, err
 	}
+	if v != nil && v.IsErr {
+		return nil, nil, errors.New("Contract Reverted: " + v.E.Error())
+	}
+
 	return v, gas, nil
 }
 
@@ -375,12 +531,12 @@ func (c *WreviveExample) QueryGetBalance(
 
 func (c *WreviveExample) DryRunSetUserInfo(
 	user types.H160, info_type byte, value uint32, __ink_params chain.DryRunParams,
-) (*util.NullTuple, *chain.DryRunReturnGas, error) {
+) (*util.Result[util.NullTuple, Error], *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
 		util.LogWithPurple("[ DryRun   method ]", "set_user_info")
 	}
-	v, gas, err := chain.DryRunInk[util.NullTuple](
+	v, gas, err := chain.DryRunInk[util.Result[util.NullTuple, Error]](
 		c,
 		__ink_params.Origin,
 		__ink_params.PayAmount,
@@ -394,6 +550,10 @@ func (c *WreviveExample) DryRunSetUserInfo(
 	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
 		return nil, nil, err
 	}
+	if v != nil && v.IsErr {
+		return nil, nil, errors.New("Contract Reverted: " + v.E.Error())
+	}
+
 	return v, gas, nil
 }
 
@@ -463,12 +623,12 @@ func (c *WreviveExample) QueryGetUserInfo(
 
 func (c *WreviveExample) DryRunTransferBalance(
 	from types.H160, to types.H160, amount uint64, __ink_params chain.DryRunParams,
-) (*util.NullTuple, *chain.DryRunReturnGas, error) {
+) (*util.Result[util.NullTuple, Error], *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
 		util.LogWithPurple("[ DryRun   method ]", "transfer_balance")
 	}
-	v, gas, err := chain.DryRunInk[util.NullTuple](
+	v, gas, err := chain.DryRunInk[util.Result[util.NullTuple, Error]](
 		c,
 		__ink_params.Origin,
 		__ink_params.PayAmount,
@@ -482,6 +642,10 @@ func (c *WreviveExample) DryRunTransferBalance(
 	if err != nil && !errors.Is(err, chain.ErrContractReverted) {
 		return nil, nil, err
 	}
+	if v != nil && v.IsErr {
+		return nil, nil, errors.New("Contract Reverted: " + v.E.Error())
+	}
+
 	return v, gas, nil
 }
 
@@ -639,12 +803,12 @@ func (c *WreviveExample) QueryRecordsLen(
 
 func (c *WreviveExample) QueryRecordsList(
 	start uint32, size uint32, __ink_params chain.DryRunParams,
-) (*[]Tuple_14, *chain.DryRunReturnGas, error) {
+) (*[]Tuple_26, *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
 		util.LogWithPurple("[ DryRun   method ]", "records_list")
 	}
-	v, gas, err := chain.DryRunInk[[]Tuple_14](
+	v, gas, err := chain.DryRunInk[[]Tuple_26](
 		c,
 		__ink_params.Origin,
 		__ink_params.PayAmount,
@@ -775,12 +939,12 @@ func (c *WreviveExample) QueryUserItemsLen(
 
 func (c *WreviveExample) QueryUserItemsList(
 	user types.H160, start uint32, size uint32, __ink_params chain.DryRunParams,
-) (*[]Tuple_17, *chain.DryRunReturnGas, error) {
+) (*[]Tuple_29, *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
 		util.LogWithPurple("[ DryRun   method ]", "user_items_list")
 	}
-	v, gas, err := chain.DryRunInk[[]Tuple_17](
+	v, gas, err := chain.DryRunInk[[]Tuple_29](
 		c,
 		__ink_params.Origin,
 		__ink_params.PayAmount,

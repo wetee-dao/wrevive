@@ -10,6 +10,7 @@ off_chain = []
 on_chain = []
 
 [dependencies]
+primitive-types = { version = "0.14.0", default-features = false, features = ["codec"] }
 pvm-contract-macros = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
 pvm-contract-types = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
 pallet-revive-uapi = { version = "0.10", default-features = false }

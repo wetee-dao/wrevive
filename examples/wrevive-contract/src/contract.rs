@@ -6,12 +6,16 @@
 
 extern crate alloc;
 
+mod datas;
+
 #[cfg(not(test))]
 #[global_allocator]
 static ALLOC: pvm_bump_allocator::BumpAllocator<1024> = pvm_bump_allocator::BumpAllocator::new();
 
 use wrevive_api::{Address, Encode, List, List2D, Mapping, Storage, Vec, env};
 use wrevive_macro::{list, list_2d, mapping, revive_contract, storage};
+
+pub use datas::*;
 
 #[revive_contract]
 mod contract {
@@ -26,6 +30,9 @@ mod contract {
 
     /// Contract owner address (20 bytes). 合约所有者地址（20 字节）。
     const OWNER: Storage<Address> = storage!(b"owner");
+
+    /// Cluster info; prefix = Blake2s256(b"cluster")[0..4].
+    const CLUSTER: Storage<Cluster> = storage!(b"cluster");
 
     /// Balance per account: key = Address, value = u64.
     /// 用户余额：key = 用户地址，value = 余额。
@@ -70,6 +77,11 @@ mod contract {
         VALUE.get(env()).unwrap_or(0)
     }
 
+    #[revive(message)]
+    pub fn get_value_option() -> Option<u32> {
+        VALUE.get(env()).ok()
+    }
+
     /// Set value; only current owner may call (else revert). for solidity.
     #[revive(message, sol)]
     pub fn set_value_sol(value: u32) -> Result<(), Error> {
@@ -84,10 +96,21 @@ mod contract {
         VALUE.get(env()).unwrap_or(0)
     }
 
+    #[revive(message)]
+    pub fn get_cluster() -> Cluster {
+        CLUSTER.get(env()).unwrap_or(Cluster::default())
+    }
+
+    #[revive(message)]
+    pub fn set_cluster(cluster: Cluster) -> Result<(), Error> {
+        CLUSTER.set(env(), &cluster);
+        Ok(())
+    }
+
     /// Set owner; only current owner may call (else revert).
     /// 设置 owner；仅当前 owner 可调用，否则 revert。
     #[revive(message)]
-    pub fn set_owner(new_owner: Address, _v: u32) -> Result<(), Error> {
+    pub fn set_owner(new_owner: Address) -> Result<(), Error> {
         let caller = env().caller();
         let current_owner = get_owner();
         if caller != current_owner {

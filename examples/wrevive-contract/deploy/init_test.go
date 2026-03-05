@@ -41,7 +41,7 @@ func TestDeployContract(t *testing.T) {
 
 	// fmt.Println("podCode", podCode)
 	salt := genSalt()
-	address, err := wrevive_example.DeployWreviveExampleWithDeploy(chain.DeployParams{
+	address, err := wrevive_example.DeployWreviveExampleWithDeploy(0, chain.DeployParams{
 		Client: client,
 		Signer: &pk,
 		Code:   util.InkCode{Existing: codeHash},

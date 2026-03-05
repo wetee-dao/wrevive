@@ -175,8 +175,9 @@ fn off_chain_env_instantiate() {
         &mut address,
         None,
     );
-    assert!(r.is_err());
-    assert_eq!(address, [0u8; 20]);
+    // Off-chain instantiate now succeeds and assigns a mock address (for multi-contract tests).
+    assert!(r.is_ok());
+    assert_ne!(address[16..20], [0u8; 4]); // at least id bytes set
 }
 
 /// Off-chain Env: get_immutable_data / set_immutable_data no-op. 链下不可变数据为空操作。

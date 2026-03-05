@@ -3,10 +3,12 @@
 //! On-chain Env implementation: delegates to `pallet_revive_uapi::HostFnImpl` (PolkaVM/RISC-V only).
 //! 链上 Env 实现：委托 `pallet_revive_uapi::HostFnImpl`，仅用于 PolkaVM/RISC-V 目标。
 
-use alloc::vec::Vec;
-use crate::env::{Env, CallResult};
+use crate::env::{CallResult, Env};
 use crate::types::{Address, BlockNumber, H256, U256};
-use pallet_revive_uapi::{CallFlags, HostFn, HostFnImpl, ReturnErrorCode, ReturnFlags, StorageFlags};
+use alloc::vec::Vec;
+use pallet_revive_uapi::{
+    CallFlags, HostFn, HostFnImpl, ReturnErrorCode, ReturnFlags, StorageFlags,
+};
 
 /// On-chain Env: forwards all calls to HostFnImpl (host interface).
 /// 链上 Env：所有调用转发给 HostFnImpl（宿主接口）。
@@ -26,11 +28,7 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn get_storage(
-        &self,
-        flags: StorageFlags,
-        key: &[u8],
-    ) -> Result<Vec<u8>, ReturnErrorCode> {
+    fn get_storage(&self, flags: StorageFlags, key: &[u8]) -> Result<Vec<u8>, ReturnErrorCode> {
         // Host 写入从 buf 起始填充，cursor 剩余长度 = 未写入；written = 256 - cursor.len()
         let mut buf = alloc::vec![0u8; 256];
         let mut cursor: &mut [u8] = buf.as_mut_slice();
@@ -154,7 +152,16 @@ impl Env for OnChainEnv {
         input_data: &[u8],
         output: Option<&mut &mut [u8]>,
     ) -> CallResult {
-        HostFnImpl::call(flags, callee.as_ref(), ref_time_limit, proof_size_limit, deposit.as_bytes(), value.as_bytes(), input_data, output)
+        HostFnImpl::call(
+            flags,
+            callee.as_ref(),
+            ref_time_limit,
+            proof_size_limit,
+            deposit.as_bytes(),
+            value.as_bytes(),
+            input_data,
+            output,
+        )
     }
 
     /// 合约向账户转帐：通过 call 空 data + value 实现。
@@ -184,7 +191,15 @@ impl Env for OnChainEnv {
         input_data: &[u8],
         output: Option<&mut &mut [u8]>,
     ) -> CallResult {
-        HostFnImpl::delegate_call(flags, address.as_ref(), ref_time_limit, proof_size_limit, deposit_limit.as_bytes(), input_data, output)
+        HostFnImpl::delegate_call(
+            flags,
+            address.as_ref(),
+            ref_time_limit,
+            proof_size_limit,
+            deposit_limit.as_bytes(),
+            input_data,
+            output,
+        )
     }
 
     #[inline(always)]
@@ -244,7 +259,12 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn set_storage_or_clear(&self, flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32> {
+    fn set_storage_or_clear(
+        &self,
+        flags: StorageFlags,
+        key: &[u8; 32],
+        value: &[u8; 32],
+    ) -> Option<u32> {
         HostFnImpl::set_storage_or_clear(flags, key, value)
     }
 
@@ -262,7 +282,6 @@ impl Env for OnChainEnv {
         U256::from_be_bytes(output)
     }
 
-
     #[inline(always)]
     fn return_data_size(&self) -> u64 {
         HostFnImpl::return_data_size()
@@ -278,7 +297,14 @@ impl Env for OnChainEnv {
         input_data: &[u8],
         output: Option<&mut &mut [u8]>,
     ) -> CallResult {
-        HostFnImpl::call_evm(flags, callee.as_ref(), gas, value.as_bytes(), input_data, output)
+        HostFnImpl::call_evm(
+            flags,
+            callee.as_ref(),
+            gas,
+            value.as_bytes(),
+            input_data,
+            output,
+        )
     }
 
     #[inline(always)]

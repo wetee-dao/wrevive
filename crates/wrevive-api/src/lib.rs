@@ -23,7 +23,7 @@ pub mod list_2d;
 
 /// 常见数据类型：Address、H256、U256、BlockNumber、String。
 pub mod types;
-pub use types::{Address, BlockNumber, Bytes, H256, U256};
+pub use types::*;
 
 /// Vec 再导出：test 或 off_chain 用 std；否则 no_std 合约用 alloc。
 #[cfg(any(test, feature = "off_chain"))]
@@ -52,7 +52,7 @@ pub mod on_chain;
 pub mod off_chain;
 
 #[cfg(any(test, feature = "off_chain"))]
-pub use off_chain::{with_engine, Engine};
+pub use off_chain::{with_engine, Engine, ReturnValuePanic};
 
 /// Returns the current backend Env. Contracts use `env().caller()`, `env().set_storage()` etc.
 /// 返回当前后端 Env；合约通过 `env().caller()`、`env().set_storage()` 等调用。

@@ -129,7 +129,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
 
     let message_fns_abi: Vec<(ItemFn, [u8; 4])> =
         message_fns.iter().map(|(f, sel, _)| (f.clone(), *sel)).collect();
-    if let Err(e) = abi::emit_abi(&contract_name, &constructor_fn, &message_fns_abi) {
+    if let Err(e) = abi::emit_abi(&contract_name, &constructor_fn, &message_fns_abi, &other_items) {
         return syn::Error::new_spanned(
             &module,
             format!("ABI generation failed, build aborted: {0} / ABI 生成失败，编译终止: {0}", e),

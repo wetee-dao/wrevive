@@ -8,54 +8,80 @@ use std::vec::Vec;
 
 use pvm_contract_macros::SolType;
 
+use core::ops::{Add, Div, Mul, Sub};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use core::ops::{Add, Div, Mul, Sub};
 
 // =============================================================================
 // Address — 20 字节地址（EVM/账户兼容）
 // =============================================================================
 
 /// 20-byte address (EVM / account compatible). SCALE 编码为 20 字节。
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
+/// 使用透明封装的新类型，方便实现 `zero`、`From` 等方法，同时在 ABI 中可映射为 H160。
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
 #[repr(transparent)]
 pub struct Address(pub [u8; 20]);
 
 impl Address {
+    /// 全零地址（20 字节全 0）。
     pub const fn zero() -> Self {
         Self([0u8; 20])
-    }
-
-    #[inline]
-    pub fn as_bytes(&self) -> &[u8; 20] {
-        &self.0
     }
 }
 
 impl From<[u8; 20]> for Address {
+    #[inline]
     fn from(b: [u8; 20]) -> Self {
         Self(b)
     }
 }
 
 impl From<Address> for [u8; 20] {
+    #[inline]
     fn from(a: Address) -> Self {
         a.0
     }
 }
 
 impl AsRef<[u8; 20]> for Address {
+    #[inline]
     fn as_ref(&self) -> &[u8; 20] {
         &self.0
     }
 }
 
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
+pub struct AccountId(pub [u8; 32]);
+
+impl AccountId {
+    pub const fn zero() -> Self {
+        Self([0u8; 32])
+    }
+}
+
+impl From<[u8; 32]> for AccountId {
+    fn from(b: [u8; 32]) -> Self {
+        Self(b)
+    }
+}
+
+impl From<AccountId> for [u8; 32] {
+    fn from(a: AccountId) -> Self {
+        a.0
+    }
+}
+
+impl AsRef<[u8; 32]> for AccountId {
+    fn as_ref(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
 // =============================================================================
 // H256 — 32 字节哈希
 // =============================================================================
 
 /// 32-byte hash (e.g. Keccak-256). SCALE 编码为 32 字节。
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
 #[repr(transparent)]
 pub struct H256(pub [u8; 32]);
 
@@ -94,7 +120,21 @@ impl AsRef<[u8; 32]> for H256 {
 
 /// 256-bit unsigned integer. Stored and SCALE-encoded as 32 bytes big-endian (EVM-compatible).
 /// 256 位无符号整数；内部及 SCALE 编码均为 32 字节大端（与 EVM 一致）。
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, TypeInfo, SolType, Debug, Default)]
+#[derive(
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Encode,
+    Decode,
+    TypeInfo,
+    SolType,
+    Debug
+)]
 #[repr(transparent)]
 pub struct U256(pub [u8; 32]);
 
@@ -389,8 +429,16 @@ mod tests {
     fn u256_mul() {
         assert_eq!(U256::ZERO.wrapping_mul(U256::ONE), U256::ZERO);
         assert_eq!(U256::ONE.wrapping_mul(U256::ONE), U256::ONE);
-        assert_eq!(U256::from_u64(10).wrapping_mul(U256::from_u64(20)), U256::from_u64(200));
-        assert_eq!(U256::from_u64(0xFFFF_FFFF).wrapping_mul(U256::from_u64(2)).to_u64(), 0x1_FFFF_FFFE);
+        assert_eq!(
+            U256::from_u64(10).wrapping_mul(U256::from_u64(20)),
+            U256::from_u64(200)
+        );
+        assert_eq!(
+            U256::from_u64(0xFFFF_FFFF)
+                .wrapping_mul(U256::from_u64(2))
+                .to_u64(),
+            0x1_FFFF_FFFE
+        );
         // Mul trait
         assert_eq!(U256::from_u64(7) * U256::from_u64(6), U256::from_u64(42));
     }
@@ -398,8 +446,14 @@ mod tests {
     #[test]
     fn u256_add_sub() {
         assert_eq!(U256::ZERO.wrapping_add(U256::ONE), U256::ONE);
-        assert_eq!(U256::from_u64(100).wrapping_add(U256::from_u64(50)), U256::from_u64(150));
-        assert_eq!(U256::from_u64(100).wrapping_sub(U256::from_u64(30)), U256::from_u64(70));
+        assert_eq!(
+            U256::from_u64(100).wrapping_add(U256::from_u64(50)),
+            U256::from_u64(150)
+        );
+        assert_eq!(
+            U256::from_u64(100).wrapping_sub(U256::from_u64(30)),
+            U256::from_u64(70)
+        );
         assert_eq!(U256::ONE.wrapping_sub(U256::ONE), U256::ZERO);
         // Add/Sub traits
         assert_eq!(U256::from_u64(10) + U256::from_u64(20), U256::from_u64(30));
@@ -410,9 +464,18 @@ mod tests {
     fn u256_div() {
         assert_eq!(U256::ZERO.checked_div(U256::ONE), Some(U256::ZERO));
         assert_eq!(U256::ONE.checked_div(U256::ZERO), None);
-        assert_eq!(U256::from_u64(100).checked_div(U256::from_u64(5)), Some(U256::from_u64(20)));
-        assert_eq!(U256::from_u64(99).checked_div(U256::from_u64(5)), Some(U256::from_u64(19)));
-        assert_eq!(U256::from_u64(50).checked_div(U256::from_u64(100)), Some(U256::ZERO));
+        assert_eq!(
+            U256::from_u64(100).checked_div(U256::from_u64(5)),
+            Some(U256::from_u64(20))
+        );
+        assert_eq!(
+            U256::from_u64(99).checked_div(U256::from_u64(5)),
+            Some(U256::from_u64(19))
+        );
+        assert_eq!(
+            U256::from_u64(50).checked_div(U256::from_u64(100)),
+            Some(U256::ZERO)
+        );
         // Div trait
         assert_eq!(U256::from_u64(100) / U256::from_u64(4), U256::from_u64(25));
     }
