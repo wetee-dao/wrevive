@@ -13,12 +13,12 @@ fn to_selector_constant_name(name: &str) -> String {
 /// 生成合约间调用的 interface 子模块：SELECTOR_*、encode_*、call_raw、call_*、constructor 的 encode_* / instantiate_*。
 /// 仅对 encoding 为 Codec 的 message/constructor 生成 encode 与调用封装。
 pub fn gen_interface_module(
-    message_fns: &[(ItemFn, [u8; 4], EncodingMode)],
+    message_fns: &[(ItemFn, [u8; 4], EncodingMode, bool)],
     constructor_fn: Option<(&ItemFn, EncodingMode)>,
 ) -> TokenStream2 {
     let selector_consts: Vec<TokenStream2> = message_fns
         .iter()
-        .map(|(f, sel, _)| {
+        .map(|(f, sel, _, _)| {
             let name = f.sig.ident.to_string();
             let const_name = syn::Ident::new(
                 &format!("SELECTOR_{}", to_selector_constant_name(&name)),
@@ -33,8 +33,8 @@ pub fn gen_interface_module(
 
     let encode_fns: Vec<TokenStream2> = message_fns
         .iter()
-        .filter(|(_, _, enc)| *enc == EncodingMode::Codec)
-        .map(|(f, sel, _)| {
+        .filter(|(_, _, enc, _)| *enc == EncodingMode::Codec)
+        .map(|(f, sel, _, _)| {
             let fn_name = &f.sig.ident;
             let mut input_vars = Vec::new();
             let mut arg_tys = Vec::new();
@@ -97,8 +97,8 @@ pub fn gen_interface_module(
     // 与 message 同名的调用函数：封装 encode + call_raw + decode，返回已解码的 message 返回值
     let call_fns: Vec<TokenStream2> = message_fns
         .iter()
-        .filter(|(_, _, enc)| *enc == EncodingMode::Codec)
-        .map(|(f, _, _)| {
+        .filter(|(_, _, enc, _)| *enc == EncodingMode::Codec)
+        .map(|(f, _, _, _)| {
             let fn_name = &f.sig.ident;
             let encode_fn_ident = format_ident!("encode_{}", fn_name);
             let mut input_vars = Vec::new();

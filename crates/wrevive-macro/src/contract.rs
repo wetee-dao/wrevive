@@ -65,24 +65,62 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     }
 
     let mut constructor_fn: Option<(ItemFn, attrs::EncodingMode)> = None;
-    let mut message_fns: Vec<(ItemFn, [u8; 4], attrs::EncodingMode)> = Vec::new();
+    let mut message_fns: Vec<(ItemFn, [u8; 4], attrs::EncodingMode, bool)> = Vec::new();
+    let mut fallback_fn: Option<ItemFn> = None;
     let mut other_items: Vec<Item> = Vec::new();
 
     for item in std::mem::take(mod_content) {
         match item {
             Item::Fn(mut f) => {
+                let is_fallback = attrs::is_revive_fallback(&f.attrs);
                 let is_constructor = attrs::is_revive_constructor(&f.attrs);
                 let selector = attrs::parse_selector_from_attrs(&f.attrs);
-                if is_constructor {
+                if is_fallback {
+                    if selector.is_some() {
+                        return syn::Error::new_spanned(
+                            &f.sig,
+                            "#[revive(fallback)] must not define selector / fallback 不能指定 selector",
+                        )
+                        .to_compile_error()
+                        .into();
+                    }
+                    if fallback_fn.is_some() {
+                        return syn::Error::new_spanned(
+                            &f.sig,
+                            "at most one #[revive(fallback)] function allowed / 最多只能定义一个 fallback 函数",
+                        )
+                        .to_compile_error()
+                        .into();
+                    }
+                    if !f.sig.inputs.is_empty() {
+                        return syn::Error::new_spanned(
+                            &f.sig,
+                            "#[revive(fallback)] must have no parameters / fallback 必须无参数",
+                        )
+                        .to_compile_error()
+                        .into();
+                    }
+                    if !matches!(&f.sig.output, ReturnType::Default) {
+                        return syn::Error::new_spanned(
+                            &f.sig,
+                            "#[revive(fallback)] must have no return value / fallback 必须无返回值",
+                        )
+                        .to_compile_error()
+                        .into();
+                    }
+                    f.attrs = attrs::strip_revive_attrs(&f.attrs);
+                    fallback_fn = Some(f);
+                } else if is_constructor {
                     let enc = attrs::parse_encoding_from_fn_attrs(&f.attrs, encoding_mode);
                     f.attrs = attrs::strip_revive_attrs(&f.attrs);
                     constructor_fn = Some((f, enc));
                 } else if attrs::is_revive_message(&f.attrs) {
                     let enc = attrs::parse_encoding_from_fn_attrs(&f.attrs, encoding_mode);
+                    let explicit_mutates = attrs::has_revive_mutates(&f.attrs);
                     let sel = selector
                         .unwrap_or_else(|| attrs::selector_from_name(&f.sig.ident.to_string()));
                     f.attrs = attrs::strip_revive_attrs(&f.attrs);
-                    message_fns.push((f, sel, enc));
+                    message_fns.push((f, sel, enc, explicit_mutates));
                 } else {
                     other_items.push(Item::Fn(f));
                 }
@@ -113,7 +151,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
         .to_compile_error()
         .into();
     }
-    for (f, _, _) in &message_fns {
+    for (f, _, _, _) in &message_fns {
         if matches!(&f.sig.output, ReturnType::Default) {
             return syn::Error::new_spanned(
                 &f.sig,
@@ -127,8 +165,8 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
         }
     }
 
-    let message_fns_abi: Vec<(ItemFn, [u8; 4])> =
-        message_fns.iter().map(|(f, sel, _)| (f.clone(), *sel)).collect();
+    let message_fns_abi: Vec<(ItemFn, [u8; 4], bool)> =
+        message_fns.iter().map(|(f, sel, _, explicit_mutates)| (f.clone(), *sel, *explicit_mutates)).collect();
     if let Err(e) = abi::emit_abi(&contract_name, &constructor_fn, &message_fns_abi, &other_items) {
         return syn::Error::new_spanned(
             &module,
@@ -247,11 +285,15 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     })
     .unwrap();
 
+    // 保持 mod 内顺序：use/const 等在前，再 fallback/constructor/message/interface
+    mod_content.extend(other_items);
+    if let Some(fb) = &fallback_fn {
+        mod_content.push(Item::Fn(fb.clone()));
+    }
     mod_content.push(Item::Fn(constructor_fn.clone()));
-    for (f, _, _) in &message_fns {
+    for (f, _, _, _) in &message_fns {
         mod_content.push(Item::Fn(f.clone()));
     }
-    mod_content.extend(other_items);
 
     // 生成合约间调用接口子模块：SELECTOR_*、encode_*、call_raw、constructor 的 encode_* / instantiate_*
     let interface_ts = interface::gen_interface_module(&message_fns, Some((&constructor_fn, constructor_encoding)));
@@ -260,7 +302,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
 
     let match_arms: Vec<TokenStream2> = message_fns
         .iter()
-        .map(|(f, sel, fn_enc)| {
+        .map(|(f, sel, fn_enc, _)| {
             let fn_name = &f.sig.ident;
             let sig = &f.sig;
             let min_len: usize = 4;
@@ -329,10 +371,32 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                     } else {
                         wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
                     }
-                }
+                },
             }
         })
         .collect();
+
+    let fallback_ident = fallback_fn.as_ref().map(|f| f.sig.ident.clone());
+    let unknown_selector_arm: TokenStream2 = match &fallback_ident {
+        Some(fb) => quote! {
+            _ => {
+                #mod_name::#fb();
+                return;
+            },
+        },
+        None => quote! {
+            _ => wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]),
+        },
+    };
+    let too_short_input: TokenStream2 = match &fallback_ident {
+        Some(fb) => quote! {
+            #mod_name::#fb();
+            return;
+        },
+        None => quote! {
+            wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+        },
+    };
 
     let call_fn: Item = syn::parse2(quote! {
         #[polkavm_derive::polkavm_export]
@@ -352,11 +416,11 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
             if __input_len >= 4 {
                 let __sel = u32::from_be_bytes([__input[0], __input[1], __input[2], __input[3]]);
                 match __sel {
-                    #(#match_arms),*
-                    _ => wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]),
+                    #(#match_arms)*
+                    #unknown_selector_arm
                 }
             } else {
-                wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                #too_short_input
             }
         }
     })
@@ -365,7 +429,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     let any_sol = constructor_encoding == attrs::EncodingMode::Sol
         || message_fns
             .iter()
-            .any(|(_, _, enc)| *enc == attrs::EncodingMode::Sol);
+            .any(|(_, _, enc, _)| *enc == attrs::EncodingMode::Sol);
     let use_encoding: TokenStream2 = if any_sol {
         quote! {
             use wrevive_api::Decode;

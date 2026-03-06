@@ -1,14 +1,10 @@
 [package]
-name = "wrevive-contract"
+name = "wrevive-delegate"
 version = "0.1.0"
 edition = "2024"
-description = "示例合约：value/owner 存储与 message，供 PolkaVM 部署"
-
-[lib]
-path = "src/contract.rs"
 
 [[bin]]
-name = "wrevive-example"
+name = "wrevive-delegate"
 path = "src/contract.rs"
 
 [dependencies]
@@ -29,4 +25,6 @@ panic = "abort"
 overflow-checks = false
 
 [dev-dependencies]
+blake2 = "0.10"
+digest = "0.10"
 wrevive-api = { path = "../../crates/wrevive-api", default-features = false, features = ["off_chain"] }

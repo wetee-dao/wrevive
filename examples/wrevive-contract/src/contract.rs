@@ -18,7 +18,7 @@ use wrevive_macro::{list, list_2d, mapping, revive_contract, storage};
 pub use datas::*;
 
 #[revive_contract]
-mod contract {
+pub mod contract {
     use super::*;
 
     /// Event topics (empty for simple events). 事件主题（简单事件可为空）。

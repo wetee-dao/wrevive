@@ -155,6 +155,50 @@ pub fn is_revive_message(attrs: &[Attribute]) -> bool {
     false
 }
 
+/// Returns true if the function is marked with `#[revive(message, mutates)]` (or constructor/message 上带 mutates)。
+/// 用于 ABI：有 mutates 标签则该 message 的 "mutates" 固定为 true。
+pub fn has_revive_mutates(attrs: &[Attribute]) -> bool {
+    for attr in attrs {
+        if !attr.path().is_ident("revive") {
+            continue;
+        }
+        let syn::Meta::List(list) = &attr.meta else { continue };
+        let Ok(nested) = list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) else {
+            continue;
+        };
+        for meta in nested {
+            if let Meta::Path(p) = meta {
+                if p.is_ident("mutates") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Returns true if the function is marked with `#[revive(fallback)]`.
+/// 当请求 selector 未匹配任何 message 时，调用 fallback。
+pub fn is_revive_fallback(attrs: &[Attribute]) -> bool {
+    for attr in attrs {
+        if !attr.path().is_ident("revive") {
+            continue;
+        }
+        let syn::Meta::List(list) = &attr.meta else { continue };
+        let Ok(nested) = list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) else {
+            continue;
+        };
+        for meta in nested {
+            if let Meta::Path(p) = meta {
+                if p.is_ident("fallback") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 /// Removes all `#[revive(...)]` attributes so they are not processed again.
 pub fn strip_revive_attrs(attrs: &[Attribute]) -> Vec<Attribute> {
     attrs

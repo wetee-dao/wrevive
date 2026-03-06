@@ -52,10 +52,15 @@ fn is_storage_write_method(name: &str) -> bool {
     STORAGE_WRITE_METHODS.contains(&name)
 }
 
-/// 从调用表达式中的 func 提取被调函数名（仅当 func 为简单路径时，如 my_fn 或 mod::my_fn）。
+/// 从调用表达式中的 func 提取被调函数名，仅当可确认为“本合约内单名调用”时参与 mutates 传播。
+/// 只接受**单段路径**（如 `foo()`），多段路径（如 `Vec::new`、`subnet::subnet::api::worker`）一律不参与，
+/// 避免把类型关联函数或外部模块调用误当成合约内函数导致 mutates 误判。
 fn callee_name_from_expr(expr: &Expr) -> Option<String> {
     if let Expr::Path(p) = expr {
-        return Some(crate::attrs::path_to_display_name(&p.path));
+        if p.path.segments.len() != 1 {
+            return None;
+        }
+        return Some(p.path.segments.first()?.ident.to_string());
     }
     None
 }
@@ -452,7 +457,7 @@ fn collect_struct_defs(
 pub fn emit_abi(
     contract_name: &str,
     constructor_fn: &ItemFn,
-    message_fns: &[(ItemFn, [u8; 4])],
+    message_fns: &[(ItemFn, [u8; 4], bool)],
     mod_items: &[Item],
 ) -> Result<(), String> {
     if env::var("CARGO_BIN_NAME").is_err() {
@@ -542,12 +547,13 @@ pub fn emit_abi(
         "selector": "0x00000000"
     })];
 
-    let mutates_map = compute_mutates_fixpoint(constructor_fn, message_fns, mod_items);
+    let message_fns_3: Vec<_> = message_fns.iter().map(|(f, s, _)| (f.clone(), *s)).collect();
+    let mutates_map = compute_mutates_fixpoint(constructor_fn, &message_fns_3, mod_items);
     let mut messages = Vec::new();
-    for (f, sel) in message_fns {
+    for (f, sel, explicit_mutates) in message_fns {
         let label = f.sig.ident.to_string();
-        // 未检测到写操作时标为 false，避免仅含 .get/.desc_list 等只读调用的 message 被误判为 mutates true
-        let mutates = mutates_map.get(&label).copied().unwrap_or(false);
+        // 有 #[revive(message, mutates)] 则固定为 true；否则用固定点推断结果
+        let mutates = *explicit_mutates || mutates_map.get(&label).copied().unwrap_or(false);
         let selector = selector_hex(*sel);
         let mut args = Vec::new();
         for arg in &f.sig.inputs {

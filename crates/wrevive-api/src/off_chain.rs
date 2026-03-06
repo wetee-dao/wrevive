@@ -381,14 +381,59 @@ impl Env for OffChainEnv {
     fn delegate_call(
         &self,
         _flags: CallFlags,
-        _address: &Address,
+        address: &Address,
         _ref_time_limit: u64,
         _proof_size_limit: u64,
         _deposit_limit: &U256,
-        _input_data: &[u8],
+        input_data: &[u8],
         _output: Option<&mut &mut [u8]>,
     ) -> CallResult {
-        Err(ReturnErrorCode::CalleeTrapped)
+        ENGINE.with(|cell| {
+            let mut engine = cell.borrow_mut();
+            let callee_addr = *address.as_ref();
+            let dispatcher = match engine.dispatchers.get(&callee_addr) {
+                Some(d) => Arc::clone(d),
+                None => return Err(ReturnErrorCode::CalleeTrapped),
+            };
+
+            let frame = CallFrame {
+                contract: engine.current_contract,
+                caller: engine.caller,
+                call_data: std::mem::take(&mut engine.call_data),
+                value: engine.value_transferred,
+            };
+            engine.current_contract = callee_addr;
+            engine.call_data = input_data.to_vec();
+            engine.contract_storages.entry(callee_addr).or_default();
+            drop(engine);
+
+            let result = panic::catch_unwind(AssertUnwindSafe(move || dispatcher()));
+
+            let mut engine = cell.borrow_mut();
+            engine.current_contract = frame.contract;
+            engine.call_data = frame.call_data;
+
+            match result {
+                Ok(()) => {
+                    if let Some((flags, _)) = &engine.return_value {
+                        if flags.contains(ReturnFlags::REVERT) {
+                            return Err(ReturnErrorCode::CalleeReverted);
+                        }
+                    }
+                    Ok(())
+                }
+                Err(panic_payload) => {
+                    if let Some(panic) = panic_payload.downcast_ref::<ReturnValuePanic>() {
+                        engine.return_value = Some((panic.0.clone(), panic.1.clone()));
+                        if panic.0.contains(ReturnFlags::REVERT) {
+                            return Err(ReturnErrorCode::CalleeReverted);
+                        }
+                        return Ok(());
+                    }
+                    panic::resume_unwind(panic_payload);
+                }
+            }
+        })
     }
 
     fn hash_keccak_256(&self, input: &[u8]) -> H256 {
