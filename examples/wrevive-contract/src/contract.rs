@@ -65,7 +65,7 @@ pub mod contract {
         Ok(())
     }
 
-    #[revive(message)]
+    #[revive(message, write)]
     pub fn set_value(value: u32) -> Result<(), Error> {
         VALUE.set(env(), &value);
         env().deposit_event(EMPTY_TOPICS, &value.to_le_bytes().as_slice());
@@ -83,7 +83,7 @@ pub mod contract {
     }
 
     /// Set value; only current owner may call (else revert). for solidity.
-    #[revive(message, sol)]
+    #[revive(message, write, sol)]
     pub fn set_value_sol(value: u32) -> Result<(), Error> {
         VALUE.set(env(), &value);
         env().deposit_event(EMPTY_TOPICS, &value.to_le_bytes().as_slice());
@@ -101,7 +101,7 @@ pub mod contract {
         CLUSTER.get(env()).unwrap_or(Cluster::default())
     }
 
-    #[revive(message)]
+    #[revive(message, write)]
     pub fn set_cluster(cluster: Cluster) -> Result<(), Error> {
         CLUSTER.set(env(), &cluster);
         Ok(())
@@ -109,7 +109,7 @@ pub mod contract {
 
     /// Set owner; only current owner may call (else revert).
     /// 设置 owner；仅当前 owner 可调用，否则 revert。
-    #[revive(message)]
+    #[revive(message, write)]
     pub fn set_owner(new_owner: Address) -> Result<(), Error> {
         let caller = env().caller();
         let current_owner = get_owner();
@@ -126,7 +126,7 @@ pub mod contract {
     }
 
     /// 设置用户余额（使用 Mapping）
-    #[revive(message)]
+    #[revive(message, write)]
     pub fn set_balance(user: Address, balance: u64) -> Result<(), Error> {
         BALANCE_MAPPING.set(env(), &user, &balance);
         Ok(())
@@ -139,7 +139,7 @@ pub mod contract {
     }
 
     /// 设置用户信息（key = (user, info_type)）
-    #[revive(message)]
+    #[revive(message, write)]
     pub fn set_user_info(user: Address, info_type: u8, value: u32) -> Result<(), Error> {
         USER_INFO_MAPPING.set(env(), &(user, info_type), &value);
         Ok(())
@@ -156,7 +156,7 @@ pub mod contract {
     /// Transfer balance from one account to another. Only the sender (`from`) may call (else revert).
     /// Reverts if `from` has insufficient balance. Self-transfer (from == to) is a no-op.
     /// 转账：仅 from 可发起；余额不足时 revert；from == to 时不操作。
-    #[revive(message)]
+    #[revive(message, write)]
     pub fn transfer_balance(from: Address, to: Address, amount: u64) -> Result<(), Error> {
         let caller = env().caller();
         if caller != from {
@@ -178,7 +178,7 @@ pub mod contract {
     // ======================== List 示例 ========================
 
     /// 向全局 records 列表追加一条 u64，返回分配到的 id
-    #[revive(message)]
+    #[revive(message, write)]
     pub fn records_push(value: u64) -> Option<u32> {
         RECORDS.insert(env(), &value)
     }
@@ -204,7 +204,7 @@ pub mod contract {
     // ======================== List2D 示例（按用户） ========================
 
     /// 在指定用户下追加一条 u32，返回该用户下的 k2
-    #[revive(message)]
+    #[revive(message, write)]
     pub fn user_items_push(user: Address, value: u32) -> Option<u32> {
         USER_ITEMS.insert(env(), &user, &value)
     }

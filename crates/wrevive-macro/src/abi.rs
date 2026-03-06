@@ -5,7 +5,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
-use syn::{Block, Expr, FnArg, Fields, GenericParam, ImplItem, Item, ItemFn, Pat, ReturnType, Stmt, Type};
+use syn::{FnArg, Fields, GenericParam, Item, ItemFn, Pat, ReturnType, Type};
 
 /// 合约名中 `-` 改为 `_`，避免 go-ink-gen 生成非法 Go 标识符（expected ';', found '-'）。
 fn contract_name_go_safe(name: &str) -> String {
@@ -15,225 +15,6 @@ fn contract_name_go_safe(name: &str) -> String {
 /// 将 4 字节 selector 格式化为十六进制字符串，用于 ABI 的 selector 字段。
 pub fn selector_hex(sel: [u8; 4]) -> String {
     format!("0x{:02x}{:02x}{:02x}{:02x}", sel[0], sel[1], sel[2], sel[3])
-}
-
-/// 仅当 receiver 为 env() 时计为写操作的 env 方法（deposit_event 不算写操作，不在此列）。
-const ENV_WRITE_METHODS: &[&str] = &[
-    "set_storage",
-    "clear_storage",
-    "set_storage_or_clear",
-    "transfer",
-    "call",
-    "delegate_call",
-    "call_evm",
-    "delegate_call_evm",
-    "terminate",
-];
-
-/// 存储抽象（Storage/Mapping/List 等）的写方法；无类型信息时仅能按方法名判断。
-const STORAGE_WRITE_METHODS: &[&str] = &["set", "insert", "remove", "clear"];
-
-/// receiver 是否为对 env 的调用（env() / crate::env() / wrevive_api::env() 等）。
-fn receiver_is_env_call(receiver: &Expr) -> bool {
-    let Expr::Call(c) = receiver else { return false };
-    let Expr::Path(p) = &*c.func else { return false };
-    p.path
-        .segments
-        .last()
-        .map(|s| s.ident == "env")
-        .unwrap_or(false)
-}
-
-fn is_env_write_method(name: &str) -> bool {
-    ENV_WRITE_METHODS.contains(&name)
-}
-
-fn is_storage_write_method(name: &str) -> bool {
-    STORAGE_WRITE_METHODS.contains(&name)
-}
-
-/// 从调用表达式中的 func 提取被调函数名，仅当可确认为“本合约内单名调用”时参与 mutates 传播。
-/// 只接受**单段路径**（如 `foo()`），多段路径（如 `Vec::new`、`subnet::subnet::api::worker`）一律不参与，
-/// 避免把类型关联函数或外部模块调用误当成合约内函数导致 mutates 误判。
-fn callee_name_from_expr(expr: &Expr) -> Option<String> {
-    if let Expr::Path(p) = expr {
-        if p.path.segments.len() != 1 {
-            return None;
-        }
-        return Some(p.path.segments.first()?.ident.to_string());
-    }
-    None
-}
-
-/// 递归检查表达式中是否包含修改状态的调用；若传入 callee_mutates，则被调用的函数若会修改状态也视为 mutates。
-fn expr_contains_mutating_call_with<F: Fn(&str) -> bool>(expr: &Expr, callee_mutates: &F) -> bool {
-    match expr {
-        Expr::MethodCall(m) => {
-            let name = m.method.to_string();
-            // env 写操作：仅当 receiver 为 env() 时计为写（set_storage/clear_storage/transfer/call/...，不含 deposit_event）
-            if is_env_write_method(&name) && receiver_is_env_call(&m.receiver) {
-                return true;
-            }
-            if is_storage_write_method(&name) {
-                return true;
-            }
-            if expr_contains_mutating_call_with(&m.receiver, callee_mutates) {
-                return true;
-            }
-            for arg in &m.args {
-                if expr_contains_mutating_call_with(arg, callee_mutates) {
-                    return true;
-                }
-            }
-            false
-        }
-        Expr::Block(b) => block_contains_mutating_call_with(&b.block, callee_mutates),
-        Expr::If(e) => {
-            expr_contains_mutating_call_with(&e.cond, callee_mutates)
-                || block_contains_mutating_call_with(&e.then_branch, callee_mutates)
-                || e.else_branch
-                    .as_ref()
-                    .map(|(_, e)| expr_contains_mutating_call_with(e, callee_mutates))
-                    .unwrap_or(false)
-        }
-        Expr::Match(e) => {
-            if expr_contains_mutating_call_with(&e.expr, callee_mutates) {
-                return true;
-            }
-            for arm in &e.arms {
-                if expr_contains_mutating_call_with(&arm.body, callee_mutates) {
-                    return true;
-                }
-            }
-            false
-        }
-        Expr::Call(c) => {
-            if let Some(name) = callee_name_from_expr(&c.func) {
-                if callee_mutates(&name) {
-                    return true;
-                }
-            }
-            if expr_contains_mutating_call_with(&c.func, callee_mutates) {
-                return true;
-            }
-            for arg in &c.args {
-                if expr_contains_mutating_call_with(arg, callee_mutates) {
-                    return true;
-                }
-            }
-            false
-        }
-        Expr::Let(e) => expr_contains_mutating_call_with(&e.expr, callee_mutates),
-        Expr::Return(e) => e
-            .expr
-            .as_ref()
-            .map_or(false, |e| expr_contains_mutating_call_with(e, callee_mutates)),
-        Expr::Assign(a) => {
-            expr_contains_mutating_call_with(&a.left, callee_mutates)
-                || expr_contains_mutating_call_with(&a.right, callee_mutates)
-        }
-        Expr::Closure(c) => expr_contains_mutating_call_with(&c.body, callee_mutates),
-        Expr::Loop(l) => block_contains_mutating_call_with(&l.body, callee_mutates),
-        Expr::While(w) => {
-            expr_contains_mutating_call_with(&w.cond, callee_mutates)
-                || block_contains_mutating_call_with(&w.body, callee_mutates)
-        }
-        Expr::ForLoop(f) => {
-            expr_contains_mutating_call_with(&f.expr, callee_mutates)
-                || block_contains_mutating_call_with(&f.body, callee_mutates)
-        }
-        Expr::Unsafe(u) => block_contains_mutating_call_with(&u.block, callee_mutates),
-        Expr::Async(a) => block_contains_mutating_call_with(&a.block, callee_mutates),
-        Expr::TryBlock(t) => block_contains_mutating_call_with(&t.block, callee_mutates),
-        Expr::Try(t) => expr_contains_mutating_call_with(&t.expr, callee_mutates),
-        _ => false,
-    }
-}
-
-fn block_contains_mutating_call_with<F: Fn(&str) -> bool>(block: &Block, callee_mutates: &F) -> bool {
-    for stmt in &block.stmts {
-        if stmt_contains_mutating_call_with(stmt, callee_mutates) {
-            return true;
-        }
-    }
-    false
-}
-
-fn stmt_contains_mutating_call_with<F: Fn(&str) -> bool>(stmt: &Stmt, callee_mutates: &F) -> bool {
-    match stmt {
-        Stmt::Expr(expr, _) => expr_contains_mutating_call_with(expr, callee_mutates),
-        Stmt::Local(local) => local
-            .init
-            .as_ref()
-            .map(|init| expr_contains_mutating_call_with(&init.expr, callee_mutates))
-            .unwrap_or(false),
-        Stmt::Item(_) | Stmt::Macro(_) => false,
-    }
-}
-
-/// 收集合约 mod 内所有可调用函数（constructor、messages、mod_items 中的 fn 与 impl 方法），用于传递闭包分析 mutates。
-fn collect_all_blocks<'a>(
-    constructor_fn: &'a ItemFn,
-    message_fns: &'a [(ItemFn, [u8; 4])],
-    mod_items: &'a [Item],
-) -> Vec<(String, &'a Block)> {
-    let mut out = Vec::new();
-    out.push((constructor_fn.sig.ident.to_string(), &*constructor_fn.block));
-    for (f, _) in message_fns {
-        out.push((f.sig.ident.to_string(), &*f.block));
-    }
-    for item in mod_items {
-        if let Item::Fn(f) = item {
-            out.push((f.sig.ident.to_string(), &*f.block));
-        }
-        if let Item::Impl(i) = item {
-            for impl_item in &i.items {
-                if let ImplItem::Fn(f) = impl_item {
-                    out.push((f.sig.ident.to_string(), &f.block));
-                }
-            }
-        }
-    }
-    out
-}
-
-/// mutates: true 的核心规则：合约函数是否在链上执行了写操作。
-/// 写操作 = env 上（set_storage/clear_storage/set_storage_or_clear/transfer/call/delegate_call/call_evm/delegate_call_evm/terminate）或存储（set/insert/remove/clear）
-/// 或存储抽象（set/insert/remove/clear）。若函数自身或它调用的任意函数中存在上述调用，则 mutates: true。
-/// 固定点计算：每个函数是否（直接或通过调用的函数）涉及上述写操作；用于 ABI mutates 标记。
-fn compute_mutates_fixpoint(
-    constructor_fn: &ItemFn,
-    message_fns: &[(ItemFn, [u8; 4])],
-    mod_items: &[Item],
-) -> HashMap<String, bool> {
-    let all_fns = collect_all_blocks(constructor_fn, message_fns, mod_items);
-    let mut mutates: HashMap<String, bool> = HashMap::new();
-    loop {
-        let mut changed = false;
-        for (name, block) in &all_fns {
-            let already = *mutates.get(name).unwrap_or(&false);
-            let cur = already
-                || block_contains_mutating_call_with(block, &|n| *mutates.get(n).unwrap_or(&false));
-            if cur && !already {
-                mutates.insert(name.clone(), true);
-                changed = true;
-            }
-        }
-        if !changed {
-            break;
-        }
-    }
-    mutates
-}
-
-fn block_contains_mutating_call(block: &Block) -> bool {
-    block_contains_mutating_call_with(block, &|_| false)
-}
-
-/// 判断合约函数是否包含修改状态的调用；若无则应在 ABI 中标记 mutates: false。
-/// 注意：若需考虑“被调用的函数内部”也修改状态，应在 emit_abi 中使用 compute_mutates_fixpoint 的结果。
-pub fn fn_mutates_state(f: &ItemFn) -> bool {
-    block_contains_mutating_call(&f.block)
 }
 
 /// 从 mod 内 Item 或单个 struct 定义中提取 (struct_name, fields)。
@@ -547,13 +328,11 @@ pub fn emit_abi(
         "selector": "0x00000000"
     })];
 
-    let message_fns_3: Vec<_> = message_fns.iter().map(|(f, s, _)| (f.clone(), *s)).collect();
-    let mutates_map = compute_mutates_fixpoint(constructor_fn, &message_fns_3, mod_items);
     let mut messages = Vec::new();
     for (f, sel, explicit_mutates) in message_fns {
         let label = f.sig.ident.to_string();
-        // 有 #[revive(message, mutates)] 则固定为 true；否则用固定点推断结果
-        let mutates = *explicit_mutates || mutates_map.get(&label).copied().unwrap_or(false);
+        // mutates 仅来自 #[revive(message, write)] 显式标记
+        let mutates = *explicit_mutates;
         let selector = selector_hex(*sel);
         let mut args = Vec::new();
         for arg in &f.sig.inputs {

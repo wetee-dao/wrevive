@@ -155,8 +155,8 @@ pub fn is_revive_message(attrs: &[Attribute]) -> bool {
     false
 }
 
-/// Returns true if the function is marked with `#[revive(message, mutates)]` (or constructor/message 上带 mutates)。
-/// 用于 ABI：有 mutates 标签则该 message 的 "mutates" 固定为 true。
+/// Returns true if the function is marked with `#[revive(message, write)]`.
+/// 用于 ABI：有 write 标签则该 message 的 "mutates" 固定为 true。
 pub fn has_revive_mutates(attrs: &[Attribute]) -> bool {
     for attr in attrs {
         if !attr.path().is_ident("revive") {
@@ -168,7 +168,7 @@ pub fn has_revive_mutates(attrs: &[Attribute]) -> bool {
         };
         for meta in nested {
             if let Meta::Path(p) = meta {
-                if p.is_ident("mutates") {
+                if p.is_ident("write") {
                     return true;
                 }
             }
