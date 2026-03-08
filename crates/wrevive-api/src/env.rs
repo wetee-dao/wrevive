@@ -95,6 +95,19 @@ pub trait Env {
         output: Option<&mut &mut [u8]>,
     ) -> CallResult;
 
+    /// Execute code in the context (storage, caller, value) of the current contract.
+    /// 在当前合约的上下文（存储、调用者、值）中执行代码。
+    fn delegate_call(
+        &self,
+        flags: CallFlags,
+        address: &Address,
+        ref_time_limit: u64,
+        proof_size_limit: u64,
+        deposit_limit: &U256,
+        input_data: &[u8],
+        output: Option<&mut &mut [u8]>,
+    ) -> CallResult;
+
     /// Transfer native balance from the current contract to the given account.
     /// No contract code is executed; use [Env::call] if you need to invoke the recipient.
     /// 合约向指定账户转帐（从当前合约余额转出 value 到 to）；不执行目标代码，仅转帐。
@@ -112,18 +125,6 @@ pub trait Env {
     /// 返回指定合约地址的代码大小。
     fn code_size(&self, addr: &[u8; 20]) -> u64;
 
-    /// Execute code in the context (storage, caller, value) of the current contract.
-    /// 在当前合约的上下文（存储、调用者、值）中执行代码。
-    fn delegate_call(
-        &self,
-        flags: CallFlags,
-        address: &Address,
-        ref_time_limit: u64,
-        proof_size_limit: u64,
-        deposit_limit: &U256,
-        input_data: &[u8],
-        output: Option<&mut &mut [u8]>,
-    ) -> CallResult;
 
     /// Hash input using Keccak-256.
     /// 使用 Keccak-256 对输入进行哈希。
@@ -168,10 +169,6 @@ pub trait Env {
     /// 返回当前调用中转移的值。
     fn value_transferred(&self) -> U256;
 
-    /// Returns the size of the return data.
-    /// 返回返回数据的大小。
-    fn return_data_size(&self) -> u64;
-
     /// Same as [call] but with one-dimensional EVM gas. Adds EVM gas stipend for non-zero value. `u64::MAX` = uncapped.
     /// 与 call 相同但使用一维 EVM gas；非零 value 会加 stipend；gas = u64::MAX 表示无上限。
     fn call_evm(
@@ -194,6 +191,10 @@ pub trait Env {
         input_data: &[u8],
         output: Option<&mut &mut [u8]>,
     ) -> CallResult;
+
+    /// Returns the size of the return data.
+    /// 返回返回数据的大小。
+    fn return_data_size(&self) -> u64;
 
     /// Copy return data of the last call/instantiate into the supplied buffer at the given offset.
     /// 将上一次 call/instantiate 的返回数据从 offset 起写入 output。

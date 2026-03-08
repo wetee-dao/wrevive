@@ -268,7 +268,7 @@ pub fn gen_interface_module(
         /// 合约间调用接口：selector 常量、encode_*、call_raw、call_*、constructor 的 encode_* / instantiate_*。
         pub mod api {
             use super::*;
-            use wrevive_api::{Address, Decode, Encode, ReturnErrorCode};
+            use wrevive_api::*;
 
             #(#selector_consts)*
 
@@ -277,7 +277,7 @@ pub fn gen_interface_module(
             pub fn call_raw(
                 callee: &Address,
                 input: &[u8],
-            ) -> Result<alloc::vec::Vec<u8>, ReturnErrorCode> {
+            ) -> Result<Vec<u8>, ReturnErrorCode> {
                 let r = wrevive_api::env().call(
                     pallet_revive_uapi::CallFlags::empty(),
                     callee,

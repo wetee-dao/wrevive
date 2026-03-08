@@ -2,9 +2,9 @@
 //! Common contract types: Address, H256, U256, BlockNumber, Bytes.
 
 #[cfg(not(any(test, feature = "off_chain")))]
-use alloc::vec::Vec;
+pub use alloc::vec::Vec;
 #[cfg(any(test, feature = "off_chain"))]
-use std::vec::Vec;
+pub use std::vec::Vec;
 
 use pvm_contract_macros::SolType;
 
@@ -159,6 +159,7 @@ fn u256_from_limbs(limbs: [u64; 4]) -> U256 {
 
 impl U256 {
     pub const ZERO: Self = Self([0u8; 32]);
+    pub const MAX: Self = Self([u8::MAX; 32]);
     pub const ONE: Self = Self({
         let mut b = [0u8; 32];
         b[31] = 1;

@@ -205,6 +205,12 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                 empty
             };
             let __input: &[u8] = &__input_vec;
+            // 与 call() 一致：链上传入 selector(4 字节) + 编码参数，需跳过 selector 再解码
+            if __input.len() < 4 {
+                wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                return;
+            }
+            let __input = &__input[4..];
         };
         match constructor_encoding {
             attrs::EncodingMode::Codec => {
@@ -362,8 +368,14 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
             let ret_ty = &sig.output;
             let encode_and_return = codegen::return_encode(ret_ty, *fn_enc);
             let sel_u32 = u32::from_be_bytes(*sel);
-            quote! {
-                #sel_u32 => {
+            let arm_inner = if min_len == 4 {
+                quote! {
+                    #input_parse
+                    let __ret = #mod_name::#fn_name(#(#call_exprs),*);
+                    #encode_and_return
+                }
+            } else {
+                quote! {
                     if __input_len >= #min_len {
                         #input_parse
                         let __ret = #mod_name::#fn_name(#(#call_exprs),*);
@@ -371,6 +383,11 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                     } else {
                         wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
                     }
+                }
+            };
+            quote! {
+                #sel_u32 => {
+                    #arm_inner
                 },
             }
         })
