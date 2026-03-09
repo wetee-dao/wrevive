@@ -14,6 +14,7 @@
 
 use crate::Encode;
 use parity_scale_codec::{MaxEncodedLen, Output};
+use crate::traits::Storable;
 
 /// A static buffer of variable capacity.
 pub struct StaticBuffer {
@@ -189,14 +190,20 @@ impl<'a> ScopedBuffer<'a> {
         self.take(encode_len)
     }
 
-    /// Encode the given value (Scale) into the scoped buffer and return the sub slice
-    /// containing all the encoded bytes. Same as [take_encoded] for parity_scale_codec::Encode.
+    /// Encode the given storable value into the scoped buffer and return the sub slice
+    /// containing all the encoded bytes.
     #[inline(always)]
     pub fn take_storable_encoded<T>(&mut self, value: &T) -> &'a mut [u8]
     where
-        T: Encode,
+        T: Storable,
     {
-        self.take_encoded(value)
+        debug_assert_eq!(self.offset, 0);
+        let buffer = core::mem::take(&mut self.buffer);
+        let mut encode_scope = EncodeScope::from(buffer);
+        Storable::encode(value, &mut encode_scope);
+        let encode_len = encode_scope.len();
+        let _ = core::mem::replace(&mut self.buffer, encode_scope.into_buffer());
+        self.take(encode_len)
     }
 
     /// Appends the given bytes to the scoped buffer.

@@ -4,8 +4,8 @@ use alloc::vec::Vec;
 use std::vec::Vec;
 
 use crate::types::{Address, BlockNumber, H256, U256};
+use crate::traits::Storable;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
-use parity_scale_codec::{Decode, Encode};
 
 /// Result type for contract calls.
 /// 合约调用的结果类型。
@@ -23,13 +23,17 @@ pub trait Env {
     /// 返回调用方地址。
     fn caller(&self) -> Address;
 
-    /// Raw: store bytes at `key`. Implementations (on_chain/off_chain) implement this.
-    /// 底层：按 key 存储字节；由 on_chain/off_chain 实现。
-    fn set_storage_bytes(&mut self, flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32>;
+    /// Store typed value at `key`. Encode/decode is done in the implementation.
+    /// 在 `key` 处存储类型化 value；编码/解码由实现完成。
+    fn set_storage<V>(&mut self, flags: StorageFlags, key: &[u8], value: &V) -> Option<u32>
+    where
+        V: Storable;
 
-    /// Raw: load bytes at `key`. Implementations implement this.
-    /// 底层：按 key 读取字节。
-    fn get_storage_bytes(&mut self, flags: StorageFlags, key: &[u8]) -> Option<Vec<u8>>;
+    /// Load typed value at `key`. Decode is done in the implementation.
+    /// 按 `key` 读取并解码为类型 V；解码由实现完成。
+    fn get_storage<V>(&mut self, flags: StorageFlags, key: &[u8]) -> Option<V>
+    where
+        V: Storable;
 
     /// Clear storage at `key`. On-chain uses set_storage_or_clear when key is 32 bytes, else set_storage(key, &[]).
     /// 清除 `key` 处的存储。链上在 key 为 32 字节时使用 set_storage_or_clear，否则 set_storage(key, &[])。
@@ -227,27 +231,24 @@ pub trait Env {
     fn terminate(&self, beneficiary: &[u8; 20]) -> !;
 }
 
-/// Store typed value at `key` (encode then [Env::set_storage_bytes]). Encode is done here in env.
-/// 在 `key` 处存储类型化 value；在此处完成 Scale 编码后写入。
+/// Store typed value at `key`. Forwards to [Env::set_storage].
 #[inline]
-pub fn set_storage<E: Env + ?Sized, V: Encode>(
+pub fn set_storage<E: Env + ?Sized, V: Storable>(
     api: &mut E,
     flags: StorageFlags,
     key: &[u8],
     value: &V,
 ) -> Option<u32> {
-    api.set_storage_bytes(flags, key, &value.encode())
+    api.set_storage(flags, key, value)
 }
 
-/// Load typed value at `key` ([Env::get_storage_bytes] then decode). Decode is done here in env.
-/// 按 `key` 读取并解码为类型 V；在此处完成解码。
+/// Load typed value at `key`. Forwards to [Env::get_storage].
 #[inline]
-pub fn get_storage<E: Env + ?Sized, V: Decode>(
+pub fn get_storage<E: Env + ?Sized, V: Storable>(
     api: &mut E,
     flags: StorageFlags,
     key: &[u8],
 ) -> Option<V> {
-    let data = api.get_storage_bytes(flags, key)?;
-    V::decode(&mut &data[..]).ok()
+    api.get_storage(flags, key)
 }
 

@@ -12,7 +12,8 @@ use alloc::vec::Vec;
 use pallet_revive_uapi::{
     CallFlags, HostFn, HostFnImpl, ReturnErrorCode, ReturnFlags, StorageFlags,
 };
-use crate::buffer::*;
+use crate::buffer::{ScopedBuffer, StaticBuffer};
+use crate::traits::Storable;
 
 /// On-chain Env: forwards all calls to HostFnImpl (host interface).
 /// 链上 Env：所有调用转发给 HostFnImpl（宿主接口）。
@@ -39,17 +40,21 @@ impl Env for OnChainEnv {
         HostFnImpl::caller(&mut output);
         Address::from(output)
     }
+    
+    fn set_storage<V>(&mut self, flags: StorageFlags, key: &[u8], value: &V) -> Option<u32>
+    where
+        V: Storable,
+    {
+        let mut buffer = self.scoped_buffer();
+        let value = buffer.take_storable_encoded(value);
 
-    #[inline(always)]
-    fn set_storage_bytes(&mut self, flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
-        if value.len() > crate::env::MAX_STORAGE_VALUE_SIZE {
-            return None;
-        }
-        HostFnImpl::set_storage(flags, key, value)
+        HostFnImpl::set_storage(flags, key, &value)
     }
 
-    #[inline(always)]
-    fn get_storage_bytes(&mut self, flags: StorageFlags, key: &[u8]) -> Option<Vec<u8>> {
+    fn get_storage<V>(&mut self, flags: StorageFlags, key: &[u8]) -> Option<V>
+    where
+        V: Storable,
+    {
         let buffer = self.scoped_buffer();
         let output = &mut buffer.take_rest();
         match HostFnImpl::get_storage(flags, key, output) {
@@ -57,7 +62,8 @@ impl Env for OnChainEnv {
             Err(ReturnErrorCode::KeyNotFound) => return None,
             Err(_) => panic!("encountered unexpected error"),
         }
-        Some(output.to_vec())
+
+        V::decode(&mut &output[..]).ok()
     }
 
     #[inline(always)]

@@ -1,7 +1,7 @@
 //! API unit tests: off_chain Engine for storage, caller, Mapping, List, List2D.
 //! API 单元测试：使用 off_chain Engine 测试存储、caller、Mapping、List、List2D。
 
-use super::{env, off_chain, Address, H256, List, List2D, Mapping, StorageFlags, U256};
+use super::{env, off_chain, Address, Env, H256, List, List2D, Mapping, StorageFlags, U256};
 use parity_scale_codec::Encode;
 
 #[test]
@@ -13,10 +13,11 @@ fn off_chain_engine_storage_and_caller() {
     let caller = env().caller();
     assert_eq!(caller, Address::from([1u8; 20]));
 
-    env().set_storage_bytes(StorageFlags::empty(), b"key", b"value");
+    env().set_storage(StorageFlags::empty(), b"key", &b"value".to_vec());
     off_chain::with_engine(|e| {
         let v = e.get_storage_value(b"key").unwrap();
-        assert_eq!(v, b"value");
+        // Vec<u8> 使用 Scale 编码：compact(len) + bytes，5 的 compact 为 0x14
+        assert_eq!(v, vec![0x14, 118, 97, 108, 117, 101]);
     });
 }
 
@@ -91,7 +92,7 @@ fn off_chain_env_storage_or_clear_and_zero() {
     off_chain::with_engine(|e| e.reset());
     let key = [1u8; 32];
     let value = [2u8; 32];
-    env().set_storage_bytes(StorageFlags::empty(), &key, &value);
+    env().set_storage(StorageFlags::empty(), &key, &value);
     let got = env().get_storage_or_zero(StorageFlags::empty(), &key);
     assert_eq!(got, value);
     let zero = [0u8; 32];

@@ -21,6 +21,7 @@
 //! Off-chain 实现：内存 Engine，支持单合约与多合约（跨合约调用）测试。
 
 use crate::env::{Env, CallResult};
+use crate::traits::Storable;
 use crate::types::{Address, BlockNumber, H256, U256};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 #[cfg(feature = "off_chain")]
@@ -196,37 +197,46 @@ impl Env for OffChainEnv {
     fn caller(&self) -> Address {
         ENGINE.with(|cell| Address::from(cell.borrow().caller))
     }
-    fn set_storage_bytes(&mut self, _flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
-        if value.len() > crate::env::MAX_STORAGE_VALUE_SIZE {
+
+
+    fn set_storage<V>(&mut self, _flags: StorageFlags, key: &[u8], value: &V) -> Option<u32>
+    where
+        V: Storable,
+    {
+        let mut value_bytes = Vec::new();
+        value.encode(&mut value_bytes);
+        if value_bytes.len() > crate::env::MAX_STORAGE_VALUE_SIZE {
             return None;
         }
         ENGINE.with(|cell| {
             let mut engine = cell.borrow_mut();
             let storage = engine.storage_mut();
             let prev = storage.get(key).map(|v| v.len() as u32);
-            if value.is_empty() {
+            if value_bytes.is_empty() {
                 storage.remove(key);
             } else {
-                storage.insert(key.to_vec(), value.to_vec());
+                storage.insert(key.to_vec(), value_bytes);
             }
             prev
         })
     }
-    fn get_storage_bytes(&mut self, _flags: StorageFlags, key: &[u8]) -> Option<Vec<u8>> {
-        ENGINE.with(|cell| {
+
+    fn get_storage<V>(&mut self, _flags: StorageFlags, key: &[u8]) -> Option<V>
+    where
+        V: Storable,
+    {
+        let value_bytes = ENGINE.with(|cell| {
             let e = cell.borrow();
-            let out = e
-                .contract_storages
+            e.contract_storages
                 .get(&e.current_contract)
-                .and_then(|m| m.get(key).cloned());
-            out.map(|v| {
-                if v.len() > crate::env::MAX_STORAGE_VALUE_SIZE {
-                    v[..crate::env::MAX_STORAGE_VALUE_SIZE].to_vec()
-                } else {
-                    v
-                }
-            })
-        })
+                .and_then(|m| m.get(key).cloned())
+        })?;
+        let truncated = if value_bytes.len() > crate::env::MAX_STORAGE_VALUE_SIZE {
+            value_bytes[..crate::env::MAX_STORAGE_VALUE_SIZE].to_vec()
+        } else {
+            value_bytes
+        };
+        V::decode(&mut truncated.as_slice()).ok()
     }
 
     fn clear_storage(&self, _flags: StorageFlags, key: &[u8]) -> Option<u32> {
@@ -509,20 +519,13 @@ impl Env for OffChainEnv {
                 prev
             })
         } else {
-            self.set_storage_bytes(flags, key, value)
+            self.set_storage(flags, key as &[u8], value)
         }
     }
 
     fn get_storage_or_zero(&mut self, flags: StorageFlags, key: &[u8; 32]) -> [u8; 32] {
-        match self.get_storage_bytes(flags, key as &[u8]) {
-            Some(data) => {
-                let mut output = [0u8; 32];
-                let len = data.len().min(32);
-                output[..len].copy_from_slice(&data[..len]);
-                output
-            }
-            None => [0u8; 32],
-        }
+        self.get_storage::<[u8; 32]>(flags, key as &[u8])
+            .unwrap_or([0u8; 32])
     }
 
     fn value_transferred(&self) -> U256 {

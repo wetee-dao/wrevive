@@ -59,12 +59,12 @@ where
     }
 
     /// 当前长度（即下一个将分配的 id）。
-    pub fn len(&self, api: &mut dyn Env) -> K {
+    pub fn len(&self, api: &mut impl Env) -> K {
         self.next_id.get(api).unwrap_or(K::default())
     }
 
     /// 插入一条记录，返回分配的 id。
-    pub fn insert(&self, api: &mut dyn Env, value: &V) -> Option<K> {
+    pub fn insert(&self, api: &mut impl Env, value: &V) -> Option<K> {
         let k = self.len(api);
         let next = k.checked_next()?;
         self.next_id.set(api, &next);
@@ -73,28 +73,28 @@ where
     }
 
     /// 是否存在该 key。
-    pub fn contains(&self, api: &mut dyn Env, key: &K) -> bool {
+    pub fn contains(&self, api: &mut impl Env, key: &K) -> bool {
         self.items.get(api, key).is_some()
     }
 
     /// 按 key 取值。
-    pub fn get(&self, api: &mut dyn Env, key: &K) -> Option<V> {
+    pub fn get(&self, api: &mut impl Env, key: &K) -> Option<V> {
         self.items.get(api, key)
     }
 
     /// 更新 key 对应的值。
-    pub fn update(&self, api: &mut dyn Env, key: &K, value: &V) -> Option<()> {
+    pub fn update(&self, api: &mut impl Env, key: &K, value: &V) -> Option<()> {
         self.items.set(api, key, value)
     }
 
     /// 清除 key 对应的值（不改变 len/next_id）。
-    pub fn clear(&self, api: &mut dyn Env, key: &K) -> Option<()> {
+    pub fn clear(&self, api: &mut impl Env, key: &K) -> Option<()> {
         self.items.clear(api, key)
     }
 
     /// Paginated list (ascending): from start_key, at most size entries.
     /// 分页列表（升序）：从 start_key 起取最多 size 条。
-    pub fn list(&self, api: &mut dyn Env, start_key: K, size: u32) -> Vec<(K, V)> {
+    pub fn list(&self, api: &mut impl Env, start_key: K, size: u32) -> Vec<(K, V)> {
         let total_len = self.len(api);           // 下一个将分配的 id，即当前长度 / next id = current length
         let mut out = Vec::new();
         if size == 0 {
@@ -118,7 +118,7 @@ where
 
     /// Paginated list (descending): from start_key_ backward, at most size entries; None = from end.
     /// 分页列表（降序）：从 start_key_ 起向前取最多 size 条；None 表示从末尾开始。
-    pub fn desc_list(&self, api: &mut dyn Env, start_key_: Option<K>, size: u32) -> Vec<(K, V)> {
+    pub fn desc_list(&self, api: &mut impl Env, start_key_: Option<K>, size: u32) -> Vec<(K, V)> {
         let total_len = self.len(api);
         let mut out = Vec::new();
         if size == 0 {

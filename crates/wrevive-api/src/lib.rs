@@ -41,6 +41,7 @@ pub use scale_info::TypeInfo;
 pub use mapping::{Mapping, MappingError};
 pub use list::{List, ListIndex};
 pub use list_2d::List2D;
+pub use traits::Storable;
 
 
 // 正常运行暴露 on_chain：cfg(not(test)) 且未启用 off_chain（与 off_chain 互斥）
@@ -49,6 +50,8 @@ pub mod on_chain;
 
 #[cfg(all(not(test), not(feature = "off_chain")))]
 pub mod buffer;
+
+pub mod traits;
 
 pub const BUFFER_SIZE: usize = 16384;
 
@@ -61,22 +64,23 @@ pub use off_chain::{with_engine, Engine, ReturnValuePanic};
 
 /// Returns the current backend Env. Contracts use `env().caller()`, `env().set_storage()` etc.
 /// 返回当前后端 Env；合约通过 `env().caller()`、`env().set_storage()` 等调用。
+/// 返回具体类型（非 dyn），以便 trait 可保留泛型方法 set_storage<V>/get_storage<V>。
 #[cfg(any(test, feature = "off_chain"))]
 #[inline(always)]
-pub fn env() -> &'static mut dyn Env {
+pub fn env() -> &'static mut off_chain::OffChainEnv {
     unsafe { &mut *(&raw mut off_chain::OFF_CHAIN_ENV) }
 }
 
 /// Read storage at key and decode as V (for test/off_chain). Returns None if key missing or decode fails.
 /// 测试/off_chain 下按 key 读取存储并解码为 V；不存在或解码失败返回 None。
 #[cfg(any(test, feature = "off_chain"))]
-pub fn get_storage<V: Decode>(flags: StorageFlags, key: &[u8]) -> Option<V> {
+pub fn get_storage<V: Storable>(flags: StorageFlags, key: &[u8]) -> Option<V> {
     crate::env::get_storage(env(), flags, key)
 }
 
 #[cfg(all(not(test), not(feature = "off_chain")))]
 #[inline(always)]
-pub fn env() -> &'static mut dyn Env {
+pub fn env() -> &'static mut on_chain::OnChainEnv {
     unsafe { &mut *(&raw mut on_chain::ON_CHAIN_ENV) }
 }
 
@@ -97,19 +101,19 @@ where
 
     /// Write value; returns previous value length in bytes if any. Encode is done in env.
     /// 写入 value；若有旧值则返回其字节长度；编码在 env 模块完成。
-    pub fn set(&self, api: &mut dyn crate::env::Env, value: &V) -> Option<u32> {
+    pub fn set(&self, api: &mut impl crate::env::Env, value: &V) -> Option<u32> {
         crate::env::set_storage(api, StorageFlags::empty(), self.0, value)
     }
 
     /// Read and decode value; None if missing or decode fails. Decode is done in env.
     /// 读取并解码；不存在或解码失败时返回 None；解码在 env 模块完成。
-    pub fn get(&self, api: &mut dyn crate::env::Env) -> Option<V> {
+    pub fn get(&self, api: &mut impl crate::env::Env) -> Option<V> {
         crate::env::get_storage(api, StorageFlags::empty(), self.0)
     }
 
     /// Clear value at this key; returns previous value length in bytes if any.
     /// 清除该 key 的值；若有旧值则返回其字节长度。
-    pub fn clear(&self, api: &mut dyn crate::env::Env) -> Option<u32> {
+    pub fn clear(&self, api: &mut impl crate::env::Env) -> Option<u32> {
         api.clear_storage(StorageFlags::empty(), self.0)
     }
 }
