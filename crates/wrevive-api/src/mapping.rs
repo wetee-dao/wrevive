@@ -13,6 +13,7 @@ extern crate alloc;
 
 use core::marker::PhantomData;
 use pallet_revive_uapi::{ReturnErrorCode, StorageFlags};
+use crate::{env, Env};
 
 /// `get` 内部分配的缓冲区大小（字节）；value 序列化后超过此长度将截断并解码失败。
 pub const GET_BUF_SIZE: usize = 512;
@@ -75,14 +76,13 @@ impl<K, V> Mapping<K, V> {
     #[inline]
     pub fn set_bytes(
         &self,
-        api: &mut impl crate::env::Env,
         key: &[u8],
         buf: &mut [u8],
         value: &[u8],
     ) -> Option<()> {
         let full = self.full_key(key, buf)?;
         let v = value.to_vec();
-        api.set_storage(StorageFlags::empty(), full, &v);
+        env().set_storage(StorageFlags::empty(), full, &v);
         Some(())
     }
 
@@ -90,12 +90,11 @@ impl<K, V> Mapping<K, V> {
     #[inline]
     pub fn get_bytes(
         &self,
-        api: &mut impl crate::env::Env,
         key: &[u8],
         buf: &mut [u8],
     ) -> Option<Vec<u8>> {
         let full = self.full_key(key, buf)?;
-        api.get_storage(StorageFlags::empty(), full)
+        env().get_storage(StorageFlags::empty(), full)
     }
 }
 
@@ -106,7 +105,7 @@ where
 {
     /// 写入：`mapping[key] = value`。K / V 使用 Scale 编码。
     #[inline]
-    pub fn set(&self, api: &mut impl crate::env::Env, key: &K, value: &V) -> Option<()> {
+    pub fn set(&self, key: &K, value: &V) -> Option<()> {
         let key_bytes = key.encode();
 
         #[cfg(not(any(test, feature = "off_chain")))]
@@ -115,13 +114,13 @@ where
         let mut buf = vec![0u8; self.prefix.len() + key_bytes.len()];
 
         let full = self.full_key(&key_bytes, &mut buf)?;
-        crate::env::set_storage(api, StorageFlags::empty(), full, value);
+        env().set_storage(StorageFlags::empty(), full, value);
         Some(())
     }
 
     /// 读取：将 `mapping[key]` 解码为 `V`。key 不存在或 value 解码失败（如结构体格式不匹配、数据损坏）时返回 `None`。
     #[inline]
-    pub fn get(&self, api: &mut impl crate::env::Env, key: &K) -> Option<V> {
+    pub fn get(&self, key: &K) -> Option<V> {
         let key_bytes = key.encode();
 
         #[cfg(not(any(test, feature = "off_chain")))]
@@ -130,12 +129,12 @@ where
         let mut key_buf = vec![0u8; self.prefix.len() + key_bytes.len()];
 
         let full = self.full_key(&key_bytes, &mut key_buf)?;
-        crate::env::get_storage(api, StorageFlags::empty(), full)
+        env().get_storage(StorageFlags::empty(), full)
     }
 
     /// 清除：删除 `mapping[key]` 的存储。通过 Env::clear_storage 实现，链上在 key 为 32 字节时使用 set_storage_or_clear。
     #[inline]
-    pub fn clear(&self, api: &mut impl crate::env::Env, key: &K) -> Option<()> {
+    pub fn clear(&self, key: &K) -> Option<()> {
         let key_bytes = key.encode();
 
         #[cfg(not(any(test, feature = "off_chain")))]
@@ -144,7 +143,7 @@ where
         let mut buf = vec![0u8; self.prefix.len() + key_bytes.len()];
 
         let full = self.full_key(&key_bytes, &mut buf)?;
-        api.clear_storage(StorageFlags::empty(), full);
+        env().clear_storage(StorageFlags::empty(), full);
         Some(())
     }
 }

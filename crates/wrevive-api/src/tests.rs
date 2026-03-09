@@ -1,7 +1,7 @@
 //! API unit tests: off_chain Engine for storage, caller, Mapping, List, List2D.
 //! API 单元测试：使用 off_chain Engine 测试存储、caller、Mapping、List、List2D。
 
-use super::{env, off_chain, Address, Env, H256, List, List2D, Mapping, StorageFlags, U256};
+use super::{Address, Env, H256, List, List2D, Mapping, StorageFlags, U256, env, off_chain};
 use parity_scale_codec::Encode;
 
 #[test]
@@ -144,15 +144,7 @@ fn off_chain_env_call_returns_err() {
         None,
     );
     assert!(r.is_err());
-    let r2 = env().delegate_call(
-        CallFlags::empty(),
-        &callee,
-        0,
-        0,
-        &deposit,
-        &[],
-        None,
-    );
+    let r2 = env().delegate_call(CallFlags::empty(), &callee, 0, 0, &deposit, &[], None);
     assert!(r2.is_err());
 }
 
@@ -197,25 +189,24 @@ fn mapping_set_and_get() {
     let m: Mapping<[u8; 20], u64> = Mapping::new(b"balance");
     let alice = [1u8; 20];
     let bob = [2u8; 20];
-    let e = env();
-    m.set(e, &alice, &1000u64).unwrap();
-    m.set(e, &bob, &2000u64).unwrap();
+    m.set(&alice, &1000u64).unwrap();
+    m.set(&bob, &2000u64).unwrap();
 
-    let v: u64 = m.get(e, &alice).unwrap();
+    let v: u64 = m.get(&alice).unwrap();
     assert_eq!(v, 1000);
-    let v2: u64 = m.get(e, &bob).unwrap();
+    let v2: u64 = m.get(&bob).unwrap();
     assert_eq!(v2, 2000);
 
     let m_val: Mapping<(u32, [u8; 3]), Vec<u8>> = Mapping::new(b"val");
-    m_val.set(e, &(42u32, *b"sub"), &b"val42".to_vec()).unwrap();
-    let out: Vec<u8> = m_val.get(e, &(42u32, *b"sub")).unwrap();
+    m_val.set(&(42u32, *b"sub"), &b"val42".to_vec()).unwrap();
+    let out: Vec<u8> = m_val.get(&(42u32, *b"sub")).unwrap();
     assert_eq!(&out[..], b"val42");
 
     let m2: Mapping<u32, u64> = Mapping::new(b"cnt");
-    m2.set(e, &1u32, &100u64).unwrap();
-    m2.set(e, &2u32, &200u64).unwrap();
-    assert_eq!(m2.get(e, &1u32).unwrap(), 100);
-    assert_eq!(m2.get(e, &2u32).unwrap(), 200);
+    m2.set(&1u32, &100u64).unwrap();
+    m2.set(&2u32, &200u64).unwrap();
+    assert_eq!(m2.get(&1u32).unwrap(), 100);
+    assert_eq!(m2.get(&2u32).unwrap(), 200);
 }
 
 /// Mapping get for non-existent key returns None. 不存在的 key 返回 None。
@@ -224,8 +215,7 @@ fn mapping_get_nonexistent_returns_none() {
     off_chain::with_engine(|e| e.reset());
     let m: Mapping<[u8; 20], u64> = Mapping::new(b"balance_nx");
     let alice = [1u8; 20];
-    let e = env();
-    let r = m.get(e, &alice);
+    let r = m.get(&alice);
     assert!(r.is_none());
 }
 
@@ -234,11 +224,10 @@ fn mapping_get_nonexistent_returns_none() {
 fn mapping_set_overwrite() {
     off_chain::with_engine(|e| e.reset());
     let m: Mapping<u32, u64> = Mapping::new(b"cnt_ov");
-    let e = env();
-    m.set(e, &1u32, &100u64).unwrap();
-    assert_eq!(m.get(e, &1u32).unwrap(), 100);
-    m.set(e, &1u32, &200u64).unwrap();
-    assert_eq!(m.get(e, &1u32).unwrap(), 200);
+    m.set(&1u32, &100u64).unwrap();
+    assert_eq!(m.get(&1u32).unwrap(), 100);
+    m.set(&1u32, &200u64).unwrap();
+    assert_eq!(m.get(&1u32).unwrap(), 200);
 }
 
 /// Mapping clear removes key; get after clear returns None. set 后 clear，再 get 应得到 None。
@@ -246,11 +235,10 @@ fn mapping_set_overwrite() {
 fn mapping_clear_then_get_none() {
     off_chain::with_engine(|e| e.reset());
     let m: Mapping<u32, u64> = Mapping::new(b"cnt_del");
-    let e = env();
-    m.set(e, &1u32, &100u64).unwrap();
-    assert_eq!(m.get(e, &1u32).unwrap(), 100);
-    m.clear(e, &1u32).unwrap();
-    let r = m.get(e, &1u32);
+    m.set(&1u32, &100u64).unwrap();
+    assert_eq!(m.get(&1u32).unwrap(), 100);
+    m.clear(&1u32).unwrap();
+    let r = m.get(&1u32);
     assert!(r.is_none());
 }
 
@@ -259,11 +247,10 @@ fn mapping_clear_then_get_none() {
 fn storage_clear_then_get_none() {
     off_chain::with_engine(|e| e.reset());
     let s: super::Storage<u64> = super::Storage::new(b"st_del");
-    let e = env();
-    s.set(e, &123u64);
-    assert_eq!(s.get(e).unwrap(), 123u64);
-    s.clear(e);
-    let r = s.get(e);
+    s.set(&123u64);
+    assert_eq!(s.get().unwrap(), 123u64);
+    s.clear();
+    let r = s.get();
     assert!(r.is_none());
 }
 
@@ -286,14 +273,14 @@ fn mapping_full_key_buf_too_small() {
 fn mapping_set_bytes_get_bytes() {
     off_chain::with_engine(|e| e.reset());
     let m: Mapping<u32, u64> = Mapping::new(b"bytes_m");
-    let e = env();
+    
     let key = 42u32;
     let key_bytes = key.encode();
     let value_bytes = 100u64.encode();
     let mut buf = vec![0u8; m.prefix().len() + key_bytes.len()];
-    m.set_bytes(e, &key_bytes, &mut buf, &value_bytes).unwrap();
+    m.set_bytes(&key_bytes, &mut buf, &value_bytes).unwrap();
     let mut read_buf = vec![0u8; m.prefix().len() + key_bytes.len()];
-    let out = m.get_bytes(e, &key_bytes, &mut read_buf).unwrap();
+    let out = m.get_bytes(&key_bytes, &mut read_buf).unwrap();
     assert_eq!(out, value_bytes);
     let decoded: u64 = parity_scale_codec::Decode::decode(&mut &out[..]).unwrap();
     assert_eq!(decoded, 100);
@@ -305,73 +292,68 @@ fn mapping_set_bytes_get_bytes() {
 fn list_u32_len_empty() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u32, u64> = List::new(b"list_t1_next", b"list_t1_items");
-    let e = env();
-    assert_eq!(list.len(e), 0u32);
+    assert_eq!(list.len(), 0u32);
 }
 
 #[test]
 fn list_u32_insert_and_get() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u32, u64> = List::new(b"list_t2_next", b"list_t2_items");
-    let e = env();
-    let k0 = list.insert(e, &100u64).unwrap();
+    let k0 = list.insert(&100u64).unwrap();
     assert_eq!(k0, 0);
-    assert_eq!(list.len(e), 1);
-    assert_eq!(list.get(e, &0).unwrap(), 100);
+    assert_eq!(list.len(), 1);
+    assert_eq!(list.get(&0).unwrap(), 100);
 
-    let k1 = list.insert(e, &200u64).unwrap();
+    let k1 = list.insert(&200u64).unwrap();
     assert_eq!(k1, 1);
-    assert_eq!(list.len(e), 2);
-    assert_eq!(list.get(e, &1).unwrap(), 200);
+    assert_eq!(list.len(), 2);
+    assert_eq!(list.get(&1).unwrap(), 200);
 
-    let k2 = list.insert(e, &300u64).unwrap();
+    let k2 = list.insert(&300u64).unwrap();
     assert_eq!(k2, 2);
-    assert_eq!(list.get(e, &2).unwrap(), 300);
+    assert_eq!(list.get(&2).unwrap(), 300);
 }
 
 #[test]
 fn list_u32_contains() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u32, String> = List::new(b"list_t3_next", b"list_t3_items");
-    let e = env();
-    assert!(!list.contains(e, &0));
-    list.insert(e, &"a".to_string()).unwrap();
-    assert!(list.contains(e, &0));
-    assert!(!list.contains(e, &1));
-    list.insert(e, &"b".to_string()).unwrap();
-    assert!(list.contains(e, &1));
+    assert!(!list.contains(&0));
+    list.insert(&"a".to_string()).unwrap();
+    assert!(list.contains(&0));
+    assert!(!list.contains(&1));
+    list.insert(&"b".to_string()).unwrap();
+    assert!(list.contains(&1));
 }
 
 #[test]
 fn list_u32_update() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u32, u64> = List::new(b"list_t4_next", b"list_t4_items");
-    let e = env();
-    list.insert(e, &10u64).unwrap();
-    list.insert(e, &20u64).unwrap();
-    assert_eq!(list.get(e, &0).unwrap(), 10);
-    list.update(e, &0, &99u64).unwrap();
-    assert_eq!(list.get(e, &0).unwrap(), 99);
-    assert_eq!(list.get(e, &1).unwrap(), 20);
+    list.insert(&10u64).unwrap();
+    list.insert(&20u64).unwrap();
+    assert_eq!(list.get(&0).unwrap(), 10);
+    list.update(&0, &99u64).unwrap();
+    assert_eq!(list.get(&0).unwrap(), 99);
+    assert_eq!(list.get(&1).unwrap(), 20);
 }
 
 #[test]
 fn list_u32_clear() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u32, u64> = List::new(b"list_cl_next", b"list_cl_items");
-    let e = env();
-    assert_eq!(list.insert(e, &10u64).unwrap(), 0);
-    assert_eq!(list.insert(e, &20u64).unwrap(), 1);
-    assert_eq!(list.len(e), 2);
-    assert!(list.contains(e, &0));
-    assert!(list.contains(e, &1));
+    assert_eq!(list.insert(&10u64).unwrap(), 0);
+    assert_eq!(list.insert(&20u64).unwrap(), 1);
+    assert_eq!(list.len(), 2);
+    assert!(list.contains(&0));
+    assert!(list.contains(&1));
 
-    list.clear(e, &0).unwrap();
-    assert!(!list.contains(e, &0));
-    assert!(list.get(e, &0).is_none());
-    assert_eq!(list.len(e), 2, "clear should not change next_id/len");
+    list.clear(&0).unwrap();
+    assert!(!list.contains(&0));
+    assert!(list.get(&0).is_none());
+    assert_eq!(list.len(), 2, "clear should not change next_id/len");
 
-    let page = list.list(e, 0, 2);
+    let page = list.list(0, 2);
     assert_eq!(page, vec![(1, 20)]);
 }
 
@@ -379,25 +361,24 @@ fn list_u32_clear() {
 fn list_u32_list_asc() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u32, u64> = List::new(b"list_t5_next", b"list_t5_items");
-    let e = env();
     for v in [1u64, 2, 3, 4, 5] {
-        list.insert(e, &v).unwrap();
+        list.insert(&v).unwrap();
     }
-    let page = list.list(e, 0, 3);
+    let page = list.list(0, 3);
     assert_eq!(page.len(), 3);
     assert_eq!(page[0], (0, 1));
     assert_eq!(page[1], (1, 2));
     assert_eq!(page[2], (2, 3));
 
-    let page2 = list.list(e, 2, 10);
+    let page2 = list.list(2, 10);
     assert_eq!(page2.len(), 3);
     assert_eq!(page2[0], (2, 3));
     assert_eq!(page2[1], (3, 4));
     assert_eq!(page2[2], (4, 5));
 
-    let page_empty = list.list(e, 0, 0);
+    let page_empty = list.list(0, 0);
     assert!(page_empty.is_empty());
-    let page_beyond = list.list(e, 10, 5);
+    let page_beyond = list.list(10, 5);
     assert!(page_beyond.is_empty());
 }
 
@@ -406,10 +387,9 @@ fn list_u32_list_asc() {
 fn list_u32_desc_list_empty() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u32, u64> = List::new(b"list_t5e_next", b"list_t5e_items");
-    let e = env();
-    let empty = list.desc_list(e, None, 5);
+    let empty = list.desc_list(None, 5);
     assert!(empty.is_empty());
-    let empty2 = list.desc_list(e, Some(0), 1);
+    let empty2 = list.desc_list(Some(0), 1);
     assert!(empty2.is_empty());
 }
 
@@ -418,10 +398,9 @@ fn list_u32_desc_list_empty() {
 fn list_u32_get_out_of_range() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u32, u64> = List::new(b"list_t5r_next", b"list_t5r_items");
-    let e = env();
-    list.insert(e, &1u64).unwrap();
-    assert!(list.get(e, &1).is_none());
-    assert!(list.get(e, &100).is_none());
+    list.insert(&1u64).unwrap();
+    assert!(list.get(&1).is_none());
+    assert!(list.get(&100).is_none());
 }
 
 /// List insert when u8 id would overflow returns None. u8 作为 id 时溢出 insert 返回 None。
@@ -429,36 +408,37 @@ fn list_u32_get_out_of_range() {
 fn list_u8_insert_overflow_returns_none() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u8, u32> = List::new(b"list_u8o_next", b"list_u8o_items");
-    let e = env();
     for i in 0..255 {
-        let k = list.insert(e, &(i as u32));
+        let k = list.insert(&(i as u32));
         assert!(k.is_some(), "insert {} should succeed", i);
     }
-    assert_eq!(list.len(e), 255u8);
-    let k_next = list.insert(e, &999u32);
-    assert!(k_next.is_none(), "u8 overflow (256th insert) should return None");
+    assert_eq!(list.len(), 255u8);
+    let k_next = list.insert(&999u32);
+    assert!(
+        k_next.is_none(),
+        "u8 overflow (256th insert) should return None"
+    );
 }
 
 #[test]
 fn list_u32_desc_list() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u32, u64> = List::new(b"list_t6_next", b"list_t6_items");
-    let e = env();
     for v in [10u64, 20, 30, 40] {
-        list.insert(e, &v).unwrap();
+        list.insert(&v).unwrap();
     }
-    let desc = list.desc_list(e, None, 3);
+    let desc = list.desc_list(None, 3);
     assert_eq!(desc.len(), 3);
     assert_eq!(desc[0], (3, 40));
     assert_eq!(desc[1], (2, 30));
     assert_eq!(desc[2], (1, 20));
 
-    let desc_from = list.desc_list(e, Some(2), 2);
+    let desc_from = list.desc_list(Some(2), 2);
     assert_eq!(desc_from.len(), 2);
     assert_eq!(desc_from[0], (2, 30));
     assert_eq!(desc_from[1], (1, 20));
 
-    let desc_empty = list.desc_list(e, None, 0);
+    let desc_empty = list.desc_list(None, 0);
     assert!(desc_empty.is_empty());
 }
 
@@ -466,23 +446,21 @@ fn list_u32_desc_list() {
 fn list_u64_id_type() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u64, u32> = List::new(b"list_t7_next", b"list_t7_items");
-    let e = env();
-    assert_eq!(list.len(e), 0u64);
-    let k = list.insert(e, &42u32).unwrap();
+    assert_eq!(list.len(), 0u64);
+    let k = list.insert(&42u32).unwrap();
     assert_eq!(k, 0u64);
-    assert_eq!(list.len(e), 1u64);
-    assert_eq!(list.get(e, &0u64).unwrap(), 42);
+    assert_eq!(list.len(), 1u64);
+    assert_eq!(list.get(&0u64).unwrap(), 42);
 }
 
 #[test]
 fn list_u8_id_type() {
     off_chain::with_engine(|e| e.reset());
     let list: List<u8, i32> = List::new(b"list_t8_next", b"list_t8_items");
-    let e = env();
-    list.insert(e, &1).unwrap();
-    list.insert(e, &2).unwrap();
-    assert_eq!(list.len(e), 2u8);
-    assert_eq!(list.list(e, 0u8, 2).len(), 2);
+    list.insert(&1).unwrap();
+    list.insert(&2).unwrap();
+    assert_eq!(list.len(), 2u8);
+    assert_eq!(list.list(0u8, 2).len(), 2);
 }
 
 // ======================== List2D 单元测试 ========================
@@ -492,10 +470,9 @@ fn list_2d_len_empty() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_t1_k1", b"dl_t1_len", b"dl_t1_k2", b"dl_t1_store");
-    let e = env();
     let alice = [1u8; 20];
-    assert_eq!(dl.len(e, &alice), 0u32);
-    assert_eq!(dl.next_id(e, &alice), 0u32);
+    assert_eq!(dl.len(&alice), 0u32);
+    assert_eq!(dl.next_id(&alice), 0u32);
 }
 
 #[test]
@@ -503,25 +480,24 @@ fn list_2d_insert_and_get() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_t2_k1", b"dl_t2_len", b"dl_t2_k2", b"dl_t2_store");
-    let e = env();
     let alice = [1u8; 20];
     let bob = [2u8; 20];
 
-    let k2_0 = dl.insert(e, &alice, &100u64).unwrap();
+    let k2_0 = dl.insert(&alice, &100u64).unwrap();
     assert_eq!(k2_0, 0);
-    assert_eq!(dl.get(e, &alice, 0).unwrap(), 100);
-    assert_eq!(dl.len(e, &alice), 1);
+    assert_eq!(dl.get(&alice, 0).unwrap(), 100);
+    assert_eq!(dl.len(&alice), 1);
 
-    let k2_1 = dl.insert(e, &alice, &200u64).unwrap();
+    let k2_1 = dl.insert(&alice, &200u64).unwrap();
     assert_eq!(k2_1, 1);
-    assert_eq!(dl.get(e, &alice, 1).unwrap(), 200);
-    assert_eq!(dl.len(e, &alice), 2);
+    assert_eq!(dl.get(&alice, 1).unwrap(), 200);
+    assert_eq!(dl.len(&alice), 2);
 
-    let k2_bob = dl.insert(e, &bob, &999u64).unwrap();
+    let k2_bob = dl.insert(&bob, &999u64).unwrap();
     assert_eq!(k2_bob, 0);
-    assert_eq!(dl.get(e, &bob, 0).unwrap(), 999);
-    assert_eq!(dl.len(e, &bob), 1);
-    assert_eq!(dl.len(e, &alice), 2);
+    assert_eq!(dl.get(&bob, 0).unwrap(), 999);
+    assert_eq!(dl.len(&bob), 1);
+    assert_eq!(dl.len(&alice), 2);
 }
 
 #[test]
@@ -529,14 +505,13 @@ fn list_2d_update() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_t3_k1", b"dl_t3_len", b"dl_t3_k2", b"dl_t3_store");
-    let e = env();
     let alice = [1u8; 20];
-    dl.insert(e, &alice, &10u64).unwrap();
-    dl.insert(e, &alice, &20u64).unwrap();
-    assert_eq!(dl.get(e, &alice, 0).unwrap(), 10);
-    dl.update(e, &alice, 0, &100u64).unwrap();
-    assert_eq!(dl.get(e, &alice, 0).unwrap(), 100);
-    assert_eq!(dl.get(e, &alice, 1).unwrap(), 20);
+    dl.insert(&alice, &10u64).unwrap();
+    dl.insert(&alice, &20u64).unwrap();
+    assert_eq!(dl.get(&alice, 0).unwrap(), 10);
+    dl.update(&alice, 0, &100u64).unwrap();
+    assert_eq!(dl.get(&alice, 0).unwrap(), 100);
+    assert_eq!(dl.get(&alice, 1).unwrap(), 20);
 }
 
 #[test]
@@ -544,19 +519,18 @@ fn list_2d_clear() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_cl_k1", b"dl_cl_len", b"dl_cl_k2", b"dl_cl_store");
-    let e = env();
     let alice = [1u8; 20];
-    assert_eq!(dl.insert(e, &alice, &10u64).unwrap(), 0);
-    assert_eq!(dl.insert(e, &alice, &20u64).unwrap(), 1);
-    assert_eq!(dl.len(e, &alice), 2);
-    assert_eq!(dl.get(e, &alice, 0).unwrap(), 10);
-    assert_eq!(dl.get(e, &alice, 1).unwrap(), 20);
+    assert_eq!(dl.insert(&alice, &10u64).unwrap(), 0);
+    assert_eq!(dl.insert(&alice, &20u64).unwrap(), 1);
+    assert_eq!(dl.len(&alice), 2);
+    assert_eq!(dl.get(&alice, 0).unwrap(), 10);
+    assert_eq!(dl.get(&alice, 1).unwrap(), 20);
 
-    dl.clear(e, &alice, 0).unwrap();
-    assert!(dl.get(e, &alice, 0).is_none());
-    assert_eq!(dl.len(e, &alice), 2, "clear should not change next_id/len");
+    dl.clear(&alice, 0).unwrap();
+    assert!(dl.get(&alice, 0).is_none());
+    assert_eq!(dl.len(&alice), 2, "clear should not change next_id/len");
 
-    let page = dl.list(e, &alice, 0, 2);
+    let page = dl.list(&alice, 0, 2);
     assert_eq!(page, vec![(1, 20)]);
 }
 
@@ -565,25 +539,25 @@ fn list_2d_list_asc() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_t4_k1", b"dl_t4_len", b"dl_t4_k2", b"dl_t4_store");
-    let e = env();
+    
     let alice = [1u8; 20];
     for v in [1u64, 2, 3, 4, 5] {
-        dl.insert(e, &alice, &v).unwrap();
+        dl.insert(&alice, &v).unwrap();
     }
-    let page = dl.list(e, &alice, 0, 3);
+    let page = dl.list(&alice, 0, 3);
     assert_eq!(page.len(), 3);
     assert_eq!(page[0], (0, 1));
     assert_eq!(page[1], (1, 2));
     assert_eq!(page[2], (2, 3));
 
-    let page2 = dl.list(e, &alice, 2, 10);
+    let page2 = dl.list(&alice, 2, 10);
     assert_eq!(page2.len(), 3);
     assert_eq!(page2[0], (2, 3));
     assert_eq!(page2[1], (3, 4));
     assert_eq!(page2[2], (4, 5));
 
     let bob = [2u8; 20];
-    let empty = dl.list(e, &bob, 0, 5);
+    let empty = dl.list(&bob, 0, 5);
     assert!(empty.is_empty());
 }
 
@@ -593,10 +567,10 @@ fn list_2d_get_nonexistent_k1() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_gn1_k1", b"dl_gn1_len", b"dl_gn1_k2", b"dl_gn1_store");
-    let e = env();
+    
     let alice = [1u8; 20];
-    assert!(dl.get(e, &alice, 0).is_none());
-    assert!(dl.len(e, &alice) == 0u32);
+    assert!(dl.get(&alice, 0).is_none());
+    assert!(dl.len(&alice) == 0u32);
 }
 
 /// List2D get for valid k1 but invalid k2 returns None. 存在的 k1、不存在的 k2 返回 None。
@@ -605,11 +579,11 @@ fn list_2d_get_valid_k1_invalid_k2() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_gv1_k1", b"dl_gv1_len", b"dl_gv1_k2", b"dl_gv1_store");
-    let e = env();
+    
     let alice = [1u8; 20];
-    dl.insert(e, &alice, &100u64).unwrap();
-    assert!(dl.get(e, &alice, 1).is_none());
-    assert!(dl.get(e, &alice, 100).is_none());
+    dl.insert(&alice, &100u64).unwrap();
+    assert!(dl.get(&alice, 1).is_none());
+    assert!(dl.get(&alice, 100).is_none());
 }
 
 /// List2D update for non-existent k1 returns None. 对不存在的 k1  update 返回 None。
@@ -618,9 +592,9 @@ fn list_2d_update_nonexistent_k1() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_un1_k1", b"dl_un1_len", b"dl_un1_k2", b"dl_un1_store");
-    let e = env();
+    
     let alice = [1u8; 20];
-    let r = dl.update(e, &alice, 0, &999u64);
+    let r = dl.update(&alice, 0, &999u64);
     assert!(r.is_none());
 }
 
@@ -630,10 +604,10 @@ fn list_2d_desc_list_size_zero() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_ds0_k1", b"dl_ds0_len", b"dl_ds0_k2", b"dl_ds0_store");
-    let e = env();
+    
     let alice = [1u8; 20];
-    dl.insert(e, &alice, &1u64).unwrap();
-    let empty = dl.desc_list(e, &alice, None, 0);
+    dl.insert(&alice, &1u64).unwrap();
+    let empty = dl.desc_list(&alice, None, 0);
     assert!(empty.is_empty());
 }
 
@@ -643,9 +617,9 @@ fn list_2d_list_all_nonexistent_k1() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_la0_k1", b"dl_la0_len", b"dl_la0_k2", b"dl_la0_store");
-    let e = env();
+    
     let alice = [1u8; 20];
-    let empty = dl.list_all(e, &alice);
+    let empty = dl.list_all(&alice);
     assert!(empty.is_empty());
 }
 
@@ -654,18 +628,18 @@ fn list_2d_desc_list() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_t5_k1", b"dl_t5_len", b"dl_t5_k2", b"dl_t5_store");
-    let e = env();
+    
     let alice = [1u8; 20];
     for v in [10u64, 20, 30, 40] {
-        dl.insert(e, &alice, &v).unwrap();
+        dl.insert(&alice, &v).unwrap();
     }
-    let desc = dl.desc_list(e, &alice, None, 3);
+    let desc = dl.desc_list(&alice, None, 3);
     assert_eq!(desc.len(), 3);
     assert_eq!(desc[0], (3, 40));
     assert_eq!(desc[1], (2, 30));
     assert_eq!(desc[2], (1, 20));
 
-    let desc_from = dl.desc_list(e, &alice, Some(2), 2);
+    let desc_from = dl.desc_list(&alice, Some(2), 2);
     assert_eq!(desc_from.len(), 2);
     assert_eq!(desc_from[0], (2, 30));
     assert_eq!(desc_from[1], (1, 20));
@@ -676,13 +650,13 @@ fn list_2d_list_all() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, u64> =
         List2D::new(b"dl_t6_k1", b"dl_t6_len", b"dl_t6_k2", b"dl_t6_store");
-    let e = env();
+    
     let alice = [1u8; 20];
-    assert!(dl.list_all(e, &alice).is_empty());
+    assert!(dl.list_all(&alice).is_empty());
     for v in [7u64, 8, 9] {
-        dl.insert(e, &alice, &v).unwrap();
+        dl.insert(&alice, &v).unwrap();
     }
-    let all = dl.list_all(e, &alice);
+    let all = dl.list_all(&alice);
     assert_eq!(all.len(), 3);
     assert_eq!(all[0], (0, 7));
     assert_eq!(all[1], (1, 8));
@@ -694,31 +668,31 @@ fn list_2d_multiple_k1() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<[u8; 20], u32, String> =
         List2D::new(b"dl_t7_k1", b"dl_t7_len", b"dl_t7_k2", b"dl_t7_store");
-    let e = env();
+    
     let a = [1u8; 20];
     let b = [2u8; 20];
     let c = [3u8; 20];
 
-    dl.insert(e, &a, &"a1".to_string()).unwrap();
-    dl.insert(e, &a, &"a2".to_string()).unwrap();
-    dl.insert(e, &b, &"b1".to_string()).unwrap();
-    dl.insert(e, &c, &"c1".to_string()).unwrap();
-    dl.insert(e, &c, &"c2".to_string()).unwrap();
-    dl.insert(e, &c, &"c3".to_string()).unwrap();
+    dl.insert(&a, &"a1".to_string()).unwrap();
+    dl.insert(&a, &"a2".to_string()).unwrap();
+    dl.insert(&b, &"b1".to_string()).unwrap();
+    dl.insert(&c, &"c1".to_string()).unwrap();
+    dl.insert(&c, &"c2".to_string()).unwrap();
+    dl.insert(&c, &"c3".to_string()).unwrap();
 
-    assert_eq!(dl.len(e, &a), 2u32);
-    assert_eq!(dl.len(e, &b), 1u32);
-    assert_eq!(dl.len(e, &c), 3u32);
+    assert_eq!(dl.len(&a), 2u32);
+    assert_eq!(dl.len(&b), 1u32);
+    assert_eq!(dl.len(&c), 3u32);
 
-    assert_eq!(dl.get(e, &a, 0).as_deref(), Some("a1"));
-    assert_eq!(dl.get(e, &a, 1).as_deref(), Some("a2"));
-    assert_eq!(dl.get(e, &b, 0).as_deref(), Some("b1"));
-    assert_eq!(dl.get(e, &c, 0).as_deref(), Some("c1"));
-    assert_eq!(dl.get(e, &c, 2).as_deref(), Some("c3"));
+    assert_eq!(dl.get(&a, 0).as_deref(), Some("a1"));
+    assert_eq!(dl.get(&a, 1).as_deref(), Some("a2"));
+    assert_eq!(dl.get(&b, 0).as_deref(), Some("b1"));
+    assert_eq!(dl.get(&c, 0).as_deref(), Some("c1"));
+    assert_eq!(dl.get(&c, 2).as_deref(), Some("c3"));
 
-    let all_a = dl.list_all(e, &a);
+    let all_a = dl.list_all(&a);
     assert_eq!(all_a.len(), 2);
-    let all_c = dl.list_all(e, &c);
+    let all_c = dl.list_all(&c);
     assert_eq!(all_c.len(), 3);
 }
 
@@ -727,9 +701,9 @@ fn list_2d_u16_inner_id() {
     off_chain::with_engine(|e| e.reset());
     let dl: List2D<u32, u16, u8> =
         List2D::new(b"dl_t8_k1", b"dl_t8_len", b"dl_t8_k2", b"dl_t8_store");
-    let e = env();
-    let k2 = dl.insert(e, &1u32, &10u8).unwrap();
+    
+    let k2 = dl.insert(&1u32, &10u8).unwrap();
     assert_eq!(k2, 0u16);
-    assert_eq!(dl.get(e, &1u32, 0u16).unwrap(), 10);
-    assert_eq!(dl.len(e, &1u32), 1u16);
+    assert_eq!(dl.get(&1u32, 0u16).unwrap(), 10);
+    assert_eq!(dl.len(&1u32), 1u16);
 }

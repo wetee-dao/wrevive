@@ -8,8 +8,6 @@
 use alloc::vec::Vec;
 #[cfg(any(test, feature = "off_chain"))]
 use std::vec::Vec;
-
-use crate::env::Env;
 use crate::list::ListIndex;
 use crate::mapping::Mapping;
 use crate::Storage;
@@ -45,67 +43,67 @@ where
     }
 
     /// 该 K1 下下一个将分配的 k2（即当前长度）。
-    pub fn next_id(&self, api: &mut impl Env, k1: &K1) -> Ix {
-        let id = match self.k1_to_id.get(api, k1) {
+    pub fn next_id(&self, k1: &K1) -> Ix {
+        let id = match self.k1_to_id.get(k1) {
             Some(id) => id,
             None => return Ix::default(),
         };
-        self.k2_next_id.get(api, &id).unwrap_or(Ix::default())
+        self.k2_next_id.get(&id).unwrap_or(Ix::default())
     }
 
     /// 该 K1 下的条目数量（与 next_id 一致）。
-    pub fn len(&self, api: &mut impl Env, k1: &K1) -> Ix {
-        self.next_id(api, k1)
+    pub fn len(&self, k1: &K1) -> Ix {
+        self.next_id(k1)
     }
 
     /// Insert one entry under k1; returns the allocated k2.
     /// 在 k1 下插入一条记录，返回分配的 k2。
-    pub fn insert(&self, api: &mut impl Env, k1: &K1, value: &V) -> Option<Ix> {
-        let mut id = self.k1_to_id.get(api, k1);
+    pub fn insert(&self, k1: &K1, value: &V) -> Option<Ix> {
+        let mut id = self.k1_to_id.get(k1);
         if id.is_none() {
-            let len = self.k1_length.get(api).unwrap_or(Ix::default());
+            let len = self.k1_length.get().unwrap_or(Ix::default());
             id = Some(len);
-            self.k1_to_id.set(api, k1, &len);
+            self.k1_to_id.set(k1, &len);
             let next_len = len.checked_next()?;
-            self.k1_length.set(api, &next_len);
+            self.k1_length.set(&next_len);
         }
         let id_val = id?;
-        let next_id = self.k2_next_id.get(api, &id_val).unwrap_or(Ix::default());
+        let next_id = self.k2_next_id.get(&id_val).unwrap_or(Ix::default());
         let new_next_id = next_id.checked_next()?;
-        self.k2_next_id.set(api, &id_val, &new_next_id);
+        self.k2_next_id.set(&id_val, &new_next_id);
         let key = (id_val, next_id);
-        self.store.set(api, &key, value);
+        self.store.set(&key, value);
         Some(next_id)
     }
 
     /// 更新 (k1, k2) 对应的值。
-    pub fn update(&self, api: &mut impl Env, k1: &K1, k2: Ix, value: &V) -> Option<()> {
-        let id = self.k1_to_id.get(api, k1)?;
+    pub fn update(&self, k1: &K1, k2: Ix, value: &V) -> Option<()> {
+        let id = self.k1_to_id.get(k1)?;
         let key = (id, k2);
-        self.store.set(api, &key, value)
+        self.store.set(&key, value)
     }
 
     /// 清除 (k1, k2) 对应的值（不改变该 k1 的 len/next_id）。
-    pub fn clear(&self, api: &mut impl Env, k1: &K1, k2: Ix) -> Option<()> {
-        let id = self.k1_to_id.get(api, k1)?;
+    pub fn clear(&self, k1: &K1, k2: Ix) -> Option<()> {
+        let id = self.k1_to_id.get(k1)?;
         let key = (id, k2);
-        self.store.clear(api, &key)
+        self.store.clear(&key)
     }
 
     /// 按 (k1, k2) 取值。
-    pub fn get(&self, api: &mut impl Env, k1: &K1, k2: Ix) -> Option<V> {
-        let id = self.k1_to_id.get(api, k1)?;
+    pub fn get(&self, k1: &K1, k2: Ix) -> Option<V> {
+        let id = self.k1_to_id.get(k1)?;
         let key = (id, k2);
-        self.store.get(api, &key)
+        self.store.get(&key)
     }
 
     /// 分页列表（升序）：k1 下从 start_key 起取最多 size 条。
-    pub fn list(&self, api: &mut impl Env, k1: &K1, start_key: Ix, size: u32) -> Vec<(Ix, V)> {
-        let id = match self.k1_to_id.get(api, k1) {
+    pub fn list(&self, k1: &K1, start_key: Ix, size: u32) -> Vec<(Ix, V)> {
+        let id = match self.k1_to_id.get(k1) {
             Some(i) => i,
             None => return Vec::new(),
         };
-        let total_len = self.k2_next_id.get(api, &id).unwrap_or(Ix::default());
+        let total_len = self.k2_next_id.get(&id).unwrap_or(Ix::default());
         let mut out = Vec::new();
         if size == 0 {
             return out;
@@ -116,7 +114,7 @@ where
                 break;
             }
             let key = (id, k2);
-            if let Some(v) = self.store.get(api, &key) {
+            if let Some(v) = self.store.get(&key) {
                 out.push((k2, v));
             }
             k2 = match k2.checked_next() {
@@ -130,16 +128,15 @@ where
     /// 分页列表（降序）：k1 下从 start_key_ 起向前取最多 size 条；None 表示从末尾开始。
     pub fn desc_list(
         &self,
-        api: &mut impl Env,
         k1: &K1,
         start_key_: Option<Ix>,
         size: u32,
     ) -> Vec<(Ix, V)> {
-        let id = match self.k1_to_id.get(api, k1) {
+        let id = match self.k1_to_id.get(k1) {
             Some(i) => i,
             None => return Vec::new(),
         };
-        let total_len = self.k2_next_id.get(api, &id).unwrap_or(Ix::default());
+        let total_len = self.k2_next_id.get(&id).unwrap_or(Ix::default());
         let mut out = Vec::new();
         if size == 0 {
             return out;
@@ -151,7 +148,7 @@ where
                 None => break,
             };
             let full_key = (id, key);
-            if let Some(v) = self.store.get(api, &full_key) {
+            if let Some(v) = self.store.get(&full_key) {
                 out.push((key, v));
             }
             k2 = key.checked_prev();
@@ -160,17 +157,17 @@ where
     }
 
     /// 返回 k1 下全部 (k2, value)。
-    pub fn list_all(&self, api: &mut impl Env, k1: &K1) -> Vec<(Ix, V)> {
-        let id = match self.k1_to_id.get(api, k1) {
+    pub fn list_all(&self, k1: &K1) -> Vec<(Ix, V)> {
+        let id = match self.k1_to_id.get(k1) {
             Some(i) => i,
             None => return Vec::new(),
         };
-        let total_len = self.k2_next_id.get(api, &id).unwrap_or(Ix::default());
+        let total_len = self.k2_next_id.get(&id).unwrap_or(Ix::default());
         let mut out = Vec::new();
         let mut k2 = Ix::default();
         while k2 < total_len {
             let key = (id, k2);
-            if let Some(v) = self.store.get(api, &key) {
+            if let Some(v) = self.store.get(&key) {
                 out.push((k2, v));
             }
             k2 = match k2.checked_next() {

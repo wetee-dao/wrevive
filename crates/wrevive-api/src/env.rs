@@ -230,25 +230,3 @@ pub trait Env {
     /// 销毁调用账户并将剩余余额转给 beneficiary；不返回。
     fn terminate(&self, beneficiary: &[u8; 20]) -> !;
 }
-
-/// Store typed value at `key`. Forwards to [Env::set_storage].
-#[inline]
-pub fn set_storage<E: Env + ?Sized, V: Storable>(
-    api: &mut E,
-    flags: StorageFlags,
-    key: &[u8],
-    value: &V,
-) -> Option<u32> {
-    api.set_storage(flags, key, value)
-}
-
-/// Load typed value at `key`. Forwards to [Env::get_storage].
-#[inline]
-pub fn get_storage<E: Env + ?Sized, V: Storable>(
-    api: &mut E,
-    flags: StorageFlags,
-    key: &[u8],
-) -> Option<V> {
-    api.get_storage(flags, key)
-}
-

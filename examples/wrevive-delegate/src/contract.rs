@@ -11,7 +11,7 @@ extern crate alloc;
 static ALLOC: pvm_bump_allocator::BumpAllocator<1024> = pvm_bump_allocator::BumpAllocator::new();
 
 use pallet_revive_uapi::CallFlags;
-use wrevive_api::{Address, Encode, ReturnFlags, Storage, U256, env};
+use wrevive_api::{Address, Encode, ReturnFlags, Storage, U256, Env, env};
 use wrevive_macro::{revive_contract, storage};
 
 #[revive_contract]
@@ -31,25 +31,25 @@ pub mod contract {
     /// 构造函数：设置调用者为 owner，VALUE 初始为 initial_value。
     #[revive(constructor)]
     pub fn deploy(contract: Address) -> Result<(), Error> {
-        CONTRACT.set(env(), &contract);
+        CONTRACT.set(&contract);
         Ok(())
     }
 
     #[revive(message)]
     pub fn get_contract() -> Address {
-        CONTRACT.get(env()).unwrap_or(Address::zero())
+        CONTRACT.get().unwrap_or(Address::zero())
     }
 
     #[revive(message)]
     pub fn set_contract(contract: Address) -> Result<(), Error> {
-        CONTRACT.set(env(), &contract);
+        CONTRACT.set(&contract);
         Ok(())
     }
 
     #[revive(fallback)]
     pub fn fallback() {
         let api = env();
-        let callee = CONTRACT.get(api).unwrap_or(Address::zero());
+        let callee = CONTRACT.get().unwrap_or(Address::zero());
         if callee == Address::zero() {
             api.return_value(ReturnFlags::REVERT, &[]);
         }

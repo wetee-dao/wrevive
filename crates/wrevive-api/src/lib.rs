@@ -15,34 +15,33 @@ use scale_info::prelude::marker::PhantomData;
 pub mod env;
 pub use env::{Env, MAX_STORAGE_VALUE_SIZE};
 
-/// Mapping：按前缀命名空间 + key 的 set/get 封装，类似 ink Mapping。
-pub mod mapping;
 /// List / 2D List：顺序列表与二维列表存储（参考 primitives define_map / define_double_map_base）。
 pub mod list;
 pub mod list_2d;
+/// Mapping：按前缀命名空间 + key 的 set/get 封装，类似 ink Mapping。
+pub mod mapping;
 
 /// 常见数据类型：Address、H256、U256、BlockNumber、String。
 pub mod types;
 pub use types::*;
 
+#[cfg(all(not(test), not(feature = "off_chain")))]
+pub use alloc::vec::Vec;
 /// Vec 再导出：test 或 off_chain 用 std；否则 no_std 合约用 alloc。
 #[cfg(any(test, feature = "off_chain"))]
 pub use std::vec::Vec;
-#[cfg(all(not(test), not(feature = "off_chain")))]
-pub use alloc::vec::Vec;
 
 /// Re-export from pallet_revive_uapi for contract code (input!, HostFn, flags).
 /// 从 pallet_revive_uapi 再导出，供合约使用（input!、HostFn、flags）。
-pub use pallet_revive_uapi::{input, HostFn, ReturnErrorCode, ReturnFlags, StorageFlags};
+pub use pallet_revive_uapi::{HostFn, ReturnErrorCode, ReturnFlags, StorageFlags, input};
 
+pub use list::{List, ListIndex};
+pub use list_2d::List2D;
+pub use mapping::{Mapping, MappingError};
 /// Scale 编解码与类型信息，供 `#[scale_derive(Encode, Decode, TypeInfo)]` 及 Mapping set/get 使用。
 pub use parity_scale_codec::{Decode, Encode};
 pub use scale_info::TypeInfo;
-pub use mapping::{Mapping, MappingError};
-pub use list::{List, ListIndex};
-pub use list_2d::List2D;
 pub use traits::Storable;
-
 
 // 正常运行暴露 on_chain：cfg(not(test)) 且未启用 off_chain（与 off_chain 互斥）
 #[cfg(all(not(test), not(feature = "off_chain")))]
@@ -60,7 +59,7 @@ pub const BUFFER_SIZE: usize = 16384;
 pub mod off_chain;
 
 #[cfg(any(test, feature = "off_chain"))]
-pub use off_chain::{with_engine, Engine, ReturnValuePanic};
+pub use off_chain::{Engine, ReturnValuePanic, with_engine};
 
 /// Returns the current backend Env. Contracts use `env().caller()`, `env().set_storage()` etc.
 /// 返回当前后端 Env；合约通过 `env().caller()`、`env().set_storage()` 等调用。
@@ -75,7 +74,7 @@ pub fn env() -> &'static mut off_chain::OffChainEnv {
 /// 测试/off_chain 下按 key 读取存储并解码为 V；不存在或解码失败返回 None。
 #[cfg(any(test, feature = "off_chain"))]
 pub fn get_storage<V: Storable>(flags: StorageFlags, key: &[u8]) -> Option<V> {
-    crate::env::get_storage(env(), flags, key)
+    env().get_storage(flags, key)
 }
 
 #[cfg(all(not(test), not(feature = "off_chain")))]
@@ -101,20 +100,20 @@ where
 
     /// Write value; returns previous value length in bytes if any. Encode is done in env.
     /// 写入 value；若有旧值则返回其字节长度；编码在 env 模块完成。
-    pub fn set(&self, api: &mut impl crate::env::Env, value: &V) -> Option<u32> {
-        crate::env::set_storage(api, StorageFlags::empty(), self.0, value)
+    pub fn set(&self, value: &V) -> Option<u32> {
+        env().set_storage(StorageFlags::empty(), self.0, value)
     }
 
     /// Read and decode value; None if missing or decode fails. Decode is done in env.
     /// 读取并解码；不存在或解码失败时返回 None；解码在 env 模块完成。
-    pub fn get(&self, api: &mut impl crate::env::Env) -> Option<V> {
-        crate::env::get_storage(api, StorageFlags::empty(), self.0)
+    pub fn get(&self) -> Option<V> {
+        env().get_storage(StorageFlags::empty(), self.0)
     }
 
     /// Clear value at this key; returns previous value length in bytes if any.
     /// 清除该 key 的值；若有旧值则返回其字节长度。
-    pub fn clear(&self, api: &mut impl crate::env::Env) -> Option<u32> {
-        api.clear_storage(StorageFlags::empty(), self.0)
+    pub fn clear(&self) -> Option<u32> {
+        env().clear_storage(StorageFlags::empty(), self.0)
     }
 }
 
