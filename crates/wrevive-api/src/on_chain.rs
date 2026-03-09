@@ -2,6 +2,9 @@
 //!
 //! On-chain Env implementation: delegates to `pallet_revive_uapi::HostFnImpl` (PolkaVM/RISC-V only).
 //! 链上 Env 实现：委托 `pallet_revive_uapi::HostFnImpl`，仅用于 PolkaVM/RISC-V 目标。
+//!
+//! get_storage 链上使用栈上小缓冲区（256 字节），避免 16K 静态导致合约执行时报错；
+//! 单次读取最多 256 字节。set_storage 拒绝 value.len() > 16K 的写入。
 
 use crate::env::{CallResult, Env};
 use crate::types::{Address, BlockNumber, H256, U256};
@@ -9,10 +12,25 @@ use alloc::vec::Vec;
 use pallet_revive_uapi::{
     CallFlags, HostFn, HostFnImpl, ReturnErrorCode, ReturnFlags, StorageFlags,
 };
+use crate::buffer::*;
 
 /// On-chain Env: forwards all calls to HostFnImpl (host interface).
 /// 链上 Env：所有调用转发给 HostFnImpl（宿主接口）。
-pub struct OnChainEnv;
+pub struct OnChainEnv{
+    buffer: StaticBuffer,
+}
+
+impl OnChainEnv {
+    pub const fn new() -> Self {
+        Self { buffer: StaticBuffer::new() }
+    }
+
+    #[inline(always)]
+    /// Returns a new scoped buffer for the entire scope of the static 16 kB buffer.
+    fn scoped_buffer(&mut self) -> ScopedBuffer<'_> {
+        ScopedBuffer::from(&mut self.buffer[..])
+    }
+}
 
 impl Env for OnChainEnv {
     #[inline(always)]
@@ -23,18 +41,23 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn set_storage(&self, flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
+    fn set_storage_bytes(&mut self, flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
+        if value.len() > crate::env::MAX_STORAGE_VALUE_SIZE {
+            return None;
+        }
         HostFnImpl::set_storage(flags, key, value)
     }
 
     #[inline(always)]
-    fn get_storage(&self, flags: StorageFlags, key: &[u8]) -> Result<Vec<u8>, ReturnErrorCode> {
-        // Host 写入从 buf 起始填充，cursor 剩余长度 = 未写入；written = 256 - cursor.len()
-        let mut buf = alloc::vec![0u8; 256];
-        let mut cursor: &mut [u8] = buf.as_mut_slice();
-        HostFnImpl::get_storage(flags, key, &mut cursor)?;
-        let written = 256 - cursor.len();
-        Ok(buf[..written].to_vec())
+    fn get_storage_bytes(&mut self, flags: StorageFlags, key: &[u8]) -> Option<Vec<u8>> {
+        let buffer = self.scoped_buffer();
+        let output = &mut buffer.take_rest();
+        match HostFnImpl::get_storage(flags, key, output) {
+            Ok(_) => (),
+            Err(ReturnErrorCode::KeyNotFound) => return None,
+            Err(_) => panic!("encountered unexpected error"),
+        }
+        Some(output.to_vec())
     }
 
     #[inline(always)]
@@ -260,7 +283,7 @@ impl Env for OnChainEnv {
 
     #[inline(always)]
     fn set_storage_or_clear(
-        &self,
+        &mut self,
         flags: StorageFlags,
         key: &[u8; 32],
         value: &[u8; 32],
@@ -269,7 +292,7 @@ impl Env for OnChainEnv {
     }
 
     #[inline(always)]
-    fn get_storage_or_zero(&self, flags: StorageFlags, key: &[u8; 32]) -> [u8; 32] {
+    fn get_storage_or_zero(&mut self, flags: StorageFlags, key: &[u8; 32]) -> [u8; 32] {
         let mut output = [0u8; 32];
         HostFnImpl::get_storage_or_zero(flags, key, &mut output);
         output
@@ -364,4 +387,4 @@ impl Env for OnChainEnv {
 }
 
 /// 链上 Env 静态实例。
-pub static ON_CHAIN_ENV: OnChainEnv = OnChainEnv;
+pub static mut ON_CHAIN_ENV: OnChainEnv = OnChainEnv::new();

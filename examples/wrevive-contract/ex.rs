@@ -1100,7 +1100,7 @@ pub mod contract {
         VALUE.get(env()).unwrap_or(0)
     }
     pub fn get_value_option() -> Option<u32> {
-        VALUE.get(env()).ok()
+        VALUE.get(env())
     }
     /// Set value; only current owner may call (else revert). for solidity.
     pub fn set_value_sol(value: u32) -> Result<(), Error> {
@@ -1733,452 +1733,451 @@ pub fn call() {
         empty
     };
     let __input: &[u8] = &__input_vec;
-    if __input_len >= 4 {
-        let __sel = u32::from_be_bytes([__input[0], __input[1], __input[2], __input[3]]);
-        match __sel {
-            717209954u32 => {
-                let mut __scale_input = &__input[4..];
-                let value: u32 = match <u32 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::set_value(value);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = match &__ret {
-                    Ok(_) => wrevive_api::ReturnFlags::empty(),
-                    Err(_) => wrevive_api::ReturnFlags::REVERT,
-                };
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            4207161060u32 => {
-                let __ret = contract::get_value();
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            2571970675u32 => {
-                let __ret = contract::get_value_option();
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            3592484494u32 => {
-                let mut __sol_off: usize = 0;
-                let value: u32 = <u32 as pvm_contract_types::SolDecode>::decode_at(
-                    &__input[4..],
-                    __sol_off,
-                );
-                __sol_off += pvm_contract_types::SolEncode::encode_len(&value);
-                let __ret = contract::set_value_sol(value);
-                match &__ret {
-                    Ok(ok_val) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::empty(), &[]);
-                    }
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[])
-                    }
+    if __input_len < 4 {
+        wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+    }
+    let __sel = u32::from_be_bytes([__input[0], __input[1], __input[2], __input[3]]);
+    match __sel {
+        717209954u32 => {
+            let mut __scale_input = &__input[4..];
+            let value: u32 = match <u32 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::set_value(value);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = match &__ret {
+                Ok(_) => wrevive_api::ReturnFlags::empty(),
+                Err(_) => wrevive_api::ReturnFlags::REVERT,
+            };
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        4207161060u32 => {
+            let __ret = contract::get_value();
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        2571970675u32 => {
+            let __ret = contract::get_value_option();
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        3592484494u32 => {
+            let mut __sol_off: usize = 0;
+            let value: u32 = <u32 as pvm_contract_types::SolDecode>::decode_at(
+                &__input[4..],
+                __sol_off,
+            );
+            __sol_off += pvm_contract_types::SolEncode::encode_len(&value);
+            let __ret = contract::set_value_sol(value);
+            match &__ret {
+                Ok(ok_val) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::empty(), &[]);
+                }
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[])
                 }
             }
-            1371843149u32 => {
-                let __ret = contract::get_value_sol();
-                let __len = pvm_contract_types::SolEncode::encode_len(&__ret);
-                let mut __buf = ::alloc::vec::from_elem(0u8, __len);
-                pvm_contract_types::SolEncode::encode_to(&__ret, &mut __buf);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__buf);
-            }
-            112579461u32 => {
-                let __ret = contract::get_cluster();
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            3686520584u32 => {
-                let mut __scale_input = &__input[4..];
-                let cluster: Cluster = match <Cluster as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::set_cluster(cluster);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = match &__ret {
-                    Ok(_) => wrevive_api::ReturnFlags::empty(),
-                    Err(_) => wrevive_api::ReturnFlags::REVERT,
-                };
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            818357263u32 => {
-                let mut __scale_input = &__input[4..];
-                let new_owner: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::set_owner(new_owner);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = match &__ret {
-                    Ok(_) => wrevive_api::ReturnFlags::empty(),
-                    Err(_) => wrevive_api::ReturnFlags::REVERT,
-                };
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            3481884243u32 => {
-                let __ret = contract::get_owner();
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            3104174198u32 => {
-                let mut __scale_input = &__input[4..];
-                let user: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let balance: u64 = match <u64 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::set_balance(user, balance);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = match &__ret {
-                    Ok(_) => wrevive_api::ReturnFlags::empty(),
-                    Err(_) => wrevive_api::ReturnFlags::REVERT,
-                };
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            2970007291u32 => {
-                let mut __scale_input = &__input[4..];
-                let user: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::get_balance(user);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            546790511u32 => {
-                let mut __scale_input = &__input[4..];
-                let user: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let info_type: u8 = match <u8 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let value: u32 = match <u32 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::set_user_info(user, info_type, value);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = match &__ret {
-                    Ok(_) => wrevive_api::ReturnFlags::empty(),
-                    Err(_) => wrevive_api::ReturnFlags::REVERT,
-                };
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            2498307387u32 => {
-                let mut __scale_input = &__input[4..];
-                let user: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let info_type: u8 = match <u8 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::get_user_info(user, info_type);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            2732620392u32 => {
-                let mut __scale_input = &__input[4..];
-                let from: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let to: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let amount: u64 = match <u64 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::transfer_balance(from, to, amount);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = match &__ret {
-                    Ok(_) => wrevive_api::ReturnFlags::empty(),
-                    Err(_) => wrevive_api::ReturnFlags::REVERT,
-                };
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            441286052u32 => {
-                let mut __scale_input = &__input[4..];
-                let value: u64 = match <u64 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::records_push(value);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            3421161855u32 => {
-                let mut __scale_input = &__input[4..];
-                let id: u32 = match <u32 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::records_get(id);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            2429679894u32 => {
-                let __ret = contract::records_len();
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            1704354728u32 => {
-                let mut __scale_input = &__input[4..];
-                let start: u32 = match <u32 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let size: u32 = match <u32 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::records_list(start, size);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            2798840639u32 => {
-                let mut __scale_input = &__input[4..];
-                let user: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let value: u32 = match <u32 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::user_items_push(user, value);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            1986889266u32 => {
-                let mut __scale_input = &__input[4..];
-                let user: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let k2: u32 = match <u32 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::user_items_get(user, k2);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            442470978u32 => {
-                let mut __scale_input = &__input[4..];
-                let user: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::user_items_len(user);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            3917420271u32 => {
-                let mut __scale_input = &__input[4..];
-                let user: Address = match <Address as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let start: u32 = match <u32 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let size: u32 = match <u32 as wrevive_api::Decode>::decode(
-                    &mut __scale_input,
-                ) {
-                    Ok(val) => val,
-                    Err(_) => {
-                        wrevive_api::env()
-                            .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
-                        return;
-                    }
-                };
-                let __ret = contract::user_items_list(user, start, size);
-                let __encoded = wrevive_api::Encode::encode(&__ret);
-                let __flags = wrevive_api::ReturnFlags::empty();
-                wrevive_api::env().return_value(__flags, &__encoded);
-            }
-            _ => wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]),
         }
-    } else {
-        wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+        1371843149u32 => {
+            let __ret = contract::get_value_sol();
+            let __len = pvm_contract_types::SolEncode::encode_len(&__ret);
+            let mut __buf = ::alloc::vec::from_elem(0u8, __len);
+            pvm_contract_types::SolEncode::encode_to(&__ret, &mut __buf);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__buf);
+        }
+        112579461u32 => {
+            let __ret = contract::get_cluster();
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        3686520584u32 => {
+            let mut __scale_input = &__input[4..];
+            let cluster: Cluster = match <Cluster as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::set_cluster(cluster);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = match &__ret {
+                Ok(_) => wrevive_api::ReturnFlags::empty(),
+                Err(_) => wrevive_api::ReturnFlags::REVERT,
+            };
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        818357263u32 => {
+            let mut __scale_input = &__input[4..];
+            let new_owner: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::set_owner(new_owner);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = match &__ret {
+                Ok(_) => wrevive_api::ReturnFlags::empty(),
+                Err(_) => wrevive_api::ReturnFlags::REVERT,
+            };
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        3481884243u32 => {
+            let __ret = contract::get_owner();
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        3104174198u32 => {
+            let mut __scale_input = &__input[4..];
+            let user: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let balance: u64 = match <u64 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::set_balance(user, balance);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = match &__ret {
+                Ok(_) => wrevive_api::ReturnFlags::empty(),
+                Err(_) => wrevive_api::ReturnFlags::REVERT,
+            };
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        2970007291u32 => {
+            let mut __scale_input = &__input[4..];
+            let user: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::get_balance(user);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        546790511u32 => {
+            let mut __scale_input = &__input[4..];
+            let user: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let info_type: u8 = match <u8 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let value: u32 = match <u32 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::set_user_info(user, info_type, value);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = match &__ret {
+                Ok(_) => wrevive_api::ReturnFlags::empty(),
+                Err(_) => wrevive_api::ReturnFlags::REVERT,
+            };
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        2498307387u32 => {
+            let mut __scale_input = &__input[4..];
+            let user: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let info_type: u8 = match <u8 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::get_user_info(user, info_type);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        2732620392u32 => {
+            let mut __scale_input = &__input[4..];
+            let from: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let to: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let amount: u64 = match <u64 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::transfer_balance(from, to, amount);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = match &__ret {
+                Ok(_) => wrevive_api::ReturnFlags::empty(),
+                Err(_) => wrevive_api::ReturnFlags::REVERT,
+            };
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        441286052u32 => {
+            let mut __scale_input = &__input[4..];
+            let value: u64 = match <u64 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::records_push(value);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        3421161855u32 => {
+            let mut __scale_input = &__input[4..];
+            let id: u32 = match <u32 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::records_get(id);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        2429679894u32 => {
+            let __ret = contract::records_len();
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        1704354728u32 => {
+            let mut __scale_input = &__input[4..];
+            let start: u32 = match <u32 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let size: u32 = match <u32 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::records_list(start, size);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        2798840639u32 => {
+            let mut __scale_input = &__input[4..];
+            let user: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let value: u32 = match <u32 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::user_items_push(user, value);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        1986889266u32 => {
+            let mut __scale_input = &__input[4..];
+            let user: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let k2: u32 = match <u32 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::user_items_get(user, k2);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        442470978u32 => {
+            let mut __scale_input = &__input[4..];
+            let user: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::user_items_len(user);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        3917420271u32 => {
+            let mut __scale_input = &__input[4..];
+            let user: Address = match <Address as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let start: u32 = match <u32 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let size: u32 = match <u32 as wrevive_api::Decode>::decode(
+                &mut __scale_input,
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            let __ret = contract::user_items_list(user, start, size);
+            let __encoded = wrevive_api::Encode::encode(&__ret);
+            let __flags = wrevive_api::ReturnFlags::empty();
+            wrevive_api::env().return_value(__flags, &__encoded);
+        }
+        _ => wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]),
     }
 }

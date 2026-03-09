@@ -196,7 +196,10 @@ impl Env for OffChainEnv {
     fn caller(&self) -> Address {
         ENGINE.with(|cell| Address::from(cell.borrow().caller))
     }
-    fn set_storage(&self, _flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
+    fn set_storage_bytes(&mut self, _flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32> {
+        if value.len() > crate::env::MAX_STORAGE_VALUE_SIZE {
+            return None;
+        }
         ENGINE.with(|cell| {
             let mut engine = cell.borrow_mut();
             let storage = engine.storage_mut();
@@ -209,17 +212,20 @@ impl Env for OffChainEnv {
             prev
         })
     }
-    fn get_storage(
-        &self,
-        _flags: StorageFlags,
-        key: &[u8],
-    ) -> Result<Vec<u8>, ReturnErrorCode> {
+    fn get_storage_bytes(&mut self, _flags: StorageFlags, key: &[u8]) -> Option<Vec<u8>> {
         ENGINE.with(|cell| {
             let e = cell.borrow();
-            e.contract_storages
+            let out = e
+                .contract_storages
                 .get(&e.current_contract)
-                .and_then(|m| m.get(key).cloned())
-                .ok_or(ReturnErrorCode::KeyNotFound)
+                .and_then(|m| m.get(key).cloned());
+            out.map(|v| {
+                if v.len() > crate::env::MAX_STORAGE_VALUE_SIZE {
+                    v[..crate::env::MAX_STORAGE_VALUE_SIZE].to_vec()
+                } else {
+                    v
+                }
+            })
         })
     }
 
@@ -492,7 +498,7 @@ impl Env for OffChainEnv {
         u64::MAX
     }
 
-    fn set_storage_or_clear(&self, flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32> {
+    fn set_storage_or_clear(&mut self, flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32> {
         if value.iter().all(|&b| b == 0) {
             ENGINE.with(|cell| {
                 let mut engine = cell.borrow_mut();
@@ -503,19 +509,19 @@ impl Env for OffChainEnv {
                 prev
             })
         } else {
-            self.set_storage(flags, key, value)
+            self.set_storage_bytes(flags, key, value)
         }
     }
 
-    fn get_storage_or_zero(&self, flags: StorageFlags, key: &[u8; 32]) -> [u8; 32] {
-        match self.get_storage(flags, key as &[u8]) {
-            Ok(data) => {
+    fn get_storage_or_zero(&mut self, flags: StorageFlags, key: &[u8; 32]) -> [u8; 32] {
+        match self.get_storage_bytes(flags, key as &[u8]) {
+            Some(data) => {
                 let mut output = [0u8; 32];
                 let len = data.len().min(32);
                 output[..len].copy_from_slice(&data[..len]);
                 output
             }
-            Err(_) => [0u8; 32],
+            None => [0u8; 32],
         }
     }
 
@@ -594,4 +600,4 @@ impl Env for OffChainEnv {
 }
 
 /// Off-chain Env 静态实例。
-pub static OFF_CHAIN_ENV: OffChainEnv = OffChainEnv;
+pub static mut OFF_CHAIN_ENV: OffChainEnv = OffChainEnv;

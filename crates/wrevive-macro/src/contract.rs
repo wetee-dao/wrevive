@@ -430,14 +430,13 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                 empty
             };
             let __input: &[u8] = &__input_vec;
-            if __input_len >= 4 {
-                let __sel = u32::from_be_bytes([__input[0], __input[1], __input[2], __input[3]]);
-                match __sel {
-                    #(#match_arms)*
-                    #unknown_selector_arm
-                }
-            } else {
+            if __input_len < 4 {
                 #too_short_input
+            }
+            let __sel = u32::from_be_bytes([__input[0], __input[1], __input[2], __input[3]]);
+            match __sel {
+                #(#match_arms)*
+                #unknown_selector_arm
             }
         }
     })

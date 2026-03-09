@@ -79,7 +79,7 @@ pub mod contract {
 
     #[revive(message)]
     pub fn get_value_option() -> Option<u32> {
-        VALUE.get(env()).ok()
+        VALUE.get(env())
     }
 
     /// Set value; only current owner may call (else revert). for solidity.

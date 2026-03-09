@@ -75,26 +75,26 @@ impl<K, V> Mapping<K, V> {
     #[inline]
     pub fn set_bytes(
         &self,
-        api: &dyn crate::env::Env,
+        api: &mut dyn crate::env::Env,
         key: &[u8],
         buf: &mut [u8],
         value: &[u8],
     ) -> Option<()> {
         let full = self.full_key(key, buf)?;
-        api.set_storage(StorageFlags::empty(), full, value);
+        api.set_storage_bytes(StorageFlags::empty(), full, value);
         Some(())
     }
 
-    /// 按字节读取：返回 `mapping[key]` 的原始字节；使用调用方提供的 `buf`。供 Env 使用。
+    /// 按字节读取：返回 `mapping[key]` 的原始字节；使用调用方提供的 `buf`。key 不存在返回 `None`。
     #[inline]
     pub fn get_bytes(
         &self,
-        api: &dyn crate::env::Env,
+        api: &mut dyn crate::env::Env,
         key: &[u8],
         buf: &mut [u8],
-    ) -> Result<Vec<u8>, MappingError> {
-        let full = self.full_key(key, buf).ok_or(ReturnErrorCode::KeyNotFound)?;
-        api.get_storage(StorageFlags::empty(), full).map_err(MappingError::KeyNotFound)
+    ) -> Option<Vec<u8>> {
+        let full = self.full_key(key, buf)?;
+        api.get_storage_bytes(StorageFlags::empty(), full)
     }
 }
 
@@ -105,7 +105,7 @@ where
 {
     /// 写入：`mapping[key] = value`。K / V 使用 Scale 编码。
     #[inline]
-    pub fn set(&self, api: &dyn crate::env::Env, key: &K, value: &V) -> Option<()> {
+    pub fn set(&self, api: &mut dyn crate::env::Env, key: &K, value: &V) -> Option<()> {
         let key_bytes = key.encode();
 
         #[cfg(not(any(test, feature = "off_chain")))]
@@ -114,14 +114,13 @@ where
         let mut buf = vec![0u8; self.prefix.len() + key_bytes.len()];
 
         let full = self.full_key(&key_bytes, &mut buf)?;
-        let encoded = value.encode();
-        api.set_storage(StorageFlags::empty(), full, &encoded);
+        crate::env::set_storage(api, StorageFlags::empty(), full, value);
         Some(())
     }
 
-    /// 读取：将 `mapping[key]` 解码为 `V`。key 不存在或解码失败返回 `MappingError`。
+    /// 读取：将 `mapping[key]` 解码为 `V`。key 不存在或 value 解码失败（如结构体格式不匹配、数据损坏）时返回 `None`。
     #[inline]
-    pub fn get(&self, api: &dyn crate::env::Env, key: &K) -> Result<V, MappingError> {
+    pub fn get(&self, api: &mut dyn crate::env::Env, key: &K) -> Option<V> {
         let key_bytes = key.encode();
 
         #[cfg(not(any(test, feature = "off_chain")))]
@@ -129,14 +128,13 @@ where
         #[cfg(any(test, feature = "off_chain"))]
         let mut key_buf = vec![0u8; self.prefix.len() + key_bytes.len()];
 
-        let full = self.full_key(&key_bytes, &mut key_buf).ok_or(ReturnErrorCode::KeyNotFound)?;
-        let data = api.get_storage(StorageFlags::empty(), full)?;
-        V::decode(&mut &data[..]).map_err(MappingError::Decode)
+        let full = self.full_key(&key_bytes, &mut key_buf)?;
+        crate::env::get_storage(api, StorageFlags::empty(), full)
     }
 
     /// 清除：删除 `mapping[key]` 的存储。通过 Env::clear_storage 实现，链上在 key 为 32 字节时使用 set_storage_or_clear。
     #[inline]
-    pub fn clear(&self, api: &dyn crate::env::Env, key: &K) -> Option<()> {
+    pub fn clear(&self, api: &mut dyn crate::env::Env, key: &K) -> Option<()> {
         let key_bytes = key.encode();
 
         #[cfg(not(any(test, feature = "off_chain")))]

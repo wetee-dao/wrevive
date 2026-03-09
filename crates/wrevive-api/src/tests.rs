@@ -13,7 +13,7 @@ fn off_chain_engine_storage_and_caller() {
     let caller = env().caller();
     assert_eq!(caller, Address::from([1u8; 20]));
 
-    env().set_storage(StorageFlags::empty(), b"key", b"value");
+    env().set_storage_bytes(StorageFlags::empty(), b"key", b"value");
     off_chain::with_engine(|e| {
         let v = e.get_storage_value(b"key").unwrap();
         assert_eq!(v, b"value");
@@ -91,7 +91,7 @@ fn off_chain_env_storage_or_clear_and_zero() {
     off_chain::with_engine(|e| e.reset());
     let key = [1u8; 32];
     let value = [2u8; 32];
-    env().set_storage(StorageFlags::empty(), &key, &value);
+    env().set_storage_bytes(StorageFlags::empty(), &key, &value);
     let got = env().get_storage_or_zero(StorageFlags::empty(), &key);
     assert_eq!(got, value);
     let zero = [0u8; 32];
@@ -217,15 +217,15 @@ fn mapping_set_and_get() {
     assert_eq!(m2.get(e, &2u32).unwrap(), 200);
 }
 
-/// Mapping get for non-existent key returns Err. 不存在的 key 返回 Err。
+/// Mapping get for non-existent key returns None. 不存在的 key 返回 None。
 #[test]
-fn mapping_get_nonexistent_returns_err() {
+fn mapping_get_nonexistent_returns_none() {
     off_chain::with_engine(|e| e.reset());
     let m: Mapping<[u8; 20], u64> = Mapping::new(b"balance_nx");
     let alice = [1u8; 20];
     let e = env();
     let r = m.get(e, &alice);
-    assert!(r.is_err());
+    assert!(r.is_none());
 }
 
 /// Mapping set overwrites; get returns latest. 重复 set 后 get 为最后一次写入。
@@ -240,9 +240,9 @@ fn mapping_set_overwrite() {
     assert_eq!(m.get(e, &1u32).unwrap(), 200);
 }
 
-/// Mapping clear removes key; get after clear returns Err. set 后 clear，再 get 应得到 Err。
+/// Mapping clear removes key; get after clear returns None. set 后 clear，再 get 应得到 None。
 #[test]
-fn mapping_clear_then_get_err() {
+fn mapping_clear_then_get_none() {
     off_chain::with_engine(|e| e.reset());
     let m: Mapping<u32, u64> = Mapping::new(b"cnt_del");
     let e = env();
@@ -250,12 +250,12 @@ fn mapping_clear_then_get_err() {
     assert_eq!(m.get(e, &1u32).unwrap(), 100);
     m.clear(e, &1u32).unwrap();
     let r = m.get(e, &1u32);
-    assert!(r.is_err());
+    assert!(r.is_none());
 }
 
-/// Storage clear removes key; get after clear returns Err. set 后 clear，再 get 应得到 Err。
+/// Storage clear removes key; get after clear returns None. set 后 clear，再 get 应得到 None。
 #[test]
-fn storage_clear_then_get_err() {
+fn storage_clear_then_get_none() {
     off_chain::with_engine(|e| e.reset());
     let s: super::Storage<u64> = super::Storage::new(b"st_del");
     let e = env();
@@ -263,7 +263,7 @@ fn storage_clear_then_get_err() {
     assert_eq!(s.get(e).unwrap(), 123u64);
     s.clear(e);
     let r = s.get(e);
-    assert!(r.is_err());
+    assert!(r.is_none());
 }
 
 /// Mapping full_key with buf too small returns None. full_key 的 buf 不足时返回 None。

@@ -5,6 +5,7 @@ use std::vec::Vec;
 
 use crate::types::{Address, BlockNumber, H256, U256};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
+use parity_scale_codec::{Decode, Encode};
 
 /// Result type for contract calls.
 /// 合约调用的结果类型。
@@ -12,22 +13,23 @@ pub type CallResult = core::result::Result<(), ReturnErrorCode>;
 
 /// Contract host API: same surface for on-chain and off-chain implementations.
 /// 合约链接口：链上与链下实现同一套 API。
+///
+/// Storage value size limit: implementations may enforce a maximum of 16KiB per key for [set_storage] and [get_storage].
+/// 存储 value 长度限制：实现可对 [set_storage] / [get_storage] 单 key 限制为最多 16KiB。
+pub const MAX_STORAGE_VALUE_SIZE: usize = 16 * 1024;
+
 pub trait Env {
     /// Returns the caller address.
     /// 返回调用方地址。
     fn caller(&self) -> Address;
 
-    /// Store `value` at `key`; returns previous value length if any.
-    /// 在 `key` 处存储 `value`；若有旧值则返回其长度。
-    fn set_storage(&self, flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32>;
+    /// Raw: store bytes at `key`. Implementations (on_chain/off_chain) implement this.
+    /// 底层：按 key 存储字节；由 on_chain/off_chain 实现。
+    fn set_storage_bytes(&mut self, flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32>;
 
-    /// Load value at `key`; returns the value bytes.
-    /// 获取 `key` 对应的值；返回值的字节。
-    fn get_storage(
-        &self,
-        flags: StorageFlags,
-        key: &[u8],
-    ) -> Result<Vec<u8>, ReturnErrorCode>;
+    /// Raw: load bytes at `key`. Implementations implement this.
+    /// 底层：按 key 读取字节。
+    fn get_storage_bytes(&mut self, flags: StorageFlags, key: &[u8]) -> Option<Vec<u8>>;
 
     /// Clear storage at `key`. On-chain uses set_storage_or_clear when key is 32 bytes, else set_storage(key, &[]).
     /// 清除 `key` 处的存储。链上在 key 为 32 字节时使用 set_storage_or_clear，否则 set_storage(key, &[])。
@@ -159,11 +161,11 @@ pub trait Env {
 
     /// Set storage or clear it if value is zero.
     /// 设置存储，如果值为零则清除。
-    fn set_storage_or_clear(&self, flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32>;
+    fn set_storage_or_clear(&mut self, flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32>;
 
     /// Get storage or return zero if not found.
     /// 获取存储，如果未找到则返回零。
-    fn get_storage_or_zero(&self, flags: StorageFlags, key: &[u8; 32]) -> [u8; 32];
+    fn get_storage_or_zero(&mut self, flags: StorageFlags, key: &[u8; 32]) -> [u8; 32];
 
     /// Returns the value transferred in the current call.
     /// 返回当前调用中转移的值。
@@ -223,5 +225,29 @@ pub trait Env {
     /// Remove the calling account and transfer remaining free balance to beneficiary. Never returns.
     /// 销毁调用账户并将剩余余额转给 beneficiary；不返回。
     fn terminate(&self, beneficiary: &[u8; 20]) -> !;
+}
+
+/// Store typed value at `key` (encode then [Env::set_storage_bytes]). Encode is done here in env.
+/// 在 `key` 处存储类型化 value；在此处完成 Scale 编码后写入。
+#[inline]
+pub fn set_storage<E: Env + ?Sized, V: Encode>(
+    api: &mut E,
+    flags: StorageFlags,
+    key: &[u8],
+    value: &V,
+) -> Option<u32> {
+    api.set_storage_bytes(flags, key, &value.encode())
+}
+
+/// Load typed value at `key` ([Env::get_storage_bytes] then decode). Decode is done here in env.
+/// 按 `key` 读取并解码为类型 V；在此处完成解码。
+#[inline]
+pub fn get_storage<E: Env + ?Sized, V: Decode>(
+    api: &mut E,
+    flags: StorageFlags,
+    key: &[u8],
+) -> Option<V> {
+    let data = api.get_storage_bytes(flags, key)?;
+    V::decode(&mut &data[..]).ok()
 }
 

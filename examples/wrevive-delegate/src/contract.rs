@@ -49,7 +49,7 @@ pub mod contract {
     #[revive(fallback)]
     pub fn fallback() {
         let api = env();
-        let callee = CONTRACT.get(api).ok().unwrap_or(Address::zero());
+        let callee = CONTRACT.get(api).unwrap_or(Address::zero());
         if callee == Address::zero() {
             api.return_value(ReturnFlags::REVERT, &[]);
         }
