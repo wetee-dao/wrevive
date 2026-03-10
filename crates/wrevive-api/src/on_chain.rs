@@ -292,16 +292,6 @@ impl Env for OnChainEnv {
     ) -> CallResult {
         // HostFnImpl::instantiate 的 input = code_hash(32 字节) + 构造函数 call data
         // HostFnImpl::instantiate input = code_hash (32 bytes) + constructor call data
-        /// Builds instantiate input by concatenating code hash with constructor data.
-        /// 构建实例化输入，将代码哈希与构造函数数据连接。
-        /// 
-        /// # English
-        /// Constructs the input for HostFnImpl::instantiate by prepending
-        /// the code hash to the constructor call data.
-        /// 
-        /// # 中文
-        /// 通过将代码哈希前置到构造函数调用数据来构建
-        /// HostFnImpl::instantiate 的输入。
         let mut input = Vec::with_capacity(32 + input_data.len());
         input.extend_from_slice(code_hash);
         input.extend_from_slice(input_data);
@@ -313,35 +303,23 @@ impl Env for OnChainEnv {
             &input,
             Some(address),
             output,
-            None, // salt determined by upper layer or host, not passed here
-            // salt determined by upper layer or host, not passed here
-            /// Salt is determined by upper layer or host, not passed here.
-            /// Salt 由上层或 host 决定，此处不传。
-            /// 
-            /// # English
-            /// Salt value for deterministic address generation. Not passed here,
-            /// allowing the host or upper layer to determine the salt.
-            /// 
-            /// # 中文
-            /// 用于确定性地址生成的盐值。此处不传递，
-            /// 允许主机或上层确定盐值。
+            None,
         )
     }
-
+    /// Extracts block number from low 4 bytes in little-endian format.
+    /// 从低 4 字节小端提取区块号。
+    /// 
+    /// # English
+    /// Extracts the block number from the first 4 bytes of the output
+    /// in little-endian format.
+    /// 
+    /// # 中文
+    /// 从输出的前 4 个字节中按小端格式提取区块号。
     #[inline(always)]
     fn now(&self) -> BlockNumber {
         let mut output = [0u8; 32];
         HostFnImpl::now(&mut output);
         // Take low 4 bytes little-endian as BlockNumber (u32) / first 4 bytes LE as block number
-        /// Extracts block number from low 4 bytes in little-endian format.
-        /// 从低 4 字节小端提取区块号。
-        /// 
-        /// # English
-        /// Extracts the block number from the first 4 bytes of the output
-        /// in little-endian format.
-        /// 
-        /// # 中文
-        /// 从输出的前 4 个字节中按小端格式提取区块号。
         BlockNumber::from_le_bytes(output[0..4].try_into().unwrap())
     }
 
