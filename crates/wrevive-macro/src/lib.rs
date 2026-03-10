@@ -29,11 +29,11 @@ mod type_reg;
 
     /// The main contract macro - generates deploy/call entry points and ABI.
     /// 主合约宏 - 生成 deploy/call 入口点和 ABI。
-    /// 
+    ///
     /// # English
     /// Proc macro attribute that transforms a module into a PolkaVM contract.
     /// Generates deploy() and call() entry points along with ABI JSON.
-    /// 
+    ///
     /// # 中文
     /// 将模块转换为 PolkaVM 合约的过程宏属性。
     /// 生成 deploy() 和 call() 入口点以及 ABI JSON。
@@ -44,10 +44,10 @@ pub fn revive_contract(attr: proc_macro::TokenStream, item: proc_macro::TokenStr
 
     /// Defines a contract storage cell - a single named storage entry.
     /// 定义合约存储单元 - 单个命名存储条目。
-    /// 
+    ///
     /// # English
     /// Macro for declaring a contract storage cell with a type and optional initial value.
-    /// 
+    ///
     /// # 中文
     /// 用于声明带有类型和可选初始值的合约存储单元的宏。
 #[proc_macro]
@@ -57,10 +57,10 @@ pub fn storage(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     /// Defines a key-value mapping storage.
     /// 定义键值映射存储。
-    /// 
+    ///
     /// # English
     /// Macro for declaring a storage mapping from keys to values.
-    /// 
+    ///
     /// # 中文
     /// 用于声明从键到值的存储映射的宏。
 #[proc_macro]
@@ -70,10 +70,10 @@ pub fn mapping(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     /// Defines a one-dimensional list storage.
     /// 定义一维列表存储。
-    /// 
+    ///
     /// # English
     /// Macro for declaring a storage list with auto-incrementing indices.
-    /// 
+    ///
     /// # 中文
     /// 用于声明带有自增索引的存储列表的宏。
 #[proc_macro]
@@ -83,10 +83,10 @@ pub fn list(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     /// Defines a two-dimensional list storage.
     /// 定义二维列表存储。
-    /// 
+    ///
     /// # English
     /// Macro for declaring a storage list indexed by an outer key and inner auto-increment.
-    /// 
+    ///
     /// # 中文
     /// 用于声明由外键和内部自增索引的存储列表的宏。
 #[proc_macro]

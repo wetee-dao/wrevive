@@ -1,5 +1,5 @@
-//! 常见合约数据类型：Address、H256、U256、BlockNumber、Bytes。
 //! Common contract types: Address, H256, U256, BlockNumber, Bytes.
+//! 常见合约数据类型：Address、H256、U256、BlockNumber、Bytes。
 
 #[cfg(not(any(test, feature = "off_chain")))]
 pub use alloc::vec::Vec;
@@ -13,23 +13,23 @@ use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
 // =============================================================================
+// Address — 20-byte address (EVM/account compatible)
 // Address — 20 字节地址（EVM/账户兼容）
 // =============================================================================
 
-/// 20-byte address (EVM / account compatible). SCALE 编码为 20 字节。
+/// 20-byte address (EVM/account compatible). SCALE encoded as 20 bytes.
+/// 20 字节地址（EVM/账户兼容）。SCALE 编码为 20 字节。
+///
+/// Uses transparent newtype wrapper for convenient implementation of `zero`, `From`, etc.,
+/// and can be mapped to H160 in ABI.
 /// 使用透明封装的新类型，方便实现 `zero`、`From` 等方法，同时在 ABI 中可映射为 H160。
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
 #[repr(transparent)]
 pub struct Address(pub [u8; 20]);
 
 impl Address {
-    /// 全零地址（20 字节全 0）。
-    /// 
-    /// # English
     /// Returns the zero address (20 bytes of zeros).
-    /// 
-    /// # 中文
-    /// 返回全零地址（20个字节全为0）。
+    /// 返回全零地址（20 个字节全为 0）。
     pub const fn zero() -> Self {
         Self([0u8; 20])
     }
@@ -60,13 +60,8 @@ impl AsRef<[u8; 20]> for Address {
 pub struct AccountId(pub [u8; 32]);
 
 impl AccountId {
-    /// 全零账户 ID（32 字节全 0）。
-    /// 
-    /// # English
     /// Returns the zero account ID (32 bytes of zeros).
-    /// 
-    /// # 中文
-    /// 返回全零账户 ID（32个字节全为0）。
+    /// 返回全零账户 ID（32 个字节全为 0）。
     pub const fn zero() -> Self {
         Self([0u8; 32])
     }
@@ -90,10 +85,12 @@ impl AsRef<[u8; 32]> for AccountId {
     }
 }
 // =============================================================================
+// H256 — 32-byte hash
 // H256 — 32 字节哈希
 // =============================================================================
 
-/// 32-byte hash (e.g. Keccak-256). SCALE 编码为 32 字节。
+/// 32-byte hash (e.g., Keccak-256). SCALE encoded as 32 bytes.
+/// 32 字节哈希（例如 Keccak-256）。SCALE 编码为 32 字节。
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
 #[repr(transparent)]
 pub struct H256(pub [u8; 32]);
@@ -128,11 +125,12 @@ impl AsRef<[u8; 32]> for H256 {
 }
 
 // =============================================================================
+// U256 — 256-bit unsigned integer (big-endian, SCALE encoded as 32 bytes)
 // U256 — 256 位无符号整数（大端存储，SCALE 编码为 32 字节）
 // =============================================================================
 
 /// 256-bit unsigned integer. Stored and SCALE-encoded as 32 bytes big-endian (EVM-compatible).
-/// 256 位无符号整数；内部及 SCALE 编码均为 32 字节大端（与 EVM 一致）。
+/// 256 位无符号整数。内部及 SCALE 编码均为 32 字节大端（与 EVM 一致）。
 #[derive(
     Default,
     Clone,
@@ -151,6 +149,7 @@ impl AsRef<[u8; 32]> for H256 {
 #[repr(transparent)]
 pub struct U256(pub [u8; 32]);
 
+/// Internal computation uses 4 little-endian u64 limbs: [0]=LSB, [3]=MSB.
 /// 内部用 4 个 u64 小端 limbs 做运算：[0]=LSB, [3]=MSB。
 fn u256_to_limbs(u: &U256) -> [u64; 4] {
     [
@@ -184,14 +183,10 @@ impl U256 {
         &self.0
     }
 
-    /// 从 u64 构造（低 8 字节大端放在 [24..32]）。
-    /// 
-    /// # English
     /// Creates a U256 from a u64 value.
-    /// The u64 is placed in the least significant 8 bytes (big-endian).
-    /// 
-    /// # 中文
     /// 从 u64 值创建 U256。
+    ///
+    /// The u64 is placed in the least significant 8 bytes (big-endian).
     /// u64 被放置在最低有效 8 字节（大端序）。
     pub fn from_u64(v: u64) -> Self {
         let mut b = [0u8; 32];
@@ -199,31 +194,30 @@ impl U256 {
         Self(b)
     }
 
-    /// 转为 u64（取低 8 字节大端）；高位非零则截断。
-    /// 
-    /// # English
     /// Converts to u64 by taking the least significant 8 bytes (big-endian).
-    /// Higher bytes are truncated.
-    /// 
-    /// # 中文
     /// 通过取最低有效 8 字节（大端序）转换为 u64。
-    /// 高位字节被截断。
+    ///
+    /// Higher bytes are truncated.
+    /// 高位非零则截断。
     pub fn to_u64(&self) -> u64 {
         let mut buf = [0u8; 8];
         buf.copy_from_slice(&self.0[24..32]);
         u64::from_be_bytes(buf)
     }
 
-    /// 大端 32 字节（与内部表示一致，用于 EVM 风格存储/事件）。
+    /// Returns 32 bytes in big-endian (same as internal representation, for EVM-style storage/events).
+    /// 返回大端 32 字节（与内部表示一致，用于 EVM 风格存储/事件）。
     pub fn to_be_bytes(&self) -> [u8; 32] {
         self.0
     }
 
+    /// Constructs from big-endian 32 bytes.
     /// 从大端 32 字节构造。
     pub fn from_be_bytes(b: [u8; 32]) -> Self {
         Self(b)
     }
 
+    /// Left shift by `n` bits (0 ≤ n ≤ 255); returns 0 if n ≥ 256.
     /// 左移 `n` 位（0 ≤ n ≤ 255）；n ≥ 256 则结果为 0。
     pub fn shl_bits(self, n: u32) -> Self {
         if n == 0 {
@@ -256,6 +250,7 @@ impl U256 {
         u256_from_limbs(out)
     }
 
+    /// Bitwise OR.
     /// 按位或。
     pub fn bitor(self, other: Self) -> Self {
         let a = u256_to_limbs(&self);
@@ -263,6 +258,7 @@ impl U256 {
         u256_from_limbs([a[0] | b[0], a[1] | b[1], a[2] | b[2], a[3] | b[3]])
     }
 
+    /// Wrapping addition: self + other (mod 2^256 on overflow).
     /// 包装加法 self + other（溢出时模 2^256）。
     pub fn wrapping_add(self, other: Self) -> Self {
         let a = u256_to_limbs(&self);
@@ -278,7 +274,8 @@ impl U256 {
         u256_from_limbs([r0, r1, r2, r3])
     }
 
-    /// 包装减法 self − other（假设 self ≥ other，否则结果为模 2^256）。
+    /// Wrapping subtraction: self - other (mod 2^256 if self < other).
+    /// 包装减法 self - other（假设 self ≥ other，否则结果为模 2^256）。
     pub fn wrapping_sub(self, other: Self) -> Self {
         let a = u256_to_limbs(&self);
         let b = u256_to_limbs(&other);
@@ -293,7 +290,8 @@ impl U256 {
         u256_from_limbs([r0, r1, r2, r3])
     }
 
-    /// 乘法（低 256 位， wrapping）。
+    /// Multiplication (low 256 bits, wrapping).
+    /// 乘法（低 256 位，wrapping）。
     pub fn wrapping_mul(self, other: Self) -> Self {
         let a = u256_to_limbs(&self);
         let b = u256_to_limbs(&other);
@@ -311,6 +309,7 @@ impl U256 {
         u256_from_limbs([res[0], res[1], res[2], res[3]])
     }
 
+    /// Division; returns `None` if divisor is 0.
     /// 除法；除数为 0 时返回 `None`。
     pub fn checked_div(self, other: Self) -> Option<Self> {
         if other == Self::ZERO {
@@ -319,6 +318,7 @@ impl U256 {
         if self < other {
             return Some(Self::ZERO);
         }
+        // Fast path: use u128 division if both high 16 bytes are zero.
         // 快速路径：两者高 16 字节均为 0 时用 u128 做除法。
         let self_hi_zero = self.0[0..16].iter().all(|&b| b == 0);
         let other_hi_zero = other.0[0..16].iter().all(|&b| b == 0);
@@ -389,19 +389,23 @@ impl Div for U256 {
 }
 
 // =============================================================================
+// BlockNumber — Block height type alias
 // BlockNumber — 区块高度类型别名
 // =============================================================================
 
-/// Block number type (Substrate 常用 u32).
+/// Block number type (commonly u32 in Substrate).
 /// 区块高度类型别名（Substrate 常用 u32）。
 pub type BlockNumber = u32;
 
 // =============================================================================
-// String / 文本存储
+// Bytes / Byte storage
+// Bytes / 字节存储
 // =============================================================================
 
-/// 用于合约存储/消息的“字符串”类型：SCALE 编码为长度前缀 + 字节。可直接用于 Storage/Mapping。
-/// String-like type for storage/messages; SCALE = length-prefixed bytes.
+/// Bytes type for storage/messages; SCALE encoded as length-prefixed bytes.
+/// Can be used directly with Storage/Mapping.
+/// 用于合约存储/消息的字节类型；SCALE 编码为长度前缀 + 字节。
+/// 可直接用于 Storage/Mapping。
 pub type Bytes = Vec<u8>;
 
 #[cfg(test)]

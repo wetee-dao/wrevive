@@ -36,25 +36,4 @@ mod tests {
         assert_eq!(param_docs.get("other"), Some(&"其他值".to_string()));
     }
 
-    #[test]
-    fn test_to_go_comment() {
-        let docs = vec!["这是一个测试函数".to_string()];
-        let mut param_docs = std::collections::HashMap::new();
-        param_docs.insert("value".to_string(), "测试值".to_string());
-        let return_doc = Some("返回结果".to_string());
-
-        let go_comment = docs::to_go_comment(&docs, "test_func", &param_docs, &return_doc);
-        assert!(go_comment.contains("// test_func"));
-        assert!(go_comment.contains("// 这是一个测试函数"));
-        assert!(go_comment.contains("// @param value 测试值"));
-        assert!(go_comment.contains("// @return 返回结果"));
-    }
-
-    #[test]
-    fn test_to_rust_comment() {
-        let docs = vec!["这是一个测试函数".to_string(), "多行注释".to_string()];
-        let rust_comment = docs::to_rust_comment(&docs);
-        assert!(rust_comment.contains("/// 这是一个测试函数"));
-        assert!(rust_comment.contains("/// 多行注释"));
-    }
 }

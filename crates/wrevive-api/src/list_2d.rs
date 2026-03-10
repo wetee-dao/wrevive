@@ -2,7 +2,9 @@
 //!
 //! Two-dimensional list: grouped by K1, each group has an auto-increment Ix (u8/u16/u32/u64) index.
 //! 二维列表：按 K1 分组，每组内为自增 Ix 索引的列表。
-//! Layout: k1->id, k1_length, k2_next_id per id, store (id, k2)->value; see primitives define_double_map_base. Use list_2d! macro.
+//!
+//! Layout: k1->id, k1_length, k2_next_id per id, store (id, k2)->value.
+//! 布局：k1->id, k1_length, k2_next_id per id, store (id, k2)->value。
 
 #[cfg(not(any(test, feature = "off_chain")))]
 use alloc::vec::Vec;
@@ -12,7 +14,10 @@ use crate::list::ListIndex;
 use crate::mapping::Mapping;
 use crate::Storage;
 
-/// 二维列表：外层 key K1，内层自增索引 Ix（u8/u16/u32/u64）。K1 首次出现时分配一个 id，该 id 下 k2 从 0 自增。
+/// Two-dimensional list: outer key K1, inner auto-increment index Ix (u8/u16/u32/u64).
+/// When K1 first appears, an id is assigned; under this id, k2 increments from 0.
+/// 二维列表：外层 key K1，内层自增索引 Ix（u8/u16/u32/u64）。
+/// K1 首次出现时分配一个 id，该 id 下 k2 从 0 自增。
 #[derive(Clone, Copy)]
 pub struct List2D<K1, Ix, V> {
     k1_to_id: Mapping<K1, Ix>,
@@ -27,22 +32,14 @@ where
     Ix: ListIndex,
     V: parity_scale_codec::Encode + parity_scale_codec::Decode,
 {
-    /// Creates a new List2D with four prefixes for internal storage.
-    /// 创建具有四个前缀的新 List2D。
-    /// 
-    /// # English
-    /// Creates a new List2D instance with prefixes:
-    /// - k1_to_id: maps outer keys (K1) to internal IDs
-    /// - k1_length: tracks number of distinct K1 keys
-    /// - k2_next_id: maps internal IDs to next available inner index
-    /// - store: stores (inner_id, inner_index) -> value mappings
-    /// 
-    /// # 中文
-    /// 创建新的 List2D 实例，使用以下前缀：
-    /// - k1_to_id: 将外层键 (K1) 映射到内部 ID
-    /// - k1_length: 跟踪不同 K1 键的数量
-    /// - k2_next_id: 将内部 ID 映射到下一个可用的内层索引
-    /// - store: 存储 (内层_id, 内层索引) -> 值映射
+    /// Creates a new List2D instance with four prefixes for internal storage.
+    /// 创建具有四个前缀的新 List2D 实例。
+    ///
+    /// Prefixes:
+    /// - k1_to_id: maps outer keys (K1) to internal IDs / 将外层键 (K1) 映射到内部 ID
+    /// - k1_length: tracks number of distinct K1 keys / 跟踪不同 K1 键的数量
+    /// - k2_next_id: maps internal IDs to next available inner index / 将内部 ID 映射到下一个可用的内层索引
+    /// - store: stores (inner_id, inner_index) -> value / 存储 (内层_id, 内层索引) -> 值
     pub const fn new(
         prefix_k1_to_id: &'static [u8],
         prefix_k1_length: &'static [u8],
@@ -59,14 +56,6 @@ where
 
     /// Returns the next k2 that will be allocated under this K1 (i.e., current length).
     /// 返回该 K1 下下一个将分配的 k2（即当前长度）。
-    /// 
-    /// # English
-    /// Gets the next auto-increment index that will be assigned to a new item under the given K1.
-    /// This is equivalent to the current number of items stored for that K1.
-    /// 
-    /// # 中文
-    /// 获取给定 K1 键下将分配给新项的下一个自增索引。
-    /// 这相当于该 K1 当前存储的项数。
     pub fn next_id(&self, k1: &K1) -> Ix {
         let id = match self.k1_to_id.get(k1) {
             Some(id) => id,
@@ -77,27 +66,14 @@ where
 
     /// Returns the number of entries under this K1 (same as next_id).
     /// 返回该 K1 下的条目数量（与 next_id 一致）。
-    /// 
-    /// # English
-    /// Returns the count of items stored under the specified K1 key.
-    /// This value equals the next index that will be allocated.
-    /// 
-    /// # 中文
-    /// 返回指定 K1 键下存储的项数。
-    /// 该值等于将分配的下一个索引。
     pub fn len(&self, k1: &K1) -> Ix {
         self.next_id(k1)
     }
 
     /// Inserts one entry under k1; returns the allocated k2.
     /// 在 k1 下插入一条记录，返回分配的 k2。
-    /// 
-    /// # English
-    /// Inserts a new value under the given K1 key and returns the auto-assigned inner index.
+    ///
     /// Returns None if the inner index would overflow (e.g., u8 reaches 256).
-    /// 
-    /// # 中文
-    /// 在给定 K1 键下插入新值并返回自动分配的内层索引。
     /// 如果内层索引会溢出（例如 u8 达到 256），则返回 None。
     pub fn insert(&self, k1: &K1, value: &V) -> Option<Ix> {
         let mut id = self.k1_to_id.get(k1);
@@ -119,13 +95,8 @@ where
 
     /// Updates the value at (k1, k2).
     /// 更新 (k1, k2) 对应的值。
-    /// 
-    /// # English
-    /// Updates the stored value for the given (k1, k2) pair.
+    ///
     /// Returns None if either k1 does not exist or k2 is out of range for that k1.
-    /// 
-    /// # 中文
-    /// 更新给定 (k1, k2) 对的存储值。
     /// 如果 k1 不存在或 k2 超出该 k1 的范围，则返回 None。
     pub fn update(&self, k1: &K1, k2: Ix, value: &V) -> Option<()> {
         let id = self.k1_to_id.get(k1)?;
@@ -135,16 +106,10 @@ where
 
     /// Clears the value at (k1, k2) without changing the k1's len/next_id.
     /// 清除 (k1, k2) 对应的值（不改变该 k1 的 len/next_id）。
-    /// 
-    /// # English
-    /// Removes the stored value for the given (k1, k2) pair.
+    ///
     /// Note: this does not decrement the length or next_id for k1;
     /// the index remains allocated but holds no value.
-    /// 
-    /// # 中文
-    /// 移除给定 (k1, k2) 对的存储值。
-    /// 注意：这不会减少 k1 的长度或 next_id；
-    /// 索引仍被分配但不保存值。
+    /// 注意：这不会减少 k1 的长度或 next_id；索引仍被分配但不保存值。
     pub fn clear(&self, k1: &K1, k2: Ix) -> Option<()> {
         let id = self.k1_to_id.get(k1)?;
         let key = (id, k2);

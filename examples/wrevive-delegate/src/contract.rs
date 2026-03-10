@@ -23,6 +23,7 @@ pub mod contract {
     pub enum Error {
         InsufficientBalance,
         Unauthorized,
+        AddressNotFound,
     }
 
     const CONTRACT: Storage<Address> = storage!(b"contract");
@@ -51,30 +52,34 @@ pub mod contract {
         let api = env();
         let callee = CONTRACT.get().unwrap_or(Address::zero());
         if callee == Address::zero() {
-            api.return_value(ReturnFlags::REVERT, &[]);
+            let error = Error::AddressNotFound;
+            api.return_value(ReturnFlags::REVERT, &Encode::encode(&error));
+            return;
         }
         let call_data_len = api.call_data_size() as usize;
         let call_data = api.call_data_copy(0, call_data_len);
-        match api.delegate_call(
+
+        let result = api.delegate_call(
             CallFlags::empty(),
             &callee,
             u64::MAX,
             u64::MAX,
-            &U256::ZERO,
+            &U256::MAX,
             &call_data,
             None,
-        ) {
-            Ok(()) => {
-                let len = api.return_data_size() as usize;
-                let mut out = alloc::vec![0u8; len];
-                let mut cursor = out.as_mut_slice();
-                api.return_data_copy(&mut cursor, 0);
-                api.return_value(ReturnFlags::empty(), &out);
-            }
-            Err(_) => {
-                api.return_value(ReturnFlags::REVERT, &[]);
-            }
-        }
+        );
+
+        let len = api.return_data_size() as usize;
+        let mut full = alloc::vec![0u8; len];
+        let mut slice = full.as_mut_slice();
+        api.return_data_copy(&mut slice, 0);
+
+        let flags = match result {
+            Ok(()) => ReturnFlags::empty(),
+            Err(_) => ReturnFlags::REVERT,
+        };
+
+        api.return_value(flags, &full);
     }
 }
 
