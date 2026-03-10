@@ -4,6 +4,16 @@
 use super::{Address, Env, H256, List, List2D, Mapping, StorageFlags, U256, env, off_chain};
 use parity_scale_codec::Encode;
 
+    /// Tests off-chain engine storage and caller functionality.
+    /// 测试 off-chain engine 的存储和 caller 功能。
+    /// 
+    /// # English
+    /// Verifies that the off-chain engine correctly manages caller addresses
+    /// and storage operations using SCALE encoding.
+    /// 
+    /// # 中文
+    /// 验证 off-chain engine 正确管理调用者地址
+    /// 和使用 SCALE 编码的存储操作。
 #[test]
 fn off_chain_engine_storage_and_caller() {
     off_chain::with_engine(|e| {
@@ -21,7 +31,16 @@ fn off_chain_engine_storage_and_caller() {
     });
 }
 
-/// Off-chain Env: call_data_size, call_data_copy, call_data_load. 覆盖 call_data 相关分支。
+    /// Off-chain Env: call_data_size, call_data_copy, call_data_load. Tests call_data related branches.
+    /// Off-chain Env: call_data_size, call_data_copy, call_data_load. 覆盖 call_data 相关分支。
+    /// 
+    /// # English
+    /// Tests all call data operations including size, copy, and load.
+    /// Verifies correct behavior with various offset and length combinations.
+    /// 
+    /// # 中文
+    /// 测试所有调用数据操作，包括大小、复制和加载。
+    /// 验证各种偏移量和长度组合的正确行为。
 #[test]
 fn off_chain_env_call_data() {
     off_chain::with_engine(|e| {
@@ -38,7 +57,16 @@ fn off_chain_env_call_data() {
     assert_eq!(load[10..], [0u8; 22]);
 }
 
-/// Off-chain Env: empty call_data. 空 call_data 时 call_data_copy 返回零填充。
+    /// Off-chain Env: empty call_data. When call_data is empty, call_data_copy returns zero-padded result.
+    /// Off-chain Env: empty call_data. 空 call_data 时 call_data_copy 返回零填充。
+    /// 
+    /// # English
+    /// Tests call_data operations when no input data is provided.
+    /// Verifies that copy operations return zero-filled buffers.
+    /// 
+    /// # 中文
+    /// 测试未提供输入数据时的调用数据操作。
+    /// 验证复制操作返回零填充的缓冲区。
 #[test]
 fn off_chain_env_call_data_empty() {
     off_chain::with_engine(|e| {

@@ -1,23 +1,51 @@
 //! ink! 风格 ABI JSON 生成与写入 target/contract/{name}.json。
 
 use crate::type_reg::TypeReg;
+use crate::docs;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use syn::{FnArg, Fields, GenericParam, Item, ItemFn, Pat, ReturnType, Type};
 
-/// 合约名中 `-` 改为 `_`，避免 go-ink-gen 生成非法 Go 标识符（expected ';', found '-'）。
+    /// Replaces `-` with `_` in contract names to avoid invalid Go identifiers in go-ink-gen.
+    /// 合约名中 `-` 改为 `_`，避免 go-ink-gen 生成非法 Go 标识符（expected ';', found '-'）。
+    /// 
+    /// # English
+    /// Converts contract names to Go-safe identifiers by replacing hyphens with underscores.
+    /// Prevents "expected ';', found '-'" errors in generated Go code.
+    /// 
+    /// # 中文
+    /// 通过将连字符替换为下划线将合约名称转换为 Go 安全标识符。
+    /// 防止生成的 Go 代码中出现 "expected ';', found '-'" 错误。
 fn contract_name_go_safe(name: &str) -> String {
     name.replace('-', "_")
 }
 
-/// 将 4 字节 selector 格式化为十六进制字符串，用于 ABI 的 selector 字段。
+    /// Formats a 4-byte selector as a hex string for the ABI selector field.
+    /// 将 4 字节 selector 格式化为十六进制字符串，用于 ABI 的 selector 字段。
+    /// 
+    /// # English
+    /// Converts a 4-byte selector array into a hex string with "0x" prefix.
+    /// Used in ABI JSON generation for function selectors.
+    /// 
+    /// # 中文
+    /// 将 4 字节选择器数组转换为带 "0x" 前缀的十六进制字符串。
+    /// 用于 ABI JSON 生成中的函数选择器。
 pub fn selector_hex(sel: [u8; 4]) -> String {
     format!("0x{:02x}{:02x}{:02x}{:02x}", sel[0], sel[1], sel[2], sel[3])
 }
 
-/// 从 mod 内 Item 或单个 struct 定义中提取 (struct_name, fields)。
+    /// Extracts (struct_name, fields) from an Item or single struct definition within a mod.
+    /// 从 mod 内 Item 或单个 struct 定义中提取 (struct_name, fields)。
+    /// 
+    /// # English
+    /// Parses a struct definition and returns its name and named fields with their types.
+    /// Only works for structs with named fields.
+    /// 
+    /// # 中文
+    /// 解析结构体定义并返回其名称和带有类型的命名字段。
+    /// 仅适用于具有命名字段的结构体。
 fn struct_fields_from_item(item: &Item) -> Option<(String, Vec<(String, Type)>)> {
     let Item::Struct(s) = item else { return None };
     let syn::Fields::Named(named) = &s.fields else { return None };
@@ -35,7 +63,16 @@ fn struct_fields_from_item(item: &Item) -> Option<(String, Vec<(String, Type)>)>
     Some((s.ident.to_string(), fields))
 }
 
-/// 从 mod 内 Item 或单个 enum 定义中提取 (enum_name, 变体名列表)，仅当所有变体无字段时返回。
+    /// Extracts (enum_name, list of variant names) from an Item or single enum definition within a mod; only returns if all variants are unit (no fields).
+    /// 从 mod 内 Item 或单个 enum 定义中提取 (enum_name, 变体名列表)，仅当所有变体无字段时返回。
+    /// 
+    /// # English
+    /// Parses an enum and returns its name and the names of all variants.
+    /// Only works for C-like enums where all variants have no fields.
+    /// 
+    /// # 中文
+    /// 解析枚举并返回其名称和所有变体的名称。
+    /// 仅适用于所有变体都没有字段的类 C 枚举。
 fn enum_variants_from_item(item: &Item) -> Option<(String, Vec<String>)> {
     let Item::Enum(e) = item else { return None };
     let mut names = Vec::new();
@@ -51,9 +88,22 @@ fn enum_variants_from_item(item: &Item) -> Option<(String, Vec<String>)> {
     Some((e.ident.to_string(), names))
 }
 
-/// 从 enum 定义中提取 (enum_name, variants_with_fields)，每个变体为 (变体名, 字段类型列表)。
-/// 用于生成 ABI 中带 fields 的 variant（如 AssetInfo: Native(Bytes), ERC20(Bytes, H256)）。
-/// 若 enum 带泛型（如 EditType<T>），不在此处理，由 generic_enum_from_item 收集。
+    /// Extracts (enum_name, variants_with_fields) from enum definition; each variant is (variant_name, list of field types).
+    /// Used to generate ABI variants with fields (e.g., AssetInfo: Native(Bytes), ERC20(Bytes, H256)).
+    /// Does not handle generic enums (e.g., EditType<T>), which are collected by generic_enum_from_item.
+    /// 从 enum 定义中提取 (enum_name, variants_with_fields)，每个变体为 (变体名, 字段类型列表)。
+    /// 用于生成 ABI 中带 fields 的 variant（如 AssetInfo: Native(Bytes), ERC20(Bytes, H256)）。
+    /// 若 enum 带泛型（如 EditType<T>），不在此处理，由 generic_enum_from_item 收集。
+    /// 
+    /// # English
+    /// Parses an enum with variants that may have fields.
+    /// Returns the enum name and each variant with its field types.
+    /// Does not handle generic enums; those are processed separately.
+    /// 
+    /// # 中文
+    /// 解析可能带有字段的变体的枚举。
+    /// 返回枚举名称和每个带有其字段类型的变体。
+    /// 不处理泛型枚举；那些会单独处理。
 fn enum_variants_with_fields_from_item(item: &Item) -> Option<(String, Vec<(String, Vec<Type>)>)> {
     let Item::Enum(e) = item else { return None };
     if !e.generics.params.is_empty() {
@@ -292,6 +342,10 @@ pub fn emit_abi(
     reg.register_enum_defs_with_fields(enum_defs_with_fields);
     reg.register_generic_enum_defs(generic_enum_defs);
 
+    // 提取构造函数文档注释
+    let constructor_docs = docs::clean_docs(&docs::extract_docs(&constructor_fn.attrs));
+    let constructor_param_docs = docs::parse_param_docs(&constructor_docs);
+
     let mut constructor_args = Vec::new();
     for arg in &constructor_fn.sig.inputs {
         let FnArg::Typed(pt) = arg else { continue };
@@ -300,9 +354,13 @@ pub fn emit_abi(
             _ => continue,
         };
         if let Some((type_id, display_name)) = reg.ensure_type(pt.ty.as_ref()) {
+            let param_doc = constructor_param_docs.get(&arg_name)
+                .map(|doc| vec![doc.clone()])
+                .unwrap_or_else(Vec::new);
             constructor_args.push(serde_json::json!({
                 "label": arg_name,
-                "type": { "displayName": display_name, "type": type_id }
+                "type": { "displayName": display_name, "type": type_id },
+                "docs": param_doc
             }));
         }
     }
@@ -321,7 +379,7 @@ pub fn emit_abi(
     let constructors = vec![serde_json::json!({
         "args": constructor_args,
         "default": false,
-        "docs": [],
+        "docs": constructor_docs,
         "label": constructor_fn.sig.ident.to_string(),
         "payable": false,
         "returnType": constructor_return,
@@ -334,6 +392,11 @@ pub fn emit_abi(
         // mutates 仅来自 #[revive(message, write)] 显式标记
         let mutates = *explicit_mutates;
         let selector = selector_hex(*sel);
+        
+        // 提取消息函数文档注释
+        let message_docs = docs::clean_docs(&docs::extract_docs(&f.attrs));
+        let message_param_docs = docs::parse_param_docs(&message_docs);
+        
         let mut args = Vec::new();
         for arg in &f.sig.inputs {
             let FnArg::Typed(pt) = arg else { continue };
@@ -342,9 +405,13 @@ pub fn emit_abi(
                 _ => continue,
             };
             if let Some((type_id, display_name)) = reg.ensure_type(pt.ty.as_ref()) {
+                let param_doc = message_param_docs.get(&arg_name)
+                    .map(|doc| vec![doc.clone()])
+                    .unwrap_or_else(Vec::new);
                 args.push(serde_json::json!({
                     "label": arg_name,
-                    "type": { "displayName": display_name, "type": type_id }
+                    "type": { "displayName": display_name, "type": type_id },
+                    "docs": param_doc
                 }));
             }
         }
@@ -364,7 +431,7 @@ pub fn emit_abi(
         messages.push(serde_json::json!({
             "args": args,
             "default": false,
-            "docs": [],
+            "docs": message_docs,
             "label": label,
             "mutates": mutates,
             "payable": false,

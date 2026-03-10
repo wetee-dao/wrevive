@@ -15,19 +15,42 @@ use pallet_revive_uapi::{
 use crate::buffer::{ScopedBuffer, StaticBuffer};
 use crate::traits::Storable;
 
-/// On-chain Env: forwards all calls to HostFnImpl (host interface).
-/// 链上 Env：所有调用转发给 HostFnImpl（宿主接口）。
+    /// On-chain Env: forwards all calls to HostFnImpl (host interface).
+    /// 链上 Env：所有调用转发给 HostFnImpl（宿主接口）。
+    /// 
+    /// # English
+    /// On-chain environment implementation that delegates all operations
+    /// to the PolkaVM host functions.
+    /// 
+    /// # 中文
+    /// 链上环境实现，将所有操作委托给 PolkaVM 主机函数。
 pub struct OnChainEnv{
     buffer: StaticBuffer,
 }
 
 impl OnChainEnv {
+    /// Creates a new OnChainEnv instance.
+    /// 创建新的 OnChainEnv 实例。
+    /// 
+    /// # English
+    /// Constructs a new OnChainEnv with an uninitialized static buffer.
+    /// 
+    /// # 中文
+    /// 构造具有未初始化静态缓冲区的新 OnChainEnv。
     pub const fn new() -> Self {
         Self { buffer: StaticBuffer::new() }
     }
 
     #[inline(always)]
     /// Returns a new scoped buffer for the entire scope of the static 16 kB buffer.
+    /// 返回静态 16 kB 缓冲区的完整作用域的新作用域缓冲区。
+    /// 
+    /// # English
+    /// Creates a ScopedBuffer that provides mutable access to the entire
+    /// underlying static buffer (16 KB).
+    /// 
+    /// # 中文
+    /// 创建提供对整个底层静态缓冲区（16 KB）的可变访问的 ScopedBuffer。
     fn scoped_buffer(&mut self) -> ScopedBuffer<'_> {
         ScopedBuffer::from(&mut self.buffer[..])
     }
@@ -193,7 +216,16 @@ impl Env for OnChainEnv {
         )
     }
 
+    /// Contract to account transfer: implemented via call with empty data + value.
     /// 合约向账户转帐：通过 call 空 data + value 实现。
+    /// 
+    /// # English
+    /// Transfers native tokens from the contract to the specified address.
+    /// Uses a call with empty input data and the specified value amount.
+    /// 
+    /// # 中文
+    /// 从合约向指定地址转移原生代币。
+    /// 使用带有空输入数据和指定值金额的调用。
     #[inline(always)]
     fn transfer(&self, to: &Address, value: &U256) -> CallResult {
         let deposit = U256::ZERO;
@@ -259,6 +291,17 @@ impl Env for OnChainEnv {
         output: Option<&mut &mut [u8]>,
     ) -> CallResult {
         // HostFnImpl::instantiate 的 input = code_hash(32 字节) + 构造函数 call data
+        // HostFnImpl::instantiate input = code_hash (32 bytes) + constructor call data
+        /// Builds instantiate input by concatenating code hash with constructor data.
+        /// 构建实例化输入，将代码哈希与构造函数数据连接。
+        /// 
+        /// # English
+        /// Constructs the input for HostFnImpl::instantiate by prepending
+        /// the code hash to the constructor call data.
+        /// 
+        /// # 中文
+        /// 通过将代码哈希前置到构造函数调用数据来构建
+        /// HostFnImpl::instantiate 的输入。
         let mut input = Vec::with_capacity(32 + input_data.len());
         input.extend_from_slice(code_hash);
         input.extend_from_slice(input_data);
@@ -270,7 +313,18 @@ impl Env for OnChainEnv {
             &input,
             Some(address),
             output,
-            None, // salt 由上层或 host 决定，此处不传
+            None, // salt determined by upper layer or host, not passed here
+            // salt determined by upper layer or host, not passed here
+            /// Salt is determined by upper layer or host, not passed here.
+            /// Salt 由上层或 host 决定，此处不传。
+            /// 
+            /// # English
+            /// Salt value for deterministic address generation. Not passed here,
+            /// allowing the host or upper layer to determine the salt.
+            /// 
+            /// # 中文
+            /// 用于确定性地址生成的盐值。此处不传递，
+            /// 允许主机或上层确定盐值。
         )
     }
 
@@ -278,7 +332,16 @@ impl Env for OnChainEnv {
     fn now(&self) -> BlockNumber {
         let mut output = [0u8; 32];
         HostFnImpl::now(&mut output);
-        // 取低 4 字节小端为 BlockNumber（u32）/ first 4 bytes LE as block number
+        // Take low 4 bytes little-endian as BlockNumber (u32) / first 4 bytes LE as block number
+        /// Extracts block number from low 4 bytes in little-endian format.
+        /// 从低 4 字节小端提取区块号。
+        /// 
+        /// # English
+        /// Extracts the block number from the first 4 bytes of the output
+        /// in little-endian format.
+        /// 
+        /// # 中文
+        /// 从输出的前 4 个字节中按小端格式提取区块号。
         BlockNumber::from_le_bytes(output[0..4].try_into().unwrap())
     }
 
@@ -392,5 +455,12 @@ impl Env for OnChainEnv {
     }
 }
 
-/// 链上 Env 静态实例。
+    /// Static On-chain Env instance.
+    /// 链上 Env 静态实例。
+    /// 
+    /// # English
+    /// Global static instance of OnChainEnv for on-chain contract execution.
+    /// 
+    /// # 中文
+    /// 用于链上合约执行的全局静态 OnChainEnv 实例。
 pub static mut ON_CHAIN_ENV: OnChainEnv = OnChainEnv::new();

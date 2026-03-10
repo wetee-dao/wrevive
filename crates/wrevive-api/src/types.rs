@@ -24,6 +24,12 @@ pub struct Address(pub [u8; 20]);
 
 impl Address {
     /// 全零地址（20 字节全 0）。
+    /// 
+    /// # English
+    /// Returns the zero address (20 bytes of zeros).
+    /// 
+    /// # 中文
+    /// 返回全零地址（20个字节全为0）。
     pub const fn zero() -> Self {
         Self([0u8; 20])
     }
@@ -54,6 +60,13 @@ impl AsRef<[u8; 20]> for Address {
 pub struct AccountId(pub [u8; 32]);
 
 impl AccountId {
+    /// 全零账户 ID（32 字节全 0）。
+    /// 
+    /// # English
+    /// Returns the zero account ID (32 bytes of zeros).
+    /// 
+    /// # 中文
+    /// 返回全零账户 ID（32个字节全为0）。
     pub const fn zero() -> Self {
         Self([0u8; 32])
     }
@@ -172,6 +185,14 @@ impl U256 {
     }
 
     /// 从 u64 构造（低 8 字节大端放在 [24..32]）。
+    /// 
+    /// # English
+    /// Creates a U256 from a u64 value.
+    /// The u64 is placed in the least significant 8 bytes (big-endian).
+    /// 
+    /// # 中文
+    /// 从 u64 值创建 U256。
+    /// u64 被放置在最低有效 8 字节（大端序）。
     pub fn from_u64(v: u64) -> Self {
         let mut b = [0u8; 32];
         b[24..32].copy_from_slice(&v.to_be_bytes());
@@ -179,6 +200,14 @@ impl U256 {
     }
 
     /// 转为 u64（取低 8 字节大端）；高位非零则截断。
+    /// 
+    /// # English
+    /// Converts to u64 by taking the least significant 8 bytes (big-endian).
+    /// Higher bytes are truncated.
+    /// 
+    /// # 中文
+    /// 通过取最低有效 8 字节（大端序）转换为 u64。
+    /// 高位字节被截断。
     pub fn to_u64(&self) -> u64 {
         let mut buf = [0u8; 8];
         buf.copy_from_slice(&self.0[24..32]);

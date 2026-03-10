@@ -8,6 +8,14 @@
 
 use anyhow::Context;
 
+/// Main entry point for cargo-wrevive.
+/// 
+/// # English
+/// Entry point that handles errors gracefully and exits with error code if needed.
+/// 
+/// # 中文
+/// cargo-wrevive 的主入口点。
+/// 优雅处理错误并在需要时以错误代码退出。
 fn main() {
     if let Err(e) = run() {
         eprintln!("error: {e}");
@@ -43,6 +51,15 @@ fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Build command implementation for cargo-wrevive.
+/// 
+/// # English
+/// Handles the build subcommand, parsing package arguments and executing the build process.
+/// Supports both single package and workspace builds.
+/// 
+/// # 中文
+/// 处理 cargo-wrevive 的构建子命令，解析包参数并执行构建过程。
+/// 支持单包和工作区构建。
 fn cmd_build(args: &[String]) -> anyhow::Result<()> {
     let mut pkg_name: Option<String> = None;
     let mut i = 0;

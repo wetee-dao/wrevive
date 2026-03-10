@@ -12,16 +12,53 @@ use scale_info::prelude::marker::PhantomData;
 
 /// Environment trait: unified interface for on_chain and off_chain.
 /// Environment 抽象：on_chain / off_chain 统一接口。
+/// 
+/// # English
+/// Provides a unified abstraction for contract execution environment,
+/// working seamlessly on both on-chain and off-chain (testing) contexts.
+/// 
+/// # 中文
+/// 为合约执行环境提供统一抽象，
+/// 在链上和链下（测试）上下文中无缝工作。
 pub mod env;
 pub use env::{Env, MAX_STORAGE_VALUE_SIZE};
 
+/// List / 2D List: sequential and two-dimensional list storage (references primitives define_map / define_double_map_base).
 /// List / 2D List：顺序列表与二维列表存储（参考 primitives define_map / define_double_map_base）。
+/// 
+/// # English
+/// Implements list-like storage abstractions with auto-incrementing indices.
+/// List provides one-dimensional sequential storage.
+/// List2D provides two-dimensional grouped storage.
+/// 
+/// # 中文
+/// 实现具有自增索引的列表式存储抽象。
+/// List 提供一维顺序存储。
+/// List2D 提供二维分组存储。
 pub mod list;
 pub mod list_2d;
+/// Mapping: set/get encapsulation with prefix namespace + key, similar to ink Mapping.
 /// Mapping：按前缀命名空间 + key 的 set/get 封装，类似 ink Mapping。
+/// 
+/// # English
+/// Provides key-value storage with namespace prefixing.
+/// Storage keys are formed by concatenating prefix with actual key.
+/// 
+/// # 中文
+/// 提供带命名空间前缀的键值存储。
+/// 存储键通过连接前缀和实际键形成。
 pub mod mapping;
 
+/// Common data types: Address、H256、U256、BlockNumber、String.
 /// 常见数据类型：Address、H256、U256、BlockNumber、String。
+/// 
+/// # English
+/// Defines frequently used types for smart contracts.
+/// Includes address, hash, unsigned integers, and string types.
+/// 
+/// # 中文
+/// 定义智能合约常用的类型。
+/// 包括地址、哈希、无符号整数和字符串类型。
 pub mod types;
 pub use types::*;
 
@@ -33,12 +70,29 @@ pub use std::vec::Vec;
 
 /// Re-export from pallet_revive_uapi for contract code (input!, HostFn, flags).
 /// 从 pallet_revive_uapi 再导出，供合约使用（input!、HostFn、flags）。
+/// 
+/// # English
+/// Re-exports essential types from the PolkaVM user API.
+/// These include host function definitions, error codes, and flags.
+/// 
+/// # 中文
+/// 从 PolkaVM 用户 API 重新导出基本类型。
+/// 包括主机函数定义、错误代码和标志。
 pub use pallet_revive_uapi::{HostFn, ReturnErrorCode, ReturnFlags, StorageFlags, input};
 
 pub use list::{List, ListIndex};
 pub use list_2d::List2D;
 pub use mapping::{Mapping, MappingError};
+/// SCALE encoding/decoding and type info for `#[scale_derive(Encode, Decode, TypeInfo)]` and Mapping set/get.
 /// Scale 编解码与类型信息，供 `#[scale_derive(Encode, Decode, TypeInfo)]` 及 Mapping set/get 使用。
+/// 
+/// # English
+/// Re-exports SCALE codec traits for serialization.
+/// Used by derive macros and storage operations.
+/// 
+/// # 中文
+/// 重新导出用于序列化的 SCALE 编解码 trait。
+/// 由派生宏和存储操作使用。
 pub use parity_scale_codec::{Decode, Encode};
 pub use scale_info::TypeInfo;
 pub use traits::Storable;

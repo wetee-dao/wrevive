@@ -58,6 +58,18 @@ pub mod contract {
 
     /// Constructor: set caller as owner and init VALUE to the given initial_value.
     /// 构造函数：设置调用者为 owner，VALUE 初始为 initial_value。
+    /// 
+    /// # Parameters
+    /// @param initial_value The initial value to set in the contract
+    /// @param initial_value 合约初始化时设置的初始值
+    /// 
+    /// # Returns
+    /// @return Returns Ok(()) if initialization succeeds, Err(Error) if failed
+    /// @return 初始化成功返回 Ok(())，失败返回 Err(Error)
+    /// 
+    /// # Events
+    /// Emits an event with the initial value when deployment succeeds
+    /// 部署成功时发送包含初始值的事件
     #[revive(constructor)]
     pub fn deploy(initial_value: u32) -> Result<(), Error> {
         VALUE.set(&initial_value);
@@ -66,6 +78,20 @@ pub mod contract {
         Ok(())
     }
 
+    /// Set the contract's stored value.
+    /// 设置合约中存储的值。
+    /// 
+    /// # Parameters
+    /// @param value The new value to store in the contract
+    /// @param value 要在合约中存储的新值
+    /// 
+    /// # Returns
+    /// @return Returns Ok(()) if value is set successfully
+    /// @return 成功设置值返回 Ok(())
+    /// 
+    /// # Events
+    /// Emits an event with the new value
+    /// 发送包含新值的事件
     #[revive(message, write)]
     pub fn set_value(value: u32) -> Result<(), Error> {
         VALUE.set(&value);
@@ -73,17 +99,38 @@ pub mod contract {
         Ok(())
     }
 
+    /// Get the current stored value.
+    /// 获取当前存储的值。
+    /// 
+    /// # Returns
+    /// @return Returns the current stored value, defaults to 0 if not set
+    /// @return 返回当前存储的值，未设置时默认为 0
     #[revive(message)]
     pub fn get_value() -> u32 {
         VALUE.get().unwrap_or(0)
     }
 
+    /// Get the current stored value as Option.
+    /// 以 Option 类型获取当前存储的值。
+    /// 
+    /// # Returns
+    /// @return Returns Some(value) if value is set, None otherwise
+    /// @return 设置了值返回 Some(value)，否则返回 None
     #[revive(message)]
     pub fn get_value_option() -> Option<u32> {
         VALUE.get()
     }
 
-    /// Set value; only current owner may call (else revert). for solidity.
+    /// Set value using Solidity encoding; only current owner may call (else revert).
+    /// 使用 Solidity 编码设置值；仅当前所有者可调用，否则 revert。
+    /// 
+    /// # Parameters
+    /// @param value The new value to store (Solidity encoded)
+    /// @param value 要存储的新值（Solidity 编码）
+    /// 
+    /// # Returns
+    /// @return Returns Ok(()) if value is set successfully
+    /// @return 成功设置值返回 Ok(())
     #[revive(message, write, sol)]
     pub fn set_value_sol(value: u32) -> Result<(), Error> {
         VALUE.set(&value);
@@ -91,25 +138,58 @@ pub mod contract {
         Ok(())
     }
 
-    /// Get value; only current owner may call (else revert). for solidity.
+    /// Get value using Solidity encoding; only current owner may call (else revert).
+    /// 使用 Solidity 编码获取值；仅当前所有者可调用，否则 revert。
+    /// 
+    /// # Returns
+    /// @return Returns the current stored value (Solidity encoded)
+    /// @return 返回当前存储的值（Solidity 编码）
     #[revive(message, sol)]
     pub fn get_value_sol() -> u32 {
         VALUE.get().unwrap_or(0)
     }
 
+    /// Get the cluster information stored in the contract.
+    /// 获取合约中存储的集群信息。
+    /// 
+    /// # Returns
+    /// @return Returns the cluster info, defaults to Cluster::default() if not set
+    /// @return 返回集群信息，未设置时默认为 Cluster::default()
     #[revive(message)]
     pub fn get_cluster() -> Cluster {
         CLUSTER.get().unwrap_or(Cluster::default())
     }
 
+    /// Set cluster information in the contract.
+    /// 在合约中设置集群信息。
+    /// 
+    /// # Parameters
+    /// @param cluster The cluster information to store
+    /// @param cluster 要存储的集群信息
+    /// 
+    /// # Returns
+    /// @return Returns Ok(()) if cluster is set successfully
+    /// @return 成功设置集群信息返回 Ok(())
     #[revive(message, write)]
     pub fn set_cluster(cluster: Cluster) -> Result<(), Error> {
         CLUSTER.set(&cluster);
         Ok(())
     }
 
-    /// Set owner; only current owner may call (else revert).
-    /// 设置 owner；仅当前 owner 可调用，否则 revert。
+    /// Set new contract owner. Only current owner may call (else revert).
+    /// 设置新的合约所有者。仅当前所有者可调用，否则 revert。
+    /// 
+    /// # Parameters
+    /// @param new_owner The address of the new contract owner
+    /// @param new_owner 新的合约所有者地址
+    /// 
+    /// # Returns
+    /// @return Returns Ok(()) if ownership transfer succeeds, Err(Error::Unauthorized) if caller is not current owner
+    /// @return 所有权转移成功返回 Ok(())，调用者不是当前所有者返回 Err(Error::Unauthorized)
+    /// 
+    /// # Security
+    /// Only the current contract owner can transfer ownership to prevent unauthorized changes
+    /// 只有当前合约所有者才能转移所有权，防止未授权的更改
     #[revive(message, write)]
     pub fn set_owner(new_owner: Address) -> Result<(), Error> {
         let caller = env().caller();
@@ -121,32 +201,82 @@ pub mod contract {
         Ok(())
     }
 
+    /// Get the current contract owner address.
+    /// 获取当前合约所有者地址。
+    /// 
+    /// # Returns
+    /// @return Returns the current owner address, zero address if not set
+    /// @return 返回当前所有者地址，未设置时返回零地址
     #[revive(message)]
     pub fn get_owner() -> Address {
         OWNER.get().unwrap_or(Address::zero())
     }
 
-    /// 设置用户余额（使用 Mapping）
+    /// Set balance for a specific user account using Mapping storage.
+    /// 使用 Mapping 存储为特定用户账户设置余额。
+    /// 
+    /// # Parameters
+    /// @param user The user address to set balance for
+    /// @param user 要设置余额的用户地址
+    /// @param balance The new balance value for the user
+    /// @param balance 用户的新余额值
+    /// 
+    /// # Returns
+    /// @return Returns Ok(()) if balance is set successfully
+    /// @return 成功设置余额返回 Ok(())
     #[revive(message, write)]
     pub fn set_balance(user: Address, balance: u64) -> Result<(), Error> {
         BALANCE_MAPPING.set(&user, &balance);
         Ok(())
     }
 
-    /// 获取用户余额（使用 Mapping）
+    /// Get balance for a specific user account using Mapping storage.
+    /// 使用 Mapping 存储获取特定用户账户的余额。
+    /// 
+    /// # Parameters
+    /// @param user The user address to get balance for
+    /// @param user 要获取余额的用户地址
+    /// 
+    /// # Returns
+    /// @return Returns the user's current balance, defaults to 0 if not set
+    /// @return 返回用户当前余额，未设置时默认为 0
     #[revive(message)]
     pub fn get_balance(user: Address) -> u64 {
         BALANCE_MAPPING.get(&user).unwrap_or(0)
     }
 
-    /// 设置用户信息（key = (user, info_type)）
+    /// Set user information with compound key (user address + info type).
+    /// 使用复合键（用户地址 + 信息类型）设置用户信息。
+    /// 
+    /// # Parameters
+    /// @param user The user address
+    /// @param user 用户地址
+    /// @param info_type The type of user information (e.g., score=1, level=2)
+    /// @param info_type 用户信息类型（如：积分=1，等级=2）
+    /// @param value The information value to store
+    /// @param value 要存储的信息值
+    /// 
+    /// # Returns
+    /// @return Returns Ok(()) if user info is set successfully
+    /// @return 成功设置用户信息返回 Ok(())
     #[revive(message, write)]
     pub fn set_user_info(user: Address, info_type: u8, value: u32) -> Result<(), Error> {
         USER_INFO_MAPPING.set(&(user, info_type), &value);
         Ok(())
     }
 
-    /// 获取用户信息
+    /// Get user information with compound key (user address + info type).
+    /// 使用复合键（用户地址 + 信息类型）获取用户信息。
+    /// 
+    /// # Parameters
+    /// @param user The user address
+    /// @param user 用户地址
+    /// @param info_type The type of user information to retrieve
+    /// @param info_type 要获取的用户信息类型
+    /// 
+    /// # Returns
+    /// @return Returns the user information value, defaults to 0 if not set
+    /// @return 返回用户信息值，未设置时默认为 0
     #[revive(message)]
     pub fn get_user_info(user: Address, info_type: u8) -> u32 {
         USER_INFO_MAPPING
@@ -157,6 +287,32 @@ pub mod contract {
     /// Transfer balance from one account to another. Only the sender (`from`) may call (else revert).
     /// Reverts if `from` has insufficient balance. Self-transfer (from == to) is a no-op.
     /// 转账：仅 from 可发起；余额不足时 revert；from == to 时不操作。
+    /// 
+    /// # Parameters
+    /// @param from The source address to transfer from (must be caller)
+    /// @param from 转出地址（必须是调用者）
+    /// @param to The destination address to transfer to
+    /// @param to 转入地址
+    /// @param amount The amount to transfer
+    /// @param amount 转账金额
+    /// 
+    /// # Returns
+    /// @return Returns Ok(()) if transfer succeeds
+    /// @return Returns Err(Error::Unauthorized) if caller is not the from address
+    /// @return Returns Err(Error::InsufficientBalance) if from address has insufficient balance
+    /// @return 转账成功返回 Ok(())
+    /// @return 调用者不是 from 地址返回 Err(Error::Unauthorized)
+    /// @return from 地址余额不足返回 Err(Error::InsufficientBalance)
+    /// 
+    /// # Security
+    /// Only the 'from' address can initiate the transfer to prevent unauthorized transfers
+    /// 只有 'from' 地址可以发起转账，防止未授权的转账
+    /// 
+    /// # Edge Cases
+    /// - Self-transfer (from == to) is treated as a no-op and returns Ok(())
+    /// - Zero amount transfers are treated as no-ops
+    /// - 自转账（from == to）被视为无操作并返回 Ok(())
+    /// - 零金额转账被视为无操作
     #[revive(message, write)]
     pub fn transfer_balance(from: Address, to: Address, amount: u64) -> Result<(), Error> {
         let caller = env().caller();

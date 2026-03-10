@@ -12,6 +12,14 @@ use syn::{
 /// Encoding mode for contract messages: codec (SCALE) or sol (Solidity ABI).
 /// 合约 message 的编码模式：codec（SCALE）或 sol（Solidity ABI）。
 /// Computes the 4-byte message selector from the function name (ink!-compatible).
+/// 
+/// # English
+/// Computes a 4-byte message selector from the function name using Blake2s256 hash.
+/// This is compatible with ink! selector computation.
+/// 
+/// # 中文
+/// 使用 Blake2s256 哈希从函数名计算 4 字节消息选择器。
+/// 这与 ink! 选择器计算兼容。
 pub fn selector_from_name(name: &str) -> [u8; 4] {
     let hash = Blake2s256::digest(name.as_bytes());
     [hash[0], hash[1], hash[2], hash[3]]

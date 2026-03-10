@@ -5,6 +5,15 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::Lit;
 
+/// Implements storage! macro for creating Storage instances with Blake2s256 prefix.
+/// 
+/// # English
+/// Creates a Storage instance using Blake2s256 hash of the input prefix.
+/// Takes a string or byte string literal and generates a 4-byte prefix.
+/// 
+/// # 中文
+/// 使用 Blake2s256 哈希前缀实现 storage! 宏。
+/// 接受字符串或字节串字面量并生成 4 字节前缀。
 pub fn storage_impl(input: TokenStream) -> TokenStream {
     let lit = match syn::parse::<Lit>(input) {
         Ok(l) => l,
@@ -29,6 +38,15 @@ pub fn storage_impl(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Implements mapping! macro for creating Mapping instances with Blake2s256 prefix.
+/// 
+/// # English
+/// Creates a Mapping instance using Blake2s256 hash of the input prefix.
+/// Takes a string or byte string literal and generates a 4-byte prefix.
+/// 
+/// # 中文
+/// 使用 Blake2s256 哈希前缀实现 mapping! 宏。
+/// 接受字符串或字节串字面量并生成 4 字节前缀。
 pub fn mapping_impl(input: TokenStream) -> TokenStream {
     let lit = match syn::parse::<Lit>(input) {
         Ok(l) => l,
@@ -53,6 +71,15 @@ pub fn mapping_impl(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Implements list! macro for creating List instances with Blake2s256 prefix.
+/// 
+/// # English
+/// Creates a List instance using Blake2s256 hash of input prefix.
+/// Generates both ID and items prefixes for the List storage structure.
+/// 
+/// # 中文
+/// 使用 Blake2s256 哈希前缀实现 list! 宏。
+/// 为 List 存储结构生成 ID 和 items 前缀。
 pub fn list_impl(input: TokenStream) -> TokenStream {
     let lit = match syn::parse::<Lit>(input) {
         Ok(l) => l,
@@ -79,6 +106,15 @@ pub fn list_impl(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Implements list_2d! macro for creating List2D instances with Blake2s256 prefix.
+/// 
+/// # English
+/// Creates a List2D instance using Blake2s256 hash of input prefix.
+/// Generates four prefixes for the 2D list storage structure: k1, len, k2, store.
+/// 
+/// # 中文
+/// 使用 Blake2s256 哈希前缀实现 list_2d! 宏。
+/// 为 2D 列表存储结构生成四个前缀：k1、len、k2、store。
 pub fn list_2d_impl(input: TokenStream) -> TokenStream {
     let lit = match syn::parse::<Lit>(input) {
         Ok(l) => l,

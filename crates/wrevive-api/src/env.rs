@@ -21,16 +21,38 @@ pub const MAX_STORAGE_VALUE_SIZE: usize = 16 * 1024;
 pub trait Env {
     /// Returns the caller address.
     /// 返回调用方地址。
+    /// 
+    /// # English
+    /// Gets the address that initiated the current contract call.
+    /// 
+    /// # 中文
+    /// 获取发起当前合约调用的地址。
     fn caller(&self) -> Address;
 
     /// Store typed value at `key`. Encode/decode is done in the implementation.
     /// 在 `key` 处存储类型化 value；编码/解码由实现完成。
+    /// 
+    /// # English
+    /// Stores a value of type V at the specified storage key with given flags.
+    /// The encoding and decoding process is handled by the implementation.
+    /// 
+    /// # 中文
+    /// 在指定的存储键处存储类型 V 的值，使用给定的标志。
+    /// 编码和解码过程由实现层处理。
     fn set_storage<V>(&mut self, flags: StorageFlags, key: &[u8], value: &V) -> Option<u32>
     where
         V: Storable;
 
     /// Load typed value at `key`. Decode is done in the implementation.
     /// 按 `key` 读取并解码为类型 V；解码由实现完成。
+    /// 
+    /// # English
+    /// Retrieves and decodes a value of type V from the specified storage key.
+    /// The decoding process is handled by the implementation.
+    /// 
+    /// # 中文
+    /// 从指定的存储键检索并解码类型 V 的值。
+    /// 解码过程由实现层处理。
     fn get_storage<V>(&mut self, flags: StorageFlags, key: &[u8]) -> Option<V>
     where
         V: Storable;
