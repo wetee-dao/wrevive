@@ -323,8 +323,8 @@ pub fn gen_interface_module(
                 let r = wrevive_api::env().call(
                     pallet_revive_uapi::CallFlags::empty(),
                     callee,
-                    10_000_000,
-                    10_000_000,
+                    u64::MAX,
+                    u64::MAX,
                     &wrevive_api::U256::ZERO,
                     &wrevive_api::U256::ZERO,
                     input,

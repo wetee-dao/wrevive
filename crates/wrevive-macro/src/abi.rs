@@ -188,10 +188,11 @@ fn collect_struct_defs(
             enum_defs.entry(name).or_insert(vs);
         }
         if let Some((name, variants)) = enum_variants_with_fields_from_item(item) {
-            enum_defs_with_fields.insert(name, variants);
+            // 与 enum_defs 一致用 or_insert：同名枚举后出现的依赖 crate 不得覆盖本 crate（如 Cloud 的 Error 被 subnet 覆盖）。
+            enum_defs_with_fields.entry(name).or_insert(variants);
         }
         if let Some((name, generic_def)) = generic_enum_from_item(item) {
-            generic_enum_defs.insert(name, generic_def);
+            generic_enum_defs.entry(name).or_insert(generic_def);
         }
         if let Some((name, ty)) = type_alias_from_item(item) {
             type_aliases.insert(name, ty);
@@ -213,10 +214,10 @@ fn collect_struct_defs(
                                     enum_defs.entry(name).or_insert(vs);
                                 }
                                 if let Some((name, variants)) = enum_variants_with_fields_from_item(&item) {
-                                    enum_defs_with_fields.insert(name, variants);
+                                    enum_defs_with_fields.entry(name).or_insert(variants);
                                 }
                                 if let Some((name, generic_def)) = generic_enum_from_item(&item) {
-                                    generic_enum_defs.insert(name, generic_def);
+                                    generic_enum_defs.entry(name).or_insert(generic_def);
                                 }
                                 if let Some((name, ty)) = type_alias_from_item(&item) {
                                     type_aliases.insert(name, ty);
@@ -258,10 +259,10 @@ fn collect_struct_defs(
                                                         enum_defs.entry(name).or_insert(vs);
                                                     }
                                                     if let Some((name, variants)) = enum_variants_with_fields_from_item(&item) {
-                                                        enum_defs_with_fields.insert(name, variants);
+                                                        enum_defs_with_fields.entry(name).or_insert(variants);
                                                     }
                                                     if let Some((name, generic_def)) = generic_enum_from_item(&item) {
-                                                        generic_enum_defs.insert(name, generic_def);
+                                                        generic_enum_defs.entry(name).or_insert(generic_def);
                                                     }
                                                     if let Some((name, ty)) = type_alias_from_item(&item) {
                                                         type_aliases.insert(name, ty);
