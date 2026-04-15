@@ -1,6 +1,6 @@
 //! 合约间调用接口生成：selector 常量、encode_*、call_raw、call_*、constructor 的 encode_* 与 instantiate_*。
 
-use crate::attrs::EncodingMode;
+use crate::attrs::{self, EncodingMode};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{FnArg, ItemFn, Pat, ReturnType};
@@ -16,6 +16,8 @@ pub fn gen_interface_module(
     message_fns: &[(ItemFn, [u8; 4], EncodingMode, bool)],
     constructor_fn: Option<(&ItemFn, EncodingMode)>,
 ) -> TokenStream2 {
+    // 构造函数 encode_* 必须与 deploy() 一致：4 字节 selector + SCALE 参数（contract.rs 跳过 __input[..4]）。
+    let mut ctor_selector_const: TokenStream2 = quote! {};
     let selector_consts: Vec<TokenStream2> = message_fns
         .iter()
         .map(|(f, sel, _, _)| {
@@ -148,7 +150,7 @@ pub fn gen_interface_module(
         })
         .collect();
 
-    // constructor：encode_<name>（无 selector）+ instantiate_<name>（封装 env::instantiate + 解码返回值）
+    // constructor：encode_<name>（selector + SCALE，与 deploy 入口一致）+ instantiate_<name>
     let (ctor_encode_fn, ctor_instantiate_fn): (TokenStream2, TokenStream2) =
         match constructor_fn {
             Some((ctor, enc)) if enc == EncodingMode::Codec => {
@@ -165,26 +167,51 @@ pub fn gen_interface_module(
             }
             let (encode_params, encode_body) = if ctor_inputs.is_empty() {
                 (quote! {}, quote! { alloc::vec::Vec::new() })
-            } else if ctor_inputs.len() == 1 {
-                let (n, t) = &ctor_inputs[0];
-                (
-                    quote! { #n: &#t },
-                    quote! { wrevive_api::Encode::encode(#n) },
-                )
             } else {
-                let params: Vec<TokenStream2> = ctor_inputs
-                    .iter()
-                    .map(|(n, t)| quote! { #n: &#t })
-                    .collect();
-                let args: Vec<TokenStream2> = ctor_inputs.iter().map(|(n, _)| quote! { #n }).collect();
-                (
-                    quote! { #(#params),* },
-                    quote! { wrevive_api::Encode::encode(&(#(#args),*)) },
-                )
+                let sel = attrs::selector_from_name(&ctor_name.to_string());
+                let (sa, sb, sc, sd) = (sel[0], sel[1], sel[2], sel[3]);
+                let const_ident = syn::Ident::new(
+                    &format!("SELECTOR_{}", to_selector_constant_name(&ctor_name.to_string())),
+                    ctor_name.span(),
+                );
+                ctor_selector_const = quote! {
+                    /// Constructor selector (Blake2s of function name; same 4 bytes `deploy()` skips before decoding).
+                    pub const #const_ident: [u8; 4] = [#sa, #sb, #sc, #sd];
+                };
+                if ctor_inputs.len() == 1 {
+                    let (n, t) = &ctor_inputs[0];
+                    (
+                        quote! { #n: &#t },
+                        quote! {
+                            let mut out = alloc::vec::Vec::new();
+                            out.extend_from_slice(&[#sa, #sb, #sc, #sd]);
+                            out.extend_from_slice(&wrevive_api::Encode::encode(#n));
+                            out
+                        },
+                    )
+                } else {
+                    let params: Vec<TokenStream2> = ctor_inputs
+                        .iter()
+                        .map(|(n, t)| quote! { #n: &#t })
+                        .collect();
+                    let args: Vec<TokenStream2> =
+                        ctor_inputs.iter().map(|(n, _)| quote! { #n }).collect();
+                    (
+                        quote! { #(#params),* },
+                        quote! {
+                            let mut out = alloc::vec::Vec::new();
+                            out.extend_from_slice(&[#sa, #sb, #sc, #sd]);
+                            out.extend_from_slice(
+                                &wrevive_api::Encode::encode(&(#(#args),*)),
+                            );
+                            out
+                        },
+                    )
+                }
             };
             let encode_fn_name = format_ident!("encode_{}", ctor_name);
             let ctor_encode = quote! {
-                /// Encode constructor parameters (without selector), used for env::instantiate input_data.
+                /// Encode constructor call data: 4-byte selector + SCALE args (matches `deploy()` input after `#[revive_contract]` codegen).
                 #[inline(always)]
                 pub fn #encode_fn_name(#encode_params) -> alloc::vec::Vec<u8> {
                     #encode_body
@@ -201,8 +228,8 @@ pub fn gen_interface_module(
                     (
                         quote! {
                             #instantiate_code_hash: &wrevive_api::H256,
-                            value: &wrevive_api::U256,
-                            deposit: &wrevive_api::U256
+                            deposit_limit: &wrevive_api::U256,
+                            value: &wrevive_api::U256
                         },
                         quote! { #encode_fn_name() },
                     )
@@ -212,8 +239,8 @@ pub fn gen_interface_module(
                         quote! {
                             #instantiate_code_hash: &wrevive_api::H256,
                             #n: &#t,
-                            value: &wrevive_api::U256,
-                            deposit: &wrevive_api::U256
+                            deposit_limit: &wrevive_api::U256,
+                            value: &wrevive_api::U256
                         },
                         quote! { #encode_fn_name(#n) },
                     )
@@ -227,8 +254,8 @@ pub fn gen_interface_module(
                         quote! {
                             #instantiate_code_hash: &wrevive_api::H256,
                             #(#params),*,
-                            value: &wrevive_api::U256,
-                            deposit: &wrevive_api::U256
+                            deposit_limit: &wrevive_api::U256,
+                            value: &wrevive_api::U256
                         },
                         quote! { #encode_fn_name(#(#args),*) },
                     )
@@ -236,6 +263,9 @@ pub fn gen_interface_module(
             let instantiate_fn_name = format_ident!("instantiate_{}", ctor_name);
             let ctor_instantiate = quote! {
                 /// Instantiate contract (call constructor), returns (new contract address, decoded constructor return value).
+                ///
+                /// Note: `deposit_limit` is the storage deposit limit. Pass `U256::MAX` for "no specific limit" (recommended default),
+                /// aligning with pallet-revive examples.
                 #[inline(always)]
                 pub fn #instantiate_fn_name(#instantiate_params) -> Result<(wrevive_api::Address, #ret_ty), ReturnErrorCode> {
                     let input_data = #encode_invocation;
@@ -246,9 +276,9 @@ pub fn gen_interface_module(
                     wrevive_api::env().instantiate(
                         pallet_revive_uapi::CallFlags::empty(),
                         #instantiate_code_hash.as_bytes(),
-                        10_000_000,
-                        10_000_000,
-                        deposit.as_bytes(),
+                        u64::MAX,
+                        u64::MAX,
+                        deposit_limit.as_bytes(),
                         value.as_bytes(),
                         &input_data,
                         &mut addr,
@@ -300,6 +330,7 @@ pub fn gen_interface_module(
             /// Each constant corresponds to a 4-byte selector of a message function,
             /// used to construct contract call input data.
             #(#selector_consts)*
+            #ctor_selector_const
 
             /// Low-level contract call function
             /// 

@@ -295,6 +295,8 @@ impl Env for OnChainEnv {
         let mut input = Vec::with_capacity(32 + input_data.len());
         input.extend_from_slice(code_hash);
         input.extend_from_slice(input_data);
+        // 与 pallet-revive 官方示例一致：传入显式全零 salt（`None` 在宿主侧为 sentinel，与 `Some(&[0;32])` 在地址推导上可能不同）
+        let salt = [0u8; 32];
         HostFnImpl::instantiate(
             ref_time_limit,
             proof_size_limit,
@@ -303,7 +305,7 @@ impl Env for OnChainEnv {
             &input,
             Some(address),
             output,
-            None,
+            Some(&salt),
         )
     }
     /// Extracts block number from low 4 bytes in little-endian format.

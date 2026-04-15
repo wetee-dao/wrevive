@@ -176,7 +176,9 @@ fn display_name_for_spec(ty: &Type) -> Vec<String> {
                             } else if len == 32 {
                                 "H256".into()
                             } else {
-                                "AccountId".into()
+                                // Do not special-case "AccountId" for byte arrays.
+                                // Keep the display name as raw fixed-size bytes.
+                                format!("[u8; {}]", len)
                             }];
                         }
                     }
@@ -325,6 +327,17 @@ impl TypeReg {
                         return Some((
                             serde_json::json!({ "composite": { "fields": [{ "type": id_arr, "typeName": "[u8; 20]" }] } }),
                             Some(vec!["primitive_types".into(), "H160".into()]),
+                            None,
+                        ));
+                    }
+                    // AccountId is treated as raw 32-byte fixed array (no special frontend handling),
+                    // but we keep ink!-like ABI shape: a composite wrapper over `[u8; 32]` with path
+                    // ["ink_primitives","types","AccountId"] (see examples/abi/*.json).
+                    "AccountId" => {
+                        let id_arr = self.ensure_array_u8(32);
+                        return Some((
+                            serde_json::json!({ "composite": { "fields": [{ "type": id_arr, "typeName": "[u8; 32]" }] } }),
+                            Some(vec!["ink_primitives".into(), "types".into(), "AccountId".into()]),
                             None,
                         ));
                     }

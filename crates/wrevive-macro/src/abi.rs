@@ -447,7 +447,9 @@ pub fn emit_abi(
         "type": lang_error_id
     });
 
-    let id_account = syn::parse_str::<syn::Type>("Address")
+    // Frontend no longer treats AccountId specially; model it as raw 32-byte array.
+    // This keeps ABI environment consistent with "accountId = bytes32".
+    let id_account = syn::parse_str::<syn::Type>("[u8; 32]")
         .ok()
         .and_then(|t| reg.ensure_type(&t).map(|(id, _)| id))
         .unwrap_or(0);
@@ -465,7 +467,7 @@ pub fn emit_abi(
         .unwrap_or(0);
     let id_hash = reg.ensure_hash();
     let environment = serde_json::json!({
-        "accountId": { "displayName": ["AccountId"], "type": id_account },
+        "accountId": { "displayName": ["[u8; 32]"], "type": id_account },
         "balance": { "displayName": ["Balance"], "type": id_balance },
         "blockNumber": { "displayName": ["BlockNumber"], "type": id_block },
         "hash": { "displayName": ["Hash"], "type": id_hash },
