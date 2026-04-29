@@ -175,32 +175,18 @@ fn collect_struct_defs(
     HashMap<String, Vec<(String, Vec<Type>)>>,
     HashMap<String, (Vec<String>, Vec<(String, Vec<Type>)>)>,
 ) {
-    let mut struct_defs = HashMap::<String, Vec<(String, Type)>>::new();
-    let mut enum_defs = HashMap::<String, Vec<String>>::new();
-    let mut type_aliases = HashMap::<String, Type>::new();
-    let mut enum_defs_with_fields = HashMap::<String, Vec<(String, Vec<Type>)>>::new();
-    let mut generic_enum_defs = HashMap::<String, (Vec<String>, Vec<(String, Vec<Type>)>)>::new();
-    for item in mod_items {
-        if let Some((name, fields)) = struct_fields_from_item(item) {
-            struct_defs.entry(name).or_insert(fields);
+    fn collect_from_src_dir(
+        src_dir: &Path,
+        struct_defs: &mut HashMap<String, Vec<(String, Type)>>,
+        enum_defs: &mut HashMap<String, Vec<String>>,
+        type_aliases: &mut HashMap<String, Type>,
+        enum_defs_with_fields: &mut HashMap<String, Vec<(String, Vec<Type>)>>,
+        generic_enum_defs: &mut HashMap<String, (Vec<String>, Vec<(String, Vec<Type>)>)>,
+    ) {
+        if !src_dir.is_dir() {
+            return;
         }
-        if let Some((name, vs)) = enum_variants_from_item(item) {
-            enum_defs.entry(name).or_insert(vs);
-        }
-        if let Some((name, variants)) = enum_variants_with_fields_from_item(item) {
-            // 与 enum_defs 一致用 or_insert：同名枚举后出现的依赖 crate 不得覆盖本 crate（如 Cloud 的 Error 被 subnet 覆盖）。
-            enum_defs_with_fields.entry(name).or_insert(variants);
-        }
-        if let Some((name, generic_def)) = generic_enum_from_item(item) {
-            generic_enum_defs.entry(name).or_insert(generic_def);
-        }
-        if let Some((name, ty)) = type_alias_from_item(item) {
-            type_aliases.insert(name, ty);
-        }
-    }
-    let src_dir = manifest_dir.join("src");
-    if src_dir.is_dir() {
-        if let Ok(entries) = fs::read_dir(&src_dir) {
+        if let Ok(entries) = fs::read_dir(src_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().map_or(false, |e| e == "rs") {
@@ -229,9 +215,112 @@ fn collect_struct_defs(
             }
         }
     }
+
+    fn find_workspace_root(start: &Path) -> Option<PathBuf> {
+        let mut current = start;
+        loop {
+            let workspace_toml = current.join("Cargo.toml");
+            if workspace_toml.exists() {
+                if let Ok(content) = fs::read_to_string(&workspace_toml) {
+                    if content.contains("[workspace]") {
+                        return Some(current.to_path_buf());
+                    }
+                }
+            }
+            match current.parent() {
+                Some(parent) => current = parent,
+                None => break,
+            }
+        }
+        None
+    }
+
+    let mut struct_defs = HashMap::<String, Vec<(String, Type)>>::new();
+    let mut enum_defs = HashMap::<String, Vec<String>>::new();
+    let mut type_aliases = HashMap::<String, Type>::new();
+    let mut enum_defs_with_fields = HashMap::<String, Vec<(String, Vec<Type>)>>::new();
+    let mut generic_enum_defs = HashMap::<String, (Vec<String>, Vec<(String, Vec<Type>)>)>::new();
+    for item in mod_items {
+        if let Some((name, fields)) = struct_fields_from_item(item) {
+            struct_defs.entry(name).or_insert(fields);
+        }
+        if let Some((name, vs)) = enum_variants_from_item(item) {
+            enum_defs.entry(name).or_insert(vs);
+        }
+        if let Some((name, variants)) = enum_variants_with_fields_from_item(item) {
+            // 与 enum_defs 一致用 or_insert：同名枚举后出现的依赖 crate 不得覆盖本 crate（如 Cloud 的 Error 被 subnet 覆盖）。
+            enum_defs_with_fields.entry(name).or_insert(variants);
+        }
+        if let Some((name, generic_def)) = generic_enum_from_item(item) {
+            generic_enum_defs.entry(name).or_insert(generic_def);
+        }
+        if let Some((name, ty)) = type_alias_from_item(item) {
+            type_aliases.insert(name, ty);
+        }
+    }
+    collect_from_src_dir(
+        &manifest_dir.join("src"),
+        &mut struct_defs,
+        &mut enum_defs,
+        &mut type_aliases,
+        &mut enum_defs_with_fields,
+        &mut generic_enum_defs,
+    );
+
+    let mut workspace_deps = HashMap::<String, PathBuf>::new();
+    if let Some(ws_root) = find_workspace_root(manifest_dir) {
+        let ws_cargo = ws_root.join("Cargo.toml");
+        if let Ok(content) = fs::read_to_string(ws_cargo) {
+            let mut in_ws_deps = false;
+            for raw in content.lines() {
+                let line = raw.trim();
+                if line.starts_with('[') {
+                    in_ws_deps = line == "[workspace.dependencies]";
+                    continue;
+                }
+                if !in_ws_deps || line.starts_with('#') || line.is_empty() {
+                    continue;
+                }
+                if let Some(eq) = line.find('=') {
+                    let dep_name = line[..eq].trim();
+                    if let Some(path_idx) = line.find("path") {
+                        let rest = line.get(path_idx + 4..).unwrap_or("").trim_start();
+                        if rest.starts_with('=') {
+                            let rest = rest[1..].trim_start();
+                            let path_str = rest
+                                .trim_start_matches('"')
+                                .split('"')
+                                .next()
+                                .unwrap_or("")
+                                .trim();
+                            if !path_str.is_empty() {
+                                workspace_deps.insert(dep_name.to_string(), ws_root.join(path_str));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     if let Ok(cargo) = fs::read_to_string(manifest_dir.join("Cargo.toml")) {
         for line in cargo.lines() {
             let line = line.trim();
+            // support workspace dependencies: `foo = { workspace = true }`
+            if line.contains("workspace") && line.contains("true") {
+                if let Some(eq) = line.find('=') {
+                    let dep_name = line[..eq].trim();
+                    if let Some(dep_root) = workspace_deps.get(dep_name) {
+                        collect_from_src_dir(
+                            &dep_root.join("src"),
+                            &mut struct_defs,
+                            &mut enum_defs,
+                            &mut type_aliases,
+                            &mut enum_defs_with_fields,
+                            &mut generic_enum_defs,
+                        );
+                    }
+                }
+            }
             if let Some(idx) = line.find("path") {
                 let rest = line.get(idx + 4..).unwrap_or("").trim_start();
                 if rest.starts_with('=') {
@@ -243,37 +332,14 @@ fn collect_struct_defs(
                         .unwrap_or("")
                         .trim();
                     if !path_str.is_empty() && !path_str.starts_with("git") {
-                        let dep_src = manifest_dir.join(path_str).join("src");
-                        if dep_src.is_dir() {
-                            if let Ok(entries) = fs::read_dir(&dep_src) {
-                                for entry in entries.flatten() {
-                                    let path = entry.path();
-                                    if path.extension().map_or(false, |e| e == "rs") {
-                                        if let Ok(content) = fs::read_to_string(&path) {
-                                            if let Ok(file) = syn::parse_file(&content) {
-                                                for item in file.items {
-                                                    if let Some((name, fields)) = struct_fields_from_item(&item) {
-                                                        struct_defs.entry(name).or_insert(fields);
-                                                    }
-                                                    if let Some((name, vs)) = enum_variants_from_item(&item) {
-                                                        enum_defs.entry(name).or_insert(vs);
-                                                    }
-                                                    if let Some((name, variants)) = enum_variants_with_fields_from_item(&item) {
-                                                        enum_defs_with_fields.entry(name).or_insert(variants);
-                                                    }
-                                                    if let Some((name, generic_def)) = generic_enum_from_item(&item) {
-                                                        generic_enum_defs.entry(name).or_insert(generic_def);
-                                                    }
-                                                    if let Some((name, ty)) = type_alias_from_item(&item) {
-                                                        type_aliases.insert(name, ty);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        collect_from_src_dir(
+                            &manifest_dir.join(path_str).join("src"),
+                            &mut struct_defs,
+                            &mut enum_defs,
+                            &mut type_aliases,
+                            &mut enum_defs_with_fields,
+                            &mut generic_enum_defs,
+                        );
                     }
                 }
             }

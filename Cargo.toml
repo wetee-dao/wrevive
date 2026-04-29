@@ -8,6 +8,40 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+# shared
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml_edit = "0.22"
+
+# macro/tooling
+blake2 = "0.10"
+digest = "0.10"
+syn = { version = "2", features = ["full", "parsing", "extra-traits"] }
+quote = "1"
+proc-macro2 = "1"
+regex = "1.0"
+once_cell = "1.0"
+
+# polkavm / revive toolchain
+cargo-pvm-contract-builder = "0.3.0"
+polkavm-linker = "0.31"
+
+# on-chain api deps
+primitive-types = { version = "0.14.0", default-features = false, features = ["codec"] }
+pallet-revive-uapi = { version = "0.10", default-features = false }
+parity-scale-codec = { version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2", default-features = false, features = ["derive"] }
+sha3 = { version = "0.10", default-features = false }
+
+# contract crates
+pvm-bump-allocator = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+polkavm-derive = "0.31"
+alloy-core = { version = "1.5", default-features = false, features = ["sol-types"] }
+pvm-contract-types = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+pvm-contract-macros = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+
 [profile.release]
 opt-level = "z"
 lto = true
