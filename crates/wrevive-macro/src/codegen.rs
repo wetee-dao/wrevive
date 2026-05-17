@@ -42,9 +42,7 @@ pub fn return_encode(ret_ty: &ReturnType, encoding: EncodingMode) -> TokenStream
             wrevive_api::env().return_value(wrevive_api::ReturnFlags::empty(), &[]);
         },
         ReturnType::Type(_, ty) => {
-            let is_result = unwrap_result_or_option(ty)
-                .map(|(_, r)| r)
-                .unwrap_or(false);
+            let is_result = unwrap_result_or_option(ty).map(|(_, r)| r).unwrap_or(false);
             let flags_expr: TokenStream2 = if is_result {
                 quote! {
                     match &__ret {
@@ -63,8 +61,7 @@ pub fn return_encode(ret_ty: &ReturnType, encoding: EncodingMode) -> TokenStream
                 },
                 EncodingMode::Sol => {
                     if is_result {
-                        let inner_ty =
-                            unwrap_result_or_option(ty).map(|(t, _)| t).unwrap_or(ty);
+                        let inner_ty = unwrap_result_or_option(ty).map(|(t, _)| t).unwrap_or(ty);
                         let ok_encode = if is_unit_type(inner_ty) {
                             quote! {
                                 wrevive_api::env().return_value(wrevive_api::ReturnFlags::empty(), &[]);
@@ -77,6 +74,8 @@ pub fn return_encode(ret_ty: &ReturnType, encoding: EncodingMode) -> TokenStream
                                 wrevive_api::env().return_value(wrevive_api::ReturnFlags::empty(), &__buf);
                             }
                         };
+                        // On error: revert with empty data.
+                        // For proper Solidity error encoding, use SolError/SolRevert from pvm_contract_types.
                         quote! {
                             match &__ret {
                                 Ok(ok_val) => { #ok_encode }

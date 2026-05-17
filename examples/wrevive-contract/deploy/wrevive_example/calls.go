@@ -59,7 +59,7 @@ func (c *WreviveExample) DryRunSetValue(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x2abfc162",
+			Selector: "0xafd79056",
 			Args:     []any{value},
 		},
 	)
@@ -87,7 +87,7 @@ func (c *WreviveExample) ExecSetValue(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x2abfc162",
+			Selector: "0xafd79056",
 			Args:     []any{value},
 		},
 		__ink_params,
@@ -107,7 +107,7 @@ func (c *WreviveExample) CallOfSetValue(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x2abfc162",
+			Selector: "0xafd79056",
 			Args:     []any{value},
 		},
 	)
@@ -127,7 +127,7 @@ func (c *WreviveExample) QueryGetValue(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xfac42ee4",
+			Selector: "0xc26813d3",
 			Args:     []any{},
 		},
 	)
@@ -151,7 +151,7 @@ func (c *WreviveExample) QueryGetValueOption(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x994d2873",
+			Selector: "0x85e5e3bd",
 			Args:     []any{},
 		},
 	)
@@ -175,7 +175,7 @@ func (c *WreviveExample) DryRunSetValueSol(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xd620f68e",
+			Selector: "0xfac67fb1",
 			Args:     []any{value},
 		},
 	)
@@ -203,7 +203,7 @@ func (c *WreviveExample) ExecSetValueSol(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xd620f68e",
+			Selector: "0xfac67fb1",
 			Args:     []any{value},
 		},
 		__ink_params,
@@ -223,7 +223,7 @@ func (c *WreviveExample) CallOfSetValueSol(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xd620f68e",
+			Selector: "0xfac67fb1",
 			Args:     []any{value},
 		},
 	)
@@ -243,7 +243,7 @@ func (c *WreviveExample) QueryGetValueSol(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x51c4aa4d",
+			Selector: "0x6e2dfdb3",
 			Args:     []any{},
 		},
 	)
@@ -267,7 +267,7 @@ func (c *WreviveExample) QueryGetCluster(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x06b5d385",
+			Selector: "0x85106573",
 			Args:     []any{},
 		},
 	)
@@ -291,7 +291,7 @@ func (c *WreviveExample) DryRunSetCluster(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xdbbbd708",
+			Selector: "0xc09c2406",
 			Args:     []any{cluster},
 		},
 	)
@@ -319,7 +319,7 @@ func (c *WreviveExample) ExecSetCluster(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xdbbbd708",
+			Selector: "0xc09c2406",
 			Args:     []any{cluster},
 		},
 		__ink_params,
@@ -339,7 +339,7 @@ func (c *WreviveExample) CallOfSetCluster(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xdbbbd708",
+			Selector: "0xc09c2406",
 			Args:     []any{cluster},
 		},
 	)
@@ -359,7 +359,7 @@ func (c *WreviveExample) DryRunSetOwner(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x30c7240f",
+			Selector: "0x553f734f",
 			Args:     []any{new_owner},
 		},
 	)
@@ -387,7 +387,7 @@ func (c *WreviveExample) ExecSetOwner(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x30c7240f",
+			Selector: "0x553f734f",
 			Args:     []any{new_owner},
 		},
 		__ink_params,
@@ -407,7 +407,7 @@ func (c *WreviveExample) CallOfSetOwner(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x30c7240f",
+			Selector: "0x553f734f",
 			Args:     []any{new_owner},
 		},
 	)
@@ -427,7 +427,7 @@ func (c *WreviveExample) QueryGetOwner(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xcf895653",
+			Selector: "0xabee0bfa",
 			Args:     []any{},
 		},
 	)
@@ -451,7 +451,7 @@ func (c *WreviveExample) DryRunSetBalance(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xb905f076",
+			Selector: "0x8ba08f48",
 			Args:     []any{user, balance},
 		},
 	)
@@ -479,7 +479,7 @@ func (c *WreviveExample) ExecSetBalance(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xb905f076",
+			Selector: "0x8ba08f48",
 			Args:     []any{user, balance},
 		},
 		__ink_params,
@@ -499,7 +499,7 @@ func (c *WreviveExample) CallOfSetBalance(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xb905f076",
+			Selector: "0x8ba08f48",
 			Args:     []any{user, balance},
 		},
 	)
@@ -519,7 +519,7 @@ func (c *WreviveExample) QueryGetBalance(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xb106b6fb",
+			Selector: "0x3b9e11d4",
 			Args:     []any{user},
 		},
 	)
@@ -543,7 +543,7 @@ func (c *WreviveExample) DryRunSetUserInfo(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x20975c6f",
+			Selector: "0x1adb3149",
 			Args:     []any{user, info_type, value},
 		},
 	)
@@ -571,7 +571,7 @@ func (c *WreviveExample) ExecSetUserInfo(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x20975c6f",
+			Selector: "0x1adb3149",
 			Args:     []any{user, info_type, value},
 		},
 		__ink_params,
@@ -591,7 +591,7 @@ func (c *WreviveExample) CallOfSetUserInfo(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x20975c6f",
+			Selector: "0x1adb3149",
 			Args:     []any{user, info_type, value},
 		},
 	)
@@ -611,7 +611,7 @@ func (c *WreviveExample) QueryGetUserInfo(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x94e9253b",
+			Selector: "0xd67b3f6f",
 			Args:     []any{user, info_type},
 		},
 	)
@@ -635,7 +635,7 @@ func (c *WreviveExample) DryRunTransferBalance(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xa2e07a68",
+			Selector: "0xc27b120d",
 			Args:     []any{from, to, amount},
 		},
 	)
@@ -663,7 +663,7 @@ func (c *WreviveExample) ExecTransferBalance(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xa2e07a68",
+			Selector: "0xc27b120d",
 			Args:     []any{from, to, amount},
 		},
 		__ink_params,
@@ -683,7 +683,7 @@ func (c *WreviveExample) CallOfTransferBalance(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xa2e07a68",
+			Selector: "0xc27b120d",
 			Args:     []any{from, to, amount},
 		},
 	)
@@ -703,7 +703,7 @@ func (c *WreviveExample) DryRunRecordsPush(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x1a4d7da4",
+			Selector: "0xcabd6b4b",
 			Args:     []any{value},
 		},
 	)
@@ -727,7 +727,7 @@ func (c *WreviveExample) ExecRecordsPush(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x1a4d7da4",
+			Selector: "0xcabd6b4b",
 			Args:     []any{value},
 		},
 		__ink_params,
@@ -747,7 +747,7 @@ func (c *WreviveExample) CallOfRecordsPush(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0x1a4d7da4",
+			Selector: "0xcabd6b4b",
 			Args:     []any{value},
 		},
 	)
@@ -767,7 +767,7 @@ func (c *WreviveExample) QueryRecordsGet(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xcbeac97f",
+			Selector: "0x17478972",
 			Args:     []any{id},
 		},
 	)
@@ -791,7 +791,7 @@ func (c *WreviveExample) QueryRecordsLen(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x90d1f916",
+			Selector: "0xac77655a",
 			Args:     []any{},
 		},
 	)
@@ -803,19 +803,19 @@ func (c *WreviveExample) QueryRecordsLen(
 
 func (c *WreviveExample) QueryRecordsList(
 	start uint32, size uint32, __ink_params chain.DryRunParams,
-) (*[]Tuple_26, *chain.DryRunReturnGas, error) {
+) (*[]Tuple_27, *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
 		util.LogWithPurple("[ DryRun   method ]", "records_list")
 	}
-	v, gas, err := chain.DryRunInk[[]Tuple_26](
+	v, gas, err := chain.DryRunInk[[]Tuple_27](
 		c,
 		__ink_params.Origin,
 		__ink_params.PayAmount,
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x659663a8",
+			Selector: "0xaad263c8",
 			Args:     []any{start, size},
 		},
 	)
@@ -839,7 +839,7 @@ func (c *WreviveExample) DryRunUserItemsPush(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xa6d2eb3f",
+			Selector: "0x654b3f39",
 			Args:     []any{user, value},
 		},
 	)
@@ -863,7 +863,7 @@ func (c *WreviveExample) ExecUserItemsPush(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xa6d2eb3f",
+			Selector: "0x654b3f39",
 			Args:     []any{user, value},
 		},
 		__ink_params,
@@ -883,7 +883,7 @@ func (c *WreviveExample) CallOfUserItemsPush(
 		gas.GasRequired,
 		gas.StorageDeposit,
 		util.InkContractInput{
-			Selector: "0xa6d2eb3f",
+			Selector: "0x654b3f39",
 			Args:     []any{user, value},
 		},
 	)
@@ -903,7 +903,7 @@ func (c *WreviveExample) QueryUserItemsGet(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x766d8632",
+			Selector: "0xe5d56223",
 			Args:     []any{user, k2},
 		},
 	)
@@ -927,7 +927,7 @@ func (c *WreviveExample) QueryUserItemsLen(
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0x1a5f9242",
+			Selector: "0xfc510712",
 			Args:     []any{user},
 		},
 	)
@@ -939,19 +939,19 @@ func (c *WreviveExample) QueryUserItemsLen(
 
 func (c *WreviveExample) QueryUserItemsList(
 	user types.H160, start uint32, size uint32, __ink_params chain.DryRunParams,
-) (*[]Tuple_29, *chain.DryRunReturnGas, error) {
+) (*[]Tuple_30, *chain.DryRunReturnGas, error) {
 	if c.ChainClient.Debug {
 		fmt.Println()
 		util.LogWithPurple("[ DryRun   method ]", "user_items_list")
 	}
-	v, gas, err := chain.DryRunInk[[]Tuple_29](
+	v, gas, err := chain.DryRunInk[[]Tuple_30](
 		c,
 		__ink_params.Origin,
 		__ink_params.PayAmount,
 		__ink_params.GasLimit,
 		__ink_params.StorageDepositLimit,
 		util.InkContractInput{
-			Selector: "0xe97f16ef",
+			Selector: "0x33e26ec7",
 			Args:     []any{user, start, size},
 		},
 	)

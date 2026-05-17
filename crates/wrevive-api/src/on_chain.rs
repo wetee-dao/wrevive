@@ -6,49 +6,54 @@
 //! get_storage 链上使用栈上小缓冲区（256 字节），避免 16K 静态导致合约执行时报错；
 //! 单次读取最多 256 字节。set_storage 拒绝 value.len() > 16K 的写入。
 
+use crate::buffer::{ScopedBuffer, StaticBuffer};
 use crate::env::{CallResult, Env};
+use crate::traits::Storable;
 use crate::types::{Address, BlockNumber, H256, U256};
 use alloc::vec::Vec;
+#[cfg(target_arch = "riscv64")]
 use pallet_revive_uapi::{
     CallFlags, HostFn, HostFnImpl, ReturnErrorCode, ReturnFlags, StorageFlags,
 };
-use crate::buffer::{ScopedBuffer, StaticBuffer};
-use crate::traits::Storable;
+#[cfg(not(target_arch = "riscv64"))]
+use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 
-    /// On-chain Env: forwards all calls to HostFnImpl (host interface).
-    /// 链上 Env：所有调用转发给 HostFnImpl（宿主接口）。
-    /// 
-    /// # English
-    /// On-chain environment implementation that delegates all operations
-    /// to the PolkaVM host functions.
-    /// 
-    /// # 中文
-    /// 链上环境实现，将所有操作委托给 PolkaVM 主机函数。
-pub struct OnChainEnv{
+/// On-chain Env: forwards all calls to HostFnImpl (host interface).
+/// 链上 Env：所有调用转发给 HostFnImpl（宿主接口）。
+///
+/// # English
+/// On-chain environment implementation that delegates all operations
+/// to the PolkaVM host functions.
+///
+/// # 中文
+/// 链上环境实现，将所有操作委托给 PolkaVM 主机函数。
+pub struct OnChainEnv {
     buffer: StaticBuffer,
 }
 
 impl OnChainEnv {
     /// Creates a new OnChainEnv instance.
     /// 创建新的 OnChainEnv 实例。
-    /// 
+    ///
     /// # English
     /// Constructs a new OnChainEnv with an uninitialized static buffer.
-    /// 
+    ///
     /// # 中文
     /// 构造具有未初始化静态缓冲区的新 OnChainEnv。
     pub const fn new() -> Self {
-        Self { buffer: StaticBuffer::new() }
+        Self {
+            buffer: StaticBuffer::new(),
+        }
     }
 
     #[inline(always)]
     /// Returns a new scoped buffer for the entire scope of the static 16 kB buffer.
     /// 返回静态 16 kB 缓冲区的完整作用域的新作用域缓冲区。
-    /// 
+    ///
     /// # English
     /// Creates a ScopedBuffer that provides mutable access to the entire
     /// underlying static buffer (16 KB).
-    /// 
+    ///
     /// # 中文
     /// 创建提供对整个底层静态缓冲区（16 KB）的可变访问的 ScopedBuffer。
     fn scoped_buffer(&mut self) -> ScopedBuffer<'_> {
@@ -56,6 +61,8 @@ impl OnChainEnv {
     }
 }
 
+// ========== RISC-V: real on-chain implementation ==========
+#[cfg(target_arch = "riscv64")]
 impl Env for OnChainEnv {
     #[inline(always)]
     fn caller(&self) -> Address {
@@ -63,7 +70,7 @@ impl Env for OnChainEnv {
         HostFnImpl::caller(&mut output);
         Address::from(output)
     }
-    
+
     fn set_storage<V>(&mut self, flags: StorageFlags, key: &[u8], value: &V) -> Option<u32>
     where
         V: Storable,
@@ -218,11 +225,11 @@ impl Env for OnChainEnv {
 
     /// Contract to account transfer: implemented via call with empty data + value.
     /// 合约向账户转帐：通过 call 空 data + value 实现。
-    /// 
+    ///
     /// # English
     /// Transfers native tokens from the contract to the specified address.
     /// Uses a call with empty input data and the specified value amount.
-    /// 
+    ///
     /// # 中文
     /// 从合约向指定地址转移原生代币。
     /// 使用带有空输入数据和指定值金额的调用。
@@ -310,11 +317,11 @@ impl Env for OnChainEnv {
     }
     /// Extracts block number from low 4 bytes in little-endian format.
     /// 从低 4 字节小端提取区块号。
-    /// 
+    ///
     /// # English
     /// Extracts the block number from the first 4 bytes of the output
     /// in little-endian format.
-    /// 
+    ///
     /// # 中文
     /// 从输出的前 4 个字节中按小端格式提取区块号。
     #[inline(always)]
@@ -435,12 +442,193 @@ impl Env for OnChainEnv {
     }
 }
 
-    /// Static On-chain Env instance.
-    /// 链上 Env 静态实例。
-    /// 
-    /// # English
-    /// Global static instance of OnChainEnv for on-chain contract execution.
-    /// 
-    /// # 中文
-    /// 用于链上合约执行的全局静态 OnChainEnv 实例。
+// ========== Non-RISC-V: stubs for `cargo check` on host ==========
+#[cfg(not(target_arch = "riscv64"))]
+impl Env for OnChainEnv {
+    fn caller(&self) -> Address {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn set_storage<V>(&mut self, _flags: StorageFlags, _key: &[u8], _value: &V) -> Option<u32>
+    where
+        V: Storable,
+    {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn get_storage<V>(&mut self, _flags: StorageFlags, _key: &[u8]) -> Option<V>
+    where
+        V: Storable,
+    {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn clear_storage(&self, _flags: StorageFlags, _key: &[u8]) -> Option<u32> {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn deposit_event(&self, _topics: &[[u8; 32]], _data: &[u8]) {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn return_value(&self, _flags: ReturnFlags, _return_value: &[u8]) -> ! {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn call_data_size(&self) -> u64 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn call_data_copy(&self, _offset: u32, _len: usize) -> Vec<u8> {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn address(&self) -> Address {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn get_immutable_data(&self, _output: &mut &mut [u8]) {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn set_immutable_data(&self, _data: &[u8]) {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn balance(&self) -> U256 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn balance_of(&self, _addr: &[u8; 20]) -> U256 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn chain_id(&self) -> [u8; 32] {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn gas_price(&self) -> u64 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn base_fee(&self) -> U256 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn origin(&self) -> [u8; 20] {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn code_hash(&self, _addr: &[u8; 20]) -> H256 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn code_size(&self, _addr: &[u8; 20]) -> u64 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn call(
+        &self,
+        _flags: CallFlags,
+        _callee: &Address,
+        _ref_time_limit: u64,
+        _proof_size_limit: u64,
+        _deposit: &U256,
+        _value: &U256,
+        _input_data: &[u8],
+        _output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn transfer(&self, _to: &Address, _value: &U256) -> CallResult {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn delegate_call(
+        &self,
+        _flags: CallFlags,
+        _address: &Address,
+        _ref_time_limit: u64,
+        _proof_size_limit: u64,
+        _deposit_limit: &U256,
+        _input_data: &[u8],
+        _output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn hash_keccak_256(&self, _input: &[u8]) -> H256 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn call_data_load(&self, _offset: u32) -> [u8; 32] {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn instantiate(
+        &self,
+        _flags: CallFlags,
+        _code_hash: &[u8; 32],
+        _ref_time_limit: u64,
+        _proof_size_limit: u64,
+        _deposit: &[u8; 32],
+        _value: &[u8; 32],
+        _input_data: &[u8],
+        _address: &mut [u8; 20],
+        _output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn now(&self) -> BlockNumber {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn gas_limit(&self) -> u64 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn set_storage_or_clear(
+        &mut self,
+        _flags: StorageFlags,
+        _key: &[u8; 32],
+        _value: &[u8; 32],
+    ) -> Option<u32> {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn get_storage_or_zero(&mut self, _flags: StorageFlags, _key: &[u8; 32]) -> [u8; 32] {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn value_transferred(&self) -> U256 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn return_data_size(&self) -> u64 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn call_evm(
+        &self,
+        _flags: CallFlags,
+        _callee: &Address,
+        _gas: u64,
+        _value: &U256,
+        _input_data: &[u8],
+        _output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn delegate_call_evm(
+        &self,
+        _flags: CallFlags,
+        _address: &Address,
+        _gas: u64,
+        _input_data: &[u8],
+        _output: Option<&mut &mut [u8]>,
+    ) -> CallResult {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn return_data_copy(&self, _output: &mut &mut [u8], _offset: u32) {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn gas_left(&self) -> u64 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn block_author(&self) -> Address {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn block_number(&self) -> BlockNumber {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn block_hash(&self, _block_number: BlockNumber) -> H256 {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn consume_all_gas(&self) -> ! {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn terminate(&self, _beneficiary: &[u8; 20]) -> ! {
+        unimplemented!("on_chain Env only available on riscv64")
+    }
+}
+
+/// Static On-chain Env instance.
+/// 链上 Env 静态实例。
+///
+/// # English
+/// Global static instance of OnChainEnv for on-chain contract execution.
+///
+/// # 中文
+/// 用于链上合约执行的全局静态 OnChainEnv 实例。
 pub static mut ON_CHAIN_ENV: OnChainEnv = OnChainEnv::new();

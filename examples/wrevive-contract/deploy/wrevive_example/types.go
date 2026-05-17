@@ -67,23 +67,23 @@ type Ip struct { // Composite
 	Domain util.Option[[]byte]
 }
 type Cluster struct { // Composite
-	Name          util.Bytes
+	Name          []byte
 	Owner         types.H160
 	Level         byte
 	RegionId      uint32
-	StartBlock    util.BlockNumber
-	StopBlock     util.Option[util.BlockNumber]
-	TerminalBlock util.Option[util.BlockNumber]
+	StartBlock    uint32
+	StopBlock     util.Option[uint32]
+	TerminalBlock util.Option[uint32]
 	P2pId         util.AccountId
 	Ip            Ip
 	Port          uint32
 	Status        byte
 }
-type Tuple_26 struct { // Tuple
+type Tuple_27 struct { // Tuple
 	F0 uint32
 	F1 uint64
 }
-type Tuple_29 struct { // Tuple
+type Tuple_30 struct { // Tuple
 	F0 uint32
 	F1 uint32
 }

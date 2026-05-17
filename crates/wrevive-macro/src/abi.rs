@@ -1,54 +1,57 @@
 //! ink! 风格 ABI JSON 生成与写入 target/contract/{name}.json。
 
-use crate::type_reg::TypeReg;
+use crate::attrs::{self, EncodingMode};
 use crate::docs;
+use crate::type_reg::TypeReg;
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use syn::{FnArg, Fields, GenericParam, Item, ItemFn, Pat, ReturnType, Type};
+use syn::{Fields, FnArg, GenericParam, Item, ItemFn, Pat, ReturnType, Type};
 
-    /// Replaces `-` with `_` in contract names to avoid invalid Go identifiers in go-ink-gen.
-    /// 合约名中 `-` 改为 `_`，避免 go-ink-gen 生成非法 Go 标识符（expected ';', found '-'）。
-    /// 
-    /// # English
-    /// Converts contract names to Go-safe identifiers by replacing hyphens with underscores.
-    /// Prevents "expected ';', found '-'" errors in generated Go code.
-    /// 
-    /// # 中文
-    /// 通过将连字符替换为下划线将合约名称转换为 Go 安全标识符。
-    /// 防止生成的 Go 代码中出现 "expected ';', found '-'" 错误。
+/// Replaces `-` with `_` in contract names to avoid invalid Go identifiers in go-ink-gen.
+/// 合约名中 `-` 改为 `_`，避免 go-ink-gen 生成非法 Go 标识符（expected ';', found '-'）。
+///
+/// # English
+/// Converts contract names to Go-safe identifiers by replacing hyphens with underscores.
+/// Prevents "expected ';', found '-'" errors in generated Go code.
+///
+/// # 中文
+/// 通过将连字符替换为下划线将合约名称转换为 Go 安全标识符。
+/// 防止生成的 Go 代码中出现 "expected ';', found '-'" 错误。
 fn contract_name_go_safe(name: &str) -> String {
     name.replace('-', "_")
 }
 
-    /// Formats a 4-byte selector as a hex string for the ABI selector field.
-    /// 将 4 字节 selector 格式化为十六进制字符串，用于 ABI 的 selector 字段。
-    /// 
-    /// # English
-    /// Converts a 4-byte selector array into a hex string with "0x" prefix.
-    /// Used in ABI JSON generation for function selectors.
-    /// 
-    /// # 中文
-    /// 将 4 字节选择器数组转换为带 "0x" 前缀的十六进制字符串。
-    /// 用于 ABI JSON 生成中的函数选择器。
+/// Formats a 4-byte selector as a hex string for the ABI selector field.
+/// 将 4 字节 selector 格式化为十六进制字符串，用于 ABI 的 selector 字段。
+///
+/// # English
+/// Converts a 4-byte selector array into a hex string with "0x" prefix.
+/// Used in ABI JSON generation for function selectors.
+///
+/// # 中文
+/// 将 4 字节选择器数组转换为带 "0x" 前缀的十六进制字符串。
+/// 用于 ABI JSON 生成中的函数选择器。
 pub fn selector_hex(sel: [u8; 4]) -> String {
     format!("0x{:02x}{:02x}{:02x}{:02x}", sel[0], sel[1], sel[2], sel[3])
 }
 
-    /// Extracts (struct_name, fields) from an Item or single struct definition within a mod.
-    /// 从 mod 内 Item 或单个 struct 定义中提取 (struct_name, fields)。
-    /// 
-    /// # English
-    /// Parses a struct definition and returns its name and named fields with their types.
-    /// Only works for structs with named fields.
-    /// 
-    /// # 中文
-    /// 解析结构体定义并返回其名称和带有类型的命名字段。
-    /// 仅适用于具有命名字段的结构体。
+/// Extracts (struct_name, fields) from an Item or single struct definition within a mod.
+/// 从 mod 内 Item 或单个 struct 定义中提取 (struct_name, fields)。
+///
+/// # English
+/// Parses a struct definition and returns its name and named fields with their types.
+/// Only works for structs with named fields.
+///
+/// # 中文
+/// 解析结构体定义并返回其名称和带有类型的命名字段。
+/// 仅适用于具有命名字段的结构体。
 fn struct_fields_from_item(item: &Item) -> Option<(String, Vec<(String, Type)>)> {
     let Item::Struct(s) = item else { return None };
-    let syn::Fields::Named(named) = &s.fields else { return None };
+    let syn::Fields::Named(named) = &s.fields else {
+        return None;
+    };
     let fields: Vec<(String, Type)> = named
         .named
         .iter()
@@ -63,16 +66,16 @@ fn struct_fields_from_item(item: &Item) -> Option<(String, Vec<(String, Type)>)>
     Some((s.ident.to_string(), fields))
 }
 
-    /// Extracts (enum_name, list of variant names) from an Item or single enum definition within a mod; only returns if all variants are unit (no fields).
-    /// 从 mod 内 Item 或单个 enum 定义中提取 (enum_name, 变体名列表)，仅当所有变体无字段时返回。
-    /// 
-    /// # English
-    /// Parses an enum and returns its name and the names of all variants.
-    /// Only works for C-like enums where all variants have no fields.
-    /// 
-    /// # 中文
-    /// 解析枚举并返回其名称和所有变体的名称。
-    /// 仅适用于所有变体都没有字段的类 C 枚举。
+/// Extracts (enum_name, list of variant names) from an Item or single enum definition within a mod; only returns if all variants are unit (no fields).
+/// 从 mod 内 Item 或单个 enum 定义中提取 (enum_name, 变体名列表)，仅当所有变体无字段时返回。
+///
+/// # English
+/// Parses an enum and returns its name and the names of all variants.
+/// Only works for C-like enums where all variants have no fields.
+///
+/// # 中文
+/// 解析枚举并返回其名称和所有变体的名称。
+/// 仅适用于所有变体都没有字段的类 C 枚举。
 fn enum_variants_from_item(item: &Item) -> Option<(String, Vec<String>)> {
     let Item::Enum(e) = item else { return None };
     let mut names = Vec::new();
@@ -88,22 +91,22 @@ fn enum_variants_from_item(item: &Item) -> Option<(String, Vec<String>)> {
     Some((e.ident.to_string(), names))
 }
 
-    /// Extracts (enum_name, variants_with_fields) from enum definition; each variant is (variant_name, list of field types).
-    /// Used to generate ABI variants with fields (e.g., AssetInfo: Native(Bytes), ERC20(Bytes, H256)).
-    /// Does not handle generic enums (e.g., EditType<T>), which are collected by generic_enum_from_item.
-    /// 从 enum 定义中提取 (enum_name, variants_with_fields)，每个变体为 (变体名, 字段类型列表)。
-    /// 用于生成 ABI 中带 fields 的 variant（如 AssetInfo: Native(Bytes), ERC20(Bytes, H256)）。
-    /// 若 enum 带泛型（如 EditType<T>），不在此处理，由 generic_enum_from_item 收集。
-    /// 
-    /// # English
-    /// Parses an enum with variants that may have fields.
-    /// Returns the enum name and each variant with its field types.
-    /// Does not handle generic enums; those are processed separately.
-    /// 
-    /// # 中文
-    /// 解析可能带有字段的变体的枚举。
-    /// 返回枚举名称和每个带有其字段类型的变体。
-    /// 不处理泛型枚举；那些会单独处理。
+/// Extracts (enum_name, variants_with_fields) from enum definition; each variant is (variant_name, list of field types).
+/// Used to generate ABI variants with fields (e.g., AssetInfo: Native(Bytes), ERC20(Bytes, H256)).
+/// Does not handle generic enums (e.g., EditType<T>), which are collected by generic_enum_from_item.
+/// 从 enum 定义中提取 (enum_name, variants_with_fields)，每个变体为 (变体名, 字段类型列表)。
+/// 用于生成 ABI 中带 fields 的 variant（如 AssetInfo: Native(Bytes), ERC20(Bytes, H256)）。
+/// 若 enum 带泛型（如 EditType<T>），不在此处理，由 generic_enum_from_item 收集。
+///
+/// # English
+/// Parses an enum with variants that may have fields.
+/// Returns the enum name and each variant with its field types.
+/// Does not handle generic enums; those are processed separately.
+///
+/// # 中文
+/// 解析可能带有字段的变体的枚举。
+/// 返回枚举名称和每个带有其字段类型的变体。
+/// 不处理泛型枚举；那些会单独处理。
 fn enum_variants_with_fields_from_item(item: &Item) -> Option<(String, Vec<(String, Vec<Type>)>)> {
     let Item::Enum(e) = item else { return None };
     if !e.generics.params.is_empty() {
@@ -125,7 +128,9 @@ fn enum_variants_with_fields_from_item(item: &Item) -> Option<(String, Vec<(Stri
 }
 
 /// 从带泛型的 enum（如 EditType<T>）提取 (enum_name, (param_names, variants))，用于实例化时推断类型生成 ABI。
-fn generic_enum_from_item(item: &Item) -> Option<(String, (Vec<String>, Vec<(String, Vec<Type>)>))> {
+fn generic_enum_from_item(
+    item: &Item,
+) -> Option<(String, (Vec<String>, Vec<(String, Vec<Type>)>))> {
     let Item::Enum(e) = item else { return None };
     let params: Vec<String> = e
         .generics
@@ -199,7 +204,9 @@ fn collect_struct_defs(
                                 if let Some((name, vs)) = enum_variants_from_item(&item) {
                                     enum_defs.entry(name).or_insert(vs);
                                 }
-                                if let Some((name, variants)) = enum_variants_with_fields_from_item(&item) {
+                                if let Some((name, variants)) =
+                                    enum_variants_with_fields_from_item(&item)
+                                {
                                     enum_defs_with_fields.entry(name).or_insert(variants);
                                 }
                                 if let Some((name, generic_def)) = generic_enum_from_item(&item) {
@@ -345,7 +352,13 @@ fn collect_struct_defs(
             }
         }
     }
-    (struct_defs, enum_defs, type_aliases, enum_defs_with_fields, generic_enum_defs)
+    (
+        struct_defs,
+        enum_defs,
+        type_aliases,
+        enum_defs_with_fields,
+        generic_enum_defs,
+    )
 }
 
 /// 根据合约名、构造函数与 message 列表生成 ink! 风格 ABI JSON。
@@ -361,8 +374,8 @@ pub fn emit_abi(
     if env::var("CARGO_BIN_NAME").is_err() {
         return Ok(());
     }
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR")
-        .map_err(|_| "CARGO_MANIFEST_DIR 未设置".to_string())?;
+    let manifest_dir =
+        env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR 未设置".to_string())?;
     let manifest_path = Path::new(&manifest_dir);
     let manifest_abs = if manifest_path.is_absolute() {
         manifest_path.to_path_buf()
@@ -395,9 +408,8 @@ pub fn emit_abi(
     // 基准目录：优先 workspace 根，否则当前项目（包）根
     let base_dir = find_workspace_root(&manifest_abs).unwrap_or_else(|| manifest_abs.clone());
     let out_dir = base_dir.join("target");
-    fs::create_dir_all(&out_dir).map_err(|e| {
-        format!("创建目录 {} 失败: {}", out_dir.display(), e)
-    })?;
+    fs::create_dir_all(&out_dir)
+        .map_err(|e| format!("创建目录 {} 失败: {}", out_dir.display(), e))?;
     let out_path = out_dir.join(format!("{}.json", contract_name));
 
     let mut reg = TypeReg::new();
@@ -421,7 +433,8 @@ pub fn emit_abi(
             _ => continue,
         };
         if let Some((type_id, display_name)) = reg.ensure_type(pt.ty.as_ref()) {
-            let param_doc = constructor_param_docs.get(&arg_name)
+            let param_doc = constructor_param_docs
+                .get(&arg_name)
                 .map(|doc| vec![doc.clone()])
                 .unwrap_or_else(Vec::new);
             constructor_args.push(serde_json::json!({
@@ -459,11 +472,11 @@ pub fn emit_abi(
         // mutates 仅来自 #[revive(message, write)] 显式标记
         let mutates = *explicit_mutates;
         let selector = selector_hex(*sel);
-        
+
         // 提取消息函数文档注释
         let message_docs = docs::clean_docs(&docs::extract_docs(&f.attrs));
         let message_param_docs = docs::parse_param_docs(&message_docs);
-        
+
         let mut args = Vec::new();
         for arg in &f.sig.inputs {
             let FnArg::Typed(pt) = arg else { continue };
@@ -472,7 +485,8 @@ pub fn emit_abi(
                 _ => continue,
             };
             if let Some((type_id, display_name)) = reg.ensure_type(pt.ty.as_ref()) {
-                let param_doc = message_param_docs.get(&arg_name)
+                let param_doc = message_param_docs
+                    .get(&arg_name)
                     .map(|doc| vec![doc.clone()])
                     .unwrap_or_else(Vec::new);
                 args.push(serde_json::json!({
@@ -489,9 +503,10 @@ pub fn emit_abi(
             }
             // 所有返回值在外层都包一层 Result<_, LangError>；若声明为 Result<(), Error> 则为两层 Result。
             ReturnType::Type(_, ty) => {
-                let (type_id, display_name) = reg
-                    .ensure_message_result(ty)
-                    .unwrap_or_else(|| reg.ensure_type(ty).unwrap_or((0, vec!["ScaleBytes".into()])));
+                let (type_id, display_name) = reg.ensure_message_result(ty).unwrap_or_else(|| {
+                    reg.ensure_type(ty)
+                        .unwrap_or((0, vec!["ScaleBytes".into()]))
+                });
                 serde_json::json!({ "displayName": display_name, "type": type_id })
             }
         };
@@ -570,11 +585,180 @@ pub fn emit_abi(
         "version": 6
     });
 
-    let json_str = serde_json::to_string_pretty(&abi).map_err(|e| {
-        format!("序列化 ABI JSON 失败: {}", e)
-    })?;
-    fs::write(&out_path, &json_str).map_err(|e| {
-        format!("写入 ABI 文件失败 {}: {}", out_path.display(), e)
-    })?;
+    let json_str =
+        serde_json::to_string_pretty(&abi).map_err(|e| format!("序列化 ABI JSON 失败: {}", e))?;
+    fs::write(&out_path, &json_str)
+        .map_err(|e| format!("写入 ABI 文件失败 {}: {}", out_path.display(), e))?;
+    Ok(())
+}
+
+/// Generate a Solidity-style ABI JSON file for contracts using Sol encoding.
+/// Written to `target/{name}.sol.abi.json`, compatible with Remix, MetaMask, ethers.js, etc.
+///
+/// # 中文
+/// 为使用 Sol 编码的合约生成 Solidity 风格的 ABI JSON 文件。
+pub fn emit_sol_abi(
+    contract_name: &str,
+    constructor_fn: &ItemFn,
+    constructor_encoding: EncodingMode,
+    message_fns: &[(ItemFn, [u8; 4], EncodingMode, bool)],
+    fallback_fn: Option<&ItemFn>,
+) -> Result<(), String> {
+    // Only generate Sol ABI if at least one function uses Sol encoding
+    let any_sol = constructor_encoding == EncodingMode::Sol
+        || message_fns
+            .iter()
+            .any(|(_, _, enc, _)| *enc == EncodingMode::Sol);
+    if !any_sol {
+        return Ok(());
+    }
+
+    if env::var("CARGO_BIN_NAME").is_err() {
+        return Ok(());
+    }
+
+    let manifest_dir =
+        env::var("CARGO_MANIFEST_DIR").map_err(|_| "CARGO_MANIFEST_DIR 未设置".to_string())?;
+    let manifest_path = Path::new(&manifest_dir);
+    let manifest_abs = if manifest_path.is_absolute() {
+        manifest_path.to_path_buf()
+    } else {
+        env::current_dir()
+            .ok()
+            .map(|cwd| cwd.join(manifest_path))
+            .unwrap_or_else(|| manifest_path.to_path_buf())
+    };
+
+    // Find workspace root
+    let mut current: &Path = &manifest_abs;
+    let base_dir = loop {
+        let workspace_toml = current.join("Cargo.toml");
+        if workspace_toml.exists() {
+            if let Ok(content) = fs::read_to_string(&workspace_toml) {
+                if content.contains("[workspace]") {
+                    break current.to_path_buf();
+                }
+            }
+        }
+        match current.parent() {
+            Some(parent) => current = parent,
+            None => break manifest_abs.clone(),
+        }
+    };
+
+    let out_dir = base_dir.join("target");
+    fs::create_dir_all(&out_dir)
+        .map_err(|e| format!("创建目录 {} 失败: {}", out_dir.display(), e))?;
+    let out_path = out_dir.join(format!("{}.sol.abi.json", contract_name));
+
+    let mut items: Vec<serde_json::Value> = Vec::new();
+
+    // Helper: build an AbiParam
+    fn param_to_json(name: &str, sol_type: String) -> serde_json::Value {
+        // Handle tuple types: (type1,type2) → components
+        if sol_type.starts_with('(') && sol_type.ends_with(')') {
+            let inner = &sol_type[1..sol_type.len() - 1];
+            let components: Vec<serde_json::Value> = inner
+                .split(',')
+                .map(|t| param_to_json("", t.trim().to_string()))
+                .collect();
+            serde_json::json!({
+                "name": name,
+                "type": "tuple",
+                "components": components
+            })
+        } else if sol_type.ends_with("[]") {
+            let base = &sol_type[..sol_type.len() - 2];
+            let inner = param_to_json("", base.to_string());
+            serde_json::json!({
+                "name": name,
+                "type": format!("{}[]", inner["type"]),
+                "components": inner.get("components").cloned().unwrap_or(serde_json::json!([]))
+            })
+        } else {
+            serde_json::json!({
+                "name": name,
+                "type": sol_type,
+                "components": []
+            })
+        }
+    }
+
+    // Constructor
+    if constructor_encoding == EncodingMode::Sol {
+        let mut inputs = Vec::new();
+        for arg in &constructor_fn.sig.inputs {
+            let FnArg::Typed(pt) = arg else { continue };
+            let arg_name = match pt.pat.as_ref() {
+                Pat::Ident(pi) => pi.ident.to_string(),
+                _ => continue,
+            };
+            let sol_type = attrs::rust_type_to_solidity(pt.ty.as_ref());
+            inputs.push(param_to_json(&arg_name, sol_type));
+        }
+        items.push(serde_json::json!({
+            "type": "constructor",
+            "inputs": inputs,
+            "stateMutability": "nonpayable"
+        }));
+    }
+
+    // Messages (Sol encoding only)
+    for (f, sel, enc, explicit_mutates) in message_fns {
+        if *enc != EncodingMode::Sol {
+            continue;
+        }
+        let name = f.sig.ident.to_string();
+
+        let mut inputs = Vec::new();
+        for arg in &f.sig.inputs {
+            let FnArg::Typed(pt) = arg else { continue };
+            let arg_name = match pt.pat.as_ref() {
+                Pat::Ident(pi) => pi.ident.to_string(),
+                _ => continue,
+            };
+            let sol_type = attrs::rust_type_to_solidity(pt.ty.as_ref());
+            inputs.push(param_to_json(&arg_name, sol_type));
+        }
+
+        // Outputs: extract the return type
+        let mut outputs = Vec::new();
+        if let ReturnType::Type(_, ty) = &f.sig.output {
+            let sol_type = attrs::rust_type_to_solidity(ty);
+            if sol_type != "()" {
+                outputs.push(param_to_json("", sol_type));
+            }
+        }
+
+        // State mutability
+        let state_mutability = if *explicit_mutates {
+            "nonpayable"
+        } else {
+            "view"
+        };
+
+        items.push(serde_json::json!({
+            "type": "function",
+            "name": name,
+            "inputs": inputs,
+            "outputs": outputs,
+            "stateMutability": state_mutability
+        }));
+    }
+
+    // Fallback
+    if let Some(fb) = fallback_fn {
+        let is_payable = attrs::has_revive_mutates(&fb.attrs);
+        items.push(serde_json::json!({
+            "type": "fallback",
+            "stateMutability": if is_payable { "payable" } else { "nonpayable" }
+        }));
+    }
+
+    let json_str = serde_json::to_string_pretty(&items)
+        .map_err(|e| format!("序列化 Sol ABI JSON 失败: {}", e))?;
+    fs::write(&out_path, &json_str)
+        .map_err(|e| format!("写入 Sol ABI 文件失败 {}: {}", out_path.display(), e))?;
+
     Ok(())
 }

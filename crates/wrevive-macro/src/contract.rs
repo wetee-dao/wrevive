@@ -1,7 +1,7 @@
 //! #[revive_contract] 主宏：解析 mod、生成 deploy/call、写入 ABI、生成合约间调用 interface。
 
 use crate::abi;
-use crate::attrs;
+use crate::attrs::{self, EncodingMode};
 use crate::codegen;
 use crate::interface;
 use crate::manifest;
@@ -12,24 +12,26 @@ use quote::quote;
 use syn::parse_macro_input;
 use syn::{FnArg, Item, ItemFn, Pat, ReturnType};
 
-    /// Implementation logic called by proc_macro_attribute in lib.rs.
-    /// 由 lib.rs 的 proc_macro_attribute 调用的实现逻辑。
-    /// 
-    /// # English
-    /// Main entry point for the #[revive_contract] macro.
-    /// Parses the module, validates constructors and messages,
-    /// generates deploy/call entry points, and writes ABI.
-    /// 
-    /// # 中文
-    /// #[revive_contract] 宏的主入口点。
-    /// 解析模块，验证构造函数和消息，
-    /// 生成 deploy/call 入口点，并写入 ABI。
+/// Implementation logic called by proc_macro_attribute in lib.rs.
+/// 由 lib.rs 的 proc_macro_attribute 调用的实现逻辑。
+///
+/// # English
+/// Main entry point for the #[revive_contract] macro.
+/// Parses the module, validates constructors and messages,
+/// generates deploy/call entry points, and writes ABI.
+///
+/// # 中文
+/// #[revive_contract] 宏的主入口点。
+/// 解析模块，验证构造函数和消息，
+/// 生成 deploy/call 入口点，并写入 ABI。
 pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
     let encoding_mode = attrs::parse_encoding_from_contract_attr(&attr);
 
     let contract_name = std::env::var("CARGO_BIN_NAME")
         .or_else(|_| std::env::var("CONTRACT_NAME"))
-        .unwrap_or_else(|_| manifest::bin_name_from_manifest().unwrap_or_else(|| "contract".into()));
+        .unwrap_or_else(|_| {
+            manifest::bin_name_from_manifest().unwrap_or_else(|| "contract".into())
+        });
 
     let item = parse_macro_input!(item as Item);
     let Item::Mod(mut module) = item else {
@@ -58,10 +60,13 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
         .iter()
         .filter_map(prefix::prefixes_from_item)
         .flat_map(|pairs| pairs.into_iter())
-        .fold(std::collections::HashMap::new(), |mut acc, (prefix, name)| {
-            acc.entry(prefix).or_default().push(name);
-            acc
-        });
+        .fold(
+            std::collections::HashMap::new(),
+            |mut acc, (prefix, name)| {
+                acc.entry(prefix).or_default().push(name);
+                acc
+            },
+        );
     for (prefix, names) in &prefix_to_names {
         if names.len() > 1 {
             let msg = format!(
@@ -128,8 +133,22 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                 } else if attrs::is_revive_message(&f.attrs) {
                     let enc = attrs::parse_encoding_from_fn_attrs(&f.attrs, encoding_mode);
                     let explicit_mutates = attrs::has_revive_mutates(&f.attrs);
-                    let sel = selector
-                        .unwrap_or_else(|| attrs::selector_from_name(&f.sig.ident.to_string()));
+                    // Extract parameter types for canonical Solidity signature generation
+                    let param_types: Vec<syn::Type> = f
+                        .sig
+                        .inputs
+                        .iter()
+                        .filter_map(|arg| {
+                            if let FnArg::Typed(pt) = arg {
+                                Some((*pt.ty).clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    let sel = selector.unwrap_or_else(|| {
+                        attrs::compute_selector(&f.sig.ident.to_string(), &param_types, enc)
+                    });
                     f.attrs = attrs::strip_revive_attrs(&f.attrs);
                     message_fns.push((f, sel, enc, explicit_mutates));
                 } else {
@@ -176,12 +195,45 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
         }
     }
 
-    let message_fns_abi: Vec<(ItemFn, [u8; 4], bool)> =
-        message_fns.iter().map(|(f, sel, _, explicit_mutates)| (f.clone(), *sel, *explicit_mutates)).collect();
-    if let Err(e) = abi::emit_abi(&contract_name, &constructor_fn, &message_fns_abi, &other_items) {
+    let message_fns_abi: Vec<(ItemFn, [u8; 4], bool)> = message_fns
+        .iter()
+        .map(|(f, sel, _, explicit_mutates)| (f.clone(), *sel, *explicit_mutates))
+        .collect();
+    if let Err(e) = abi::emit_abi(
+        &contract_name,
+        &constructor_fn,
+        &message_fns_abi,
+        &other_items,
+    ) {
         return syn::Error::new_spanned(
             &module,
-            format!("ABI generation failed, build aborted: {0} / ABI 生成失败，编译终止: {0}", e),
+            format!(
+                "ABI generation failed, build aborted: {0} / ABI 生成失败，编译终止: {0}",
+                e
+            ),
+        )
+        .to_compile_error()
+        .into();
+    }
+
+    // Generate Solidity-style ABI if any function uses Sol encoding
+    let sol_abi_fns: Vec<(ItemFn, [u8; 4], EncodingMode, bool)> = message_fns
+        .iter()
+        .map(|(f, sel, enc, m)| (f.clone(), *sel, *enc, *m))
+        .collect();
+    if let Err(e) = abi::emit_sol_abi(
+        &contract_name,
+        &constructor_fn,
+        constructor_encoding,
+        &sol_abi_fns,
+        fallback_fn.as_ref(),
+    ) {
+        return syn::Error::new_spanned(
+            &module,
+            format!(
+                "Sol ABI generation failed, build aborted: {0} / Sol ABI 生成失败，编译终止: {0}",
+                e
+            ),
         )
         .to_compile_error()
         .into();
@@ -249,7 +301,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                 for (name, type_tt) in &constructor_input_vars {
                     sol_stmts.push(quote! {
                         let #name: #type_tt = <#type_tt as pvm_contract_types::SolDecode>::decode_at(__input, __sol_off);
-                        __sol_off += pvm_contract_types::SolEncode::encode_len(&#name);
+                        __sol_off += if <#type_tt as pvm_contract_types::SolEncode>::IS_DYNAMIC { 32 } else { pvm_contract_types::SolEncode::encode_len(&#name) };
                     });
                 }
                 quote! {
@@ -295,15 +347,15 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     };
     let deploy_fn: Item = syn::parse2(quote! {
         /// Contract deployment entry function
-        /// 
+        ///
         /// This function is automatically generated by #[revive_contract] macro to:
         /// 1. Decode deployment parameters (selector + SCALE encoded constructor arguments)
         /// 2. Call user-defined constructor
         /// 3. Encode constructor return value and set it to contract return data
-        /// 
+        ///
         /// # Parameter Format
         /// - input_data: selector(4 bytes) + SCALE encoded constructor parameters
-        /// 
+        ///
         /// # Return Values
         /// - Success: SCALE encoded constructor return value
         /// - Failure: REVERT flag + error information
@@ -326,8 +378,12 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     }
 
     // 生成合约间调用接口子模块：SELECTOR_*、encode_*、call_raw、constructor 的 encode_* / instantiate_*
-    let interface_ts = interface::gen_interface_module(&message_fns, Some((&constructor_fn, constructor_encoding)));
-    let interface_item: Item = syn::parse2(interface_ts).expect("interface code generation failed / interface 代码生成失败");
+    let interface_ts = interface::gen_interface_module(
+        &message_fns,
+        Some((&constructor_fn, constructor_encoding)),
+    );
+    let interface_item: Item = syn::parse2(interface_ts)
+        .expect("interface code generation failed / interface 代码生成失败");
     mod_content.push(interface_item);
 
     let match_arms: Vec<TokenStream2> = message_fns
@@ -378,9 +434,9 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                         let mut sol_stmts = Vec::new();
                         for (name, type_tt) in &input_vars {
                             sol_stmts.push(quote! {
-                                let #name: #type_tt = <#type_tt as pvm_contract_types::SolDecode>::decode_at(&__input[4..], __sol_off);
-                                __sol_off += pvm_contract_types::SolEncode::encode_len(&#name);
-                            });
+                                    let #name: #type_tt = <#type_tt as pvm_contract_types::SolDecode>::decode_at(&__input[4..], __sol_off);
+                                    __sol_off += if <#type_tt as pvm_contract_types::SolEncode>::IS_DYNAMIC { 32 } else { pvm_contract_types::SolEncode::encode_len(&#name) };
+                                });
                         }
                         quote! {
                             let mut __sol_off: usize = 0;
@@ -441,21 +497,21 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
 
     let call_fn: Item = syn::parse2(quote! {
         /// Contract call entry function (message dispatcher)
-        /// 
+        ///
         /// This function is automatically generated by #[revive_contract] macro to:
         /// 1. Read call data (selector + SCALE encoded arguments)
         /// 2. Dispatch to corresponding message function based on selector
         /// 3. Decode arguments and call user-defined message function
         /// 4. Encode return value and set it to contract return data
-        /// 
+        ///
         /// # Parameter Format
         /// - input_data: selector(4 bytes) + SCALE encoded message function arguments
-        /// 
+        ///
         /// # Selector Dispatch Logic
         /// - Each message function has a unique 4-byte selector
-        /// - Selector is generated using first 4 bytes of BLAKE2s256 hash of function name
+        /// - Selector is generated using first 4 bytes of Keccak-256 hash of function name
         /// - Supports explicit selector specification: `#[revive(message, selector = 0x...)]`
-        /// 
+        ///
         /// # Return Values
         /// - Success: SCALE encoded message function return value
         /// - Failure: REVERT flag + error information
