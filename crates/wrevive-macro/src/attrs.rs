@@ -316,6 +316,31 @@ pub fn has_revive_mutates(attrs: &[Attribute]) -> bool {
     false
 }
 
+/// Returns true if the function is marked with `#[revive(message, payable)]` or `#[revive(fallback, payable)]`.
+/// 检测函数是否标记为 payable（可接收 ETH）。
+pub fn is_revive_payable(attrs: &[Attribute]) -> bool {
+    for attr in attrs {
+        if !attr.path().is_ident("revive") {
+            continue;
+        }
+        let syn::Meta::List(list) = &attr.meta else {
+            continue;
+        };
+        let Ok(nested) = list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+        else {
+            continue;
+        };
+        for meta in nested {
+            if let Meta::Path(p) = meta {
+                if p.is_ident("payable") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 /// Returns true if the function is marked with `#[revive(fallback)]`.
 /// 当请求 selector 未匹配任何 message 时，调用 fallback。
 pub fn is_revive_fallback(attrs: &[Attribute]) -> bool {

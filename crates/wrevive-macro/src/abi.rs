@@ -704,7 +704,7 @@ pub fn emit_sol_abi(
     }
 
     // Messages (Sol encoding only)
-    for (f, sel, enc, explicit_mutates) in message_fns {
+    for (f, _sel, enc, explicit_mutates) in message_fns {
         if *enc != EncodingMode::Sol {
             continue;
         }
@@ -721,17 +721,33 @@ pub fn emit_sol_abi(
             inputs.push(param_to_json(&arg_name, sol_type));
         }
 
-        // Outputs: extract the return type
+        // Outputs: extract the return type, unwrapping Result<T,E> → T
         let mut outputs = Vec::new();
         if let ReturnType::Type(_, ty) = &f.sig.output {
             let sol_type = attrs::rust_type_to_solidity(ty);
-            if sol_type != "()" {
-                outputs.push(param_to_json("", sol_type));
+            // Unwrap Result<T,E> → T
+            let inner = if sol_type.starts_with("Result<") && sol_type.ends_with('>') {
+                let s = &sol_type[7..sol_type.len() - 1];
+                if let Some(c) = s.find(',') {
+                    s[..c].trim().to_string()
+                } else {
+                    s.to_string()
+                }
+            } else {
+                sol_type
+            };
+            if inner != "()" {
+                outputs.push(param_to_json("", inner));
             }
         }
 
+        // Check payable attribute
+        let is_payable = attrs::is_revive_payable(&f.attrs);
+
         // State mutability
-        let state_mutability = if *explicit_mutates {
+        let state_mutability = if is_payable {
+            "payable"
+        } else if *explicit_mutates {
             "nonpayable"
         } else {
             "view"
