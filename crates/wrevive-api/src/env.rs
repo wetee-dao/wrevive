@@ -3,13 +3,37 @@ use alloc::vec::Vec;
 #[cfg(any(test, feature = "off_chain"))]
 use std::vec::Vec;
 
-use crate::types::{Address, BlockNumber, H256, U256};
 use crate::traits::Storable;
+use crate::types::{Address, BlockNumber, H256, U256};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 
 /// Result type for contract calls.
 /// 合约调用的结果类型。
 pub type CallResult = core::result::Result<(), ReturnErrorCode>;
+
+/// Encoding mode for the currently executing contract function.
+/// 当前执行合约函数的编码模式。
+///
+/// Set by the macro-generated `deploy()`/`call()` dispatcher before
+/// invoking the user's function, so that storage/serialization logic
+/// can choose the correct code path.
+/// 由宏生成的 `deploy()`/`call()` 分发器在调用用户函数前设置，
+/// 使存储/序列化逻辑可选择正确的代码路径。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CallMode {
+    /// SCALE (parity-scale-codec) encoding.
+    /// SCALE 编码。
+    Codec,
+    /// Solidity ABI encoding.
+    /// Solidity ABI 编码。
+    Sol,
+}
+
+impl Default for CallMode {
+    fn default() -> Self {
+        Self::Codec
+    }
+}
 
 /// Contract host API: same surface for on-chain and off-chain implementations.
 /// 合约链接口：链上与链下实现同一套 API。
@@ -21,21 +45,21 @@ pub const MAX_STORAGE_VALUE_SIZE: usize = 16 * 1024;
 pub trait Env {
     /// Returns the caller address.
     /// 返回调用方地址。
-    /// 
+    ///
     /// # English
     /// Gets the address that initiated the current contract call.
-    /// 
+    ///
     /// # 中文
     /// 获取发起当前合约调用的地址。
     fn caller(&self) -> Address;
 
     /// Store typed value at `key`. Encode/decode is done in the implementation.
     /// 在 `key` 处存储类型化 value；编码/解码由实现完成。
-    /// 
+    ///
     /// # English
     /// Stores a value of type V at the specified storage key with given flags.
     /// The encoding and decoding process is handled by the implementation.
-    /// 
+    ///
     /// # 中文
     /// 在指定的存储键处存储类型 V 的值，使用给定的标志。
     /// 编码和解码过程由实现层处理。
@@ -45,11 +69,11 @@ pub trait Env {
 
     /// Load typed value at `key`. Decode is done in the implementation.
     /// 按 `key` 读取并解码为类型 V；解码由实现完成。
-    /// 
+    ///
     /// # English
     /// Retrieves and decodes a value of type V from the specified storage key.
     /// The decoding process is handled by the implementation.
-    /// 
+    ///
     /// # 中文
     /// 从指定的存储键检索并解码类型 V 的值。
     /// 解码过程由实现层处理。
@@ -153,7 +177,6 @@ pub trait Env {
     /// 返回指定合约地址的代码大小。
     fn code_size(&self, addr: &[u8; 20]) -> u64;
 
-
     /// Hash input using Keccak-256.
     /// 使用 Keccak-256 对输入进行哈希。
     fn hash_keccak_256(&self, input: &[u8]) -> H256;
@@ -187,7 +210,12 @@ pub trait Env {
 
     /// Set storage or clear it if value is zero.
     /// 设置存储，如果值为零则清除。
-    fn set_storage_or_clear(&mut self, flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32>;
+    fn set_storage_or_clear(
+        &mut self,
+        flags: StorageFlags,
+        key: &[u8; 32],
+        value: &[u8; 32],
+    ) -> Option<u32>;
 
     /// Get storage or return zero if not found.
     /// 获取存储，如果未找到则返回零。
@@ -251,4 +279,15 @@ pub trait Env {
     /// Remove the calling account and transfer remaining free balance to beneficiary. Never returns.
     /// 销毁调用账户并将剩余余额转给 beneficiary；不返回。
     fn terminate(&self, beneficiary: &[u8; 20]) -> !;
+
+    /// Set the encoding mode for the currently executing function.
+    /// 设置当前执行函数的编码模式。
+    ///
+    /// Called by the macro-generated dispatcher before invoking the user function.
+    /// 由宏生成的分发器在调用用户函数之前调用。
+    fn set_call_mode(&mut self, mode: CallMode);
+
+    /// Returns the encoding mode of the currently executing function.
+    /// 返回当前执行函数的编码模式。
+    fn call_mode(&self) -> CallMode;
 }

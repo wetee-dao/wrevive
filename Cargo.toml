@@ -30,7 +30,7 @@ polkavm-linker = "0.31"
 
 # on-chain api deps
 primitive-types = { version = "0.14.0", default-features = false, features = ["codec"] }
-pallet-revive-uapi = { version = "0.10", default-features = false }
+pallet-revive-uapi = { version = "0.11", default-features = false }
 parity-scale-codec = { version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"] }
 sha3 = { version = "0.10", default-features = false }
@@ -41,6 +41,7 @@ polkavm-derive = "0.31"
 alloy-core = { version = "1.5", default-features = false, features = ["sol-types"] }
 pvm-contract-types = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
 pvm-contract-macros = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
+pvm-contract-sdk = { git = "https://github.com/paritytech/cargo-pvm-contract", branch = "main" }
 
 [profile.release]
 opt-level = "z"

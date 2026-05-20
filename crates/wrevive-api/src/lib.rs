@@ -22,7 +22,7 @@ use scale_info::prelude::marker::PhantomData;
 /// 为合约执行环境提供统一抽象，
 /// 在链上和链下（测试）上下文中无缝工作。
 pub mod env;
-pub use env::{Env, MAX_STORAGE_VALUE_SIZE};
+pub use env::{CallMode, Env, MAX_STORAGE_VALUE_SIZE};
 
 /// List / 2D List: sequential and two-dimensional list storage.
 /// List / 2D List：顺序列表与二维列表存储。

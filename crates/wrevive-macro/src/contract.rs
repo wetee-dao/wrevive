@@ -81,7 +81,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     }
 
     let mut constructor_fn: Option<(ItemFn, attrs::EncodingMode)> = None;
-    let mut message_fns: Vec<(ItemFn, [u8; 4], attrs::EncodingMode, bool)> = Vec::new();
+    let mut message_fns: Vec<(ItemFn, [u8; 4], attrs::EncodingMode, bool, bool)> = Vec::new();
     let mut fallback_fn: Option<ItemFn> = None;
     let mut other_items: Vec<Item> = Vec::new();
 
@@ -133,6 +133,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                 } else if attrs::is_revive_message(&f.attrs) {
                     let enc = attrs::parse_encoding_from_fn_attrs(&f.attrs, encoding_mode);
                     let explicit_mutates = attrs::has_revive_mutates(&f.attrs);
+                    let is_payable = attrs::is_revive_payable(&f.attrs);
                     // Extract parameter types for canonical Solidity signature generation
                     let param_types: Vec<syn::Type> = f
                         .sig
@@ -150,7 +151,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                         attrs::compute_selector(&f.sig.ident.to_string(), &param_types, enc)
                     });
                     f.attrs = attrs::strip_revive_attrs(&f.attrs);
-                    message_fns.push((f, sel, enc, explicit_mutates));
+                    message_fns.push((f, sel, enc, explicit_mutates, is_payable));
                 } else {
                     other_items.push(Item::Fn(f));
                 }
@@ -181,7 +182,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
         .to_compile_error()
         .into();
     }
-    for (f, _, _, _) in &message_fns {
+    for (f, _, _, _, _) in &message_fns {
         if matches!(&f.sig.output, ReturnType::Default) {
             return syn::Error::new_spanned(
                 &f.sig,
@@ -197,7 +198,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
 
     let message_fns_abi: Vec<(ItemFn, [u8; 4], bool)> = message_fns
         .iter()
-        .map(|(f, sel, _, explicit_mutates)| (f.clone(), *sel, *explicit_mutates))
+        .map(|(f, sel, _, explicit_mutates, _)| (f.clone(), *sel, *explicit_mutates))
         .collect();
     if let Err(e) = abi::emit_abi(
         &contract_name,
@@ -217,9 +218,9 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     }
 
     // Generate Solidity-style ABI if any function uses Sol encoding
-    let sol_abi_fns: Vec<(ItemFn, [u8; 4], EncodingMode, bool)> = message_fns
+    let sol_abi_fns: Vec<(ItemFn, [u8; 4], EncodingMode, bool, bool)> = message_fns
         .iter()
-        .map(|(f, sel, enc, m)| (f.clone(), *sel, *enc, *m))
+        .map(|(f, sel, enc, m, p)| (f.clone(), *sel, *enc, *m, *p))
         .collect();
     if let Err(e) = abi::emit_sol_abi(
         &contract_name,
@@ -300,7 +301,13 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                 let mut sol_stmts = Vec::new();
                 for (name, type_tt) in &constructor_input_vars {
                     sol_stmts.push(quote! {
-                        let #name: #type_tt = <#type_tt as pvm_contract_types::SolDecode>::decode_at(__input, __sol_off);
+                        let #name: #type_tt = match <#type_tt as pvm_contract_types::SolDecode>::decode_at(__input, __sol_off) {
+                            Ok(val) => val,
+                            Err(_) => {
+                                wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                                return;
+                            }
+                        };
                         __sol_off += if <#type_tt as pvm_contract_types::SolEncode>::IS_DYNAMIC { 32 } else { pvm_contract_types::SolEncode::encode_len(&#name) };
                     });
                 }
@@ -340,7 +347,16 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
             }
         }
     };
+    let set_mode_deploy = match constructor_encoding {
+        attrs::EncodingMode::Codec => {
+            quote! { wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec); }
+        }
+        attrs::EncodingMode::Sol => {
+            quote! { wrevive_api::env().set_call_mode(wrevive_api::CallMode::Sol); }
+        }
+    };
     let deploy_body: TokenStream2 = quote! {
+        #set_mode_deploy
         #constructor_parse
         let __ret = #mod_name::#constructor_name(#(#constructor_call_exprs),*);
         #constructor_return_encode
@@ -373,7 +389,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
         mod_content.push(Item::Fn(fb.clone()));
     }
     mod_content.push(Item::Fn(constructor_fn.clone()));
-    for (f, _, _, _) in &message_fns {
+    for (f, _, _, _, _) in &message_fns {
         mod_content.push(Item::Fn(f.clone()));
     }
 
@@ -388,7 +404,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
 
     let match_arms: Vec<TokenStream2> = message_fns
         .iter()
-        .map(|(f, sel, fn_enc, _)| {
+        .map(|(f, sel, fn_enc, _, _)| {
             let fn_name = &f.sig.ident;
             let sig = &f.sig;
             let min_len: usize = 4;
@@ -434,7 +450,13 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
                         let mut sol_stmts = Vec::new();
                         for (name, type_tt) in &input_vars {
                             sol_stmts.push(quote! {
-                                    let #name: #type_tt = <#type_tt as pvm_contract_types::SolDecode>::decode_at(&__input[4..], __sol_off);
+                                    let #name: #type_tt = match <#type_tt as pvm_contract_types::SolDecode>::decode_at(&__input[4..], __sol_off) {
+                                        Ok(val) => val,
+                                        Err(_) => {
+                                            wrevive_api::env().return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                                            return;
+                                        }
+                                    };
                                     __sol_off += if <#type_tt as pvm_contract_types::SolEncode>::IS_DYNAMIC { 32 } else { pvm_contract_types::SolEncode::encode_len(&#name) };
                                 });
                         }
@@ -448,8 +470,17 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
             let ret_ty = &sig.output;
             let encode_and_return = codegen::return_encode(ret_ty, *fn_enc);
             let sel_u32 = u32::from_be_bytes(*sel);
+            let set_mode_msg = match fn_enc {
+                attrs::EncodingMode::Codec => {
+                    quote! { wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec); }
+                }
+                attrs::EncodingMode::Sol => {
+                    quote! { wrevive_api::env().set_call_mode(wrevive_api::CallMode::Sol); }
+                }
+            };
             let arm_inner = if min_len == 4 {
                 quote! {
+                    #set_mode_msg
                     #input_parse
                     let __ret = #mod_name::#fn_name(#(#call_exprs),*);
                     #encode_and_return
@@ -457,6 +488,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
             } else {
                 quote! {
                     if __input_len >= #min_len {
+                        #set_mode_msg
                         #input_parse
                         let __ret = #mod_name::#fn_name(#(#call_exprs),*);
                         #encode_and_return
@@ -545,7 +577,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
     let any_sol = constructor_encoding == attrs::EncodingMode::Sol
         || message_fns
             .iter()
-            .any(|(_, _, enc, _)| *enc == attrs::EncodingMode::Sol);
+            .any(|(_, _, enc, _, _)| *enc == attrs::EncodingMode::Sol);
     let use_encoding: TokenStream2 = if any_sol {
         quote! {
             use wrevive_api::Decode;

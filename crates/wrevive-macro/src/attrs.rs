@@ -75,6 +75,22 @@ pub(crate) fn rust_type_to_solidity(ty: &Type) -> String {
                     }
                 }
             }
+            // Handle Result<T, E> → T (unwrap the Ok variant for ABI)
+            if seg.ident == "Result" {
+                if let PathArguments::AngleBracketed(a) = &seg.arguments {
+                    if let Some(GenericArgument::Type(inner)) = a.args.first() {
+                        return rust_type_to_solidity(inner);
+                    }
+                }
+            }
+            // Handle Option<T> → T
+            if seg.ident == "Option" {
+                if let PathArguments::AngleBracketed(a) = &seg.arguments {
+                    if let Some(GenericArgument::Type(inner)) = a.args.first() {
+                        return rust_type_to_solidity(inner);
+                    }
+                }
+            }
         }
     }
 

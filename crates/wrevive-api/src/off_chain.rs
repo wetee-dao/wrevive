@@ -20,15 +20,15 @@
 //!
 //! Off-chain 实现：内存 Engine，支持单合约与多合约（跨合约调用）测试。
 
-use crate::env::{Env, CallResult};
+use crate::env::{CallMode, CallResult, Env};
 use crate::traits::Storable;
 use crate::types::{Address, BlockNumber, H256, U256};
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 #[cfg(feature = "off_chain")]
 use sha3::{Digest, Keccak256};
-use std::panic::{self, AssertUnwindSafe, UnwindSafe};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::panic::{self, AssertUnwindSafe, UnwindSafe};
 use std::sync::Arc;
 
 /// Panic payload used when a contract returns via return_value(); caught in call() to implement cross-contract return.
@@ -91,6 +91,9 @@ pub struct Engine {
     /// Next address for instantiate (simple counter-based mock).
     /// instantiate 时分配的下一个地址（简单计数）。
     next_address_counter: u32,
+    /// Encoding mode of the currently executing function.
+    /// 当前执行函数的编码模式。
+    pub call_mode: CallMode,
 }
 
 impl Engine {
@@ -113,7 +116,8 @@ impl Engine {
     where
         F: Fn() + UnwindSafe + Send + 'static,
     {
-        self.dispatchers.insert(*addr.as_ref(), Arc::new(dispatcher));
+        self.dispatchers
+            .insert(*addr.as_ref(), Arc::new(dispatcher));
         self.contract_storages.entry(*addr.as_ref()).or_default();
     }
 
@@ -156,6 +160,7 @@ impl Engine {
         self.return_value = None;
         self.caller = [0u8; 20];
         self.value_transferred = U256::ZERO;
+        self.call_mode = CallMode::Codec;
         // keep current_contract, dispatchers, next_address_counter for reuse
     }
 
@@ -197,7 +202,6 @@ impl Env for OffChainEnv {
     fn caller(&self) -> Address {
         ENGINE.with(|cell| Address::from(cell.borrow().caller))
     }
-
 
     fn set_storage<V>(&mut self, _flags: StorageFlags, key: &[u8], value: &V) -> Option<u32>
     where
@@ -508,7 +512,12 @@ impl Env for OffChainEnv {
         u64::MAX
     }
 
-    fn set_storage_or_clear(&mut self, flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32> {
+    fn set_storage_or_clear(
+        &mut self,
+        flags: StorageFlags,
+        key: &[u8; 32],
+        value: &[u8; 32],
+    ) -> Option<u32> {
         if value.iter().all(|&b| b == 0) {
             ENGINE.with(|cell| {
                 let mut engine = cell.borrow_mut();
@@ -599,6 +608,14 @@ impl Env for OffChainEnv {
 
     fn terminate(&self, _beneficiary: &[u8; 20]) -> ! {
         panic!("off_chain terminate")
+    }
+
+    fn set_call_mode(&mut self, mode: CallMode) {
+        ENGINE.with(|cell| cell.borrow_mut().call_mode = mode);
+    }
+
+    fn call_mode(&self) -> CallMode {
+        ENGINE.with(|cell| cell.borrow().call_mode)
     }
 }
 

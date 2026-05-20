@@ -601,14 +601,14 @@ pub fn emit_sol_abi(
     contract_name: &str,
     constructor_fn: &ItemFn,
     constructor_encoding: EncodingMode,
-    message_fns: &[(ItemFn, [u8; 4], EncodingMode, bool)],
+    message_fns: &[(ItemFn, [u8; 4], EncodingMode, bool, bool)],
     fallback_fn: Option<&ItemFn>,
 ) -> Result<(), String> {
     // Only generate Sol ABI if at least one function uses Sol encoding
     let any_sol = constructor_encoding == EncodingMode::Sol
         || message_fns
             .iter()
-            .any(|(_, _, enc, _)| *enc == EncodingMode::Sol);
+            .any(|(_, _, enc, _, _)| *enc == EncodingMode::Sol);
     if !any_sol {
         return Ok(());
     }
@@ -704,7 +704,7 @@ pub fn emit_sol_abi(
     }
 
     // Messages (Sol encoding only)
-    for (f, _sel, enc, explicit_mutates) in message_fns {
+    for (f, _sel, enc, explicit_mutates, is_payable) in message_fns {
         if *enc != EncodingMode::Sol {
             continue;
         }
@@ -741,11 +741,8 @@ pub fn emit_sol_abi(
             }
         }
 
-        // Check payable attribute
-        let is_payable = attrs::is_revive_payable(&f.attrs);
-
         // State mutability
-        let state_mutability = if is_payable {
+        let state_mutability = if *is_payable {
             "payable"
         } else if *explicit_mutates {
             "nonpayable"

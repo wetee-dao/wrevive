@@ -1397,28 +1397,30 @@ pub mod contract {
         ///
         /// Each constant corresponds to a 4-byte selector of a message function,
         /// used to construct contract call input data.
-        pub const SELECTOR_SET_VALUE: [u8; 4] = [42u8, 191u8, 193u8, 98u8];
-        pub const SELECTOR_GET_VALUE: [u8; 4] = [250u8, 196u8, 46u8, 228u8];
-        pub const SELECTOR_GET_VALUE_OPTION: [u8; 4] = [153u8, 77u8, 40u8, 115u8];
-        pub const SELECTOR_SET_VALUE_SOL: [u8; 4] = [214u8, 32u8, 246u8, 142u8];
-        pub const SELECTOR_GET_VALUE_SOL: [u8; 4] = [81u8, 196u8, 170u8, 77u8];
-        pub const SELECTOR_GET_CLUSTER: [u8; 4] = [6u8, 181u8, 211u8, 133u8];
-        pub const SELECTOR_SET_CLUSTER: [u8; 4] = [219u8, 187u8, 215u8, 8u8];
-        pub const SELECTOR_SET_OWNER: [u8; 4] = [48u8, 199u8, 36u8, 15u8];
-        pub const SELECTOR_GET_OWNER: [u8; 4] = [207u8, 137u8, 86u8, 83u8];
-        pub const SELECTOR_SET_BALANCE: [u8; 4] = [185u8, 5u8, 240u8, 118u8];
-        pub const SELECTOR_GET_BALANCE: [u8; 4] = [177u8, 6u8, 182u8, 251u8];
-        pub const SELECTOR_SET_USER_INFO: [u8; 4] = [32u8, 151u8, 92u8, 111u8];
-        pub const SELECTOR_GET_USER_INFO: [u8; 4] = [148u8, 233u8, 37u8, 59u8];
-        pub const SELECTOR_TRANSFER_BALANCE: [u8; 4] = [162u8, 224u8, 122u8, 104u8];
-        pub const SELECTOR_RECORDS_PUSH: [u8; 4] = [26u8, 77u8, 125u8, 164u8];
-        pub const SELECTOR_RECORDS_GET: [u8; 4] = [203u8, 234u8, 201u8, 127u8];
-        pub const SELECTOR_RECORDS_LEN: [u8; 4] = [144u8, 209u8, 249u8, 22u8];
-        pub const SELECTOR_RECORDS_LIST: [u8; 4] = [101u8, 150u8, 99u8, 168u8];
-        pub const SELECTOR_USER_ITEMS_PUSH: [u8; 4] = [166u8, 210u8, 235u8, 63u8];
-        pub const SELECTOR_USER_ITEMS_GET: [u8; 4] = [118u8, 109u8, 134u8, 50u8];
-        pub const SELECTOR_USER_ITEMS_LEN: [u8; 4] = [26u8, 95u8, 146u8, 66u8];
-        pub const SELECTOR_USER_ITEMS_LIST: [u8; 4] = [233u8, 127u8, 22u8, 239u8];
+        pub const SELECTOR_SET_VALUE: [u8; 4] = [175u8, 215u8, 144u8, 86u8];
+        pub const SELECTOR_GET_VALUE: [u8; 4] = [194u8, 104u8, 19u8, 211u8];
+        pub const SELECTOR_GET_VALUE_OPTION: [u8; 4] = [133u8, 229u8, 227u8, 189u8];
+        pub const SELECTOR_SET_VALUE_SOL: [u8; 4] = [250u8, 198u8, 127u8, 177u8];
+        pub const SELECTOR_GET_VALUE_SOL: [u8; 4] = [110u8, 45u8, 253u8, 179u8];
+        pub const SELECTOR_GET_CLUSTER: [u8; 4] = [133u8, 16u8, 101u8, 115u8];
+        pub const SELECTOR_SET_CLUSTER: [u8; 4] = [192u8, 156u8, 36u8, 6u8];
+        pub const SELECTOR_SET_OWNER: [u8; 4] = [85u8, 63u8, 115u8, 79u8];
+        pub const SELECTOR_GET_OWNER: [u8; 4] = [171u8, 238u8, 11u8, 250u8];
+        pub const SELECTOR_SET_BALANCE: [u8; 4] = [139u8, 160u8, 143u8, 72u8];
+        pub const SELECTOR_GET_BALANCE: [u8; 4] = [59u8, 158u8, 17u8, 212u8];
+        pub const SELECTOR_SET_USER_INFO: [u8; 4] = [26u8, 219u8, 49u8, 73u8];
+        pub const SELECTOR_GET_USER_INFO: [u8; 4] = [214u8, 123u8, 63u8, 111u8];
+        pub const SELECTOR_TRANSFER_BALANCE: [u8; 4] = [194u8, 123u8, 18u8, 13u8];
+        pub const SELECTOR_RECORDS_PUSH: [u8; 4] = [202u8, 189u8, 107u8, 75u8];
+        pub const SELECTOR_RECORDS_GET: [u8; 4] = [23u8, 71u8, 137u8, 114u8];
+        pub const SELECTOR_RECORDS_LEN: [u8; 4] = [172u8, 119u8, 101u8, 90u8];
+        pub const SELECTOR_RECORDS_LIST: [u8; 4] = [170u8, 210u8, 99u8, 200u8];
+        pub const SELECTOR_USER_ITEMS_PUSH: [u8; 4] = [101u8, 75u8, 63u8, 57u8];
+        pub const SELECTOR_USER_ITEMS_GET: [u8; 4] = [229u8, 213u8, 98u8, 35u8];
+        pub const SELECTOR_USER_ITEMS_LEN: [u8; 4] = [252u8, 81u8, 7u8, 18u8];
+        pub const SELECTOR_USER_ITEMS_LIST: [u8; 4] = [51u8, 226u8, 110u8, 199u8];
+        /// Constructor selector (Keccak-256 of function name; same 4 bytes `deploy()` skips before decoding).
+        pub const SELECTOR_DEPLOY: [u8; 4] = [244u8, 230u8, 84u8, 160u8];
         /// Low-level contract call function
         ///
         /// Calls the specified contract with encoded input (4-byte selector + encoded parameters),
@@ -1442,8 +1444,8 @@ pub mod contract {
                 .call(
                     pallet_revive_uapi::CallFlags::empty(),
                     callee,
-                    10_000_000,
-                    10_000_000,
+                    u64::MAX,
+                    u64::MAX,
                     &wrevive_api::U256::ZERO,
                     &wrevive_api::U256::ZERO,
                     input,
@@ -1463,59 +1465,59 @@ pub mod contract {
         #[inline(always)]
         pub fn encode_set_value(value: &u32) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 32);
-            out.extend_from_slice(&[42u8, 191u8, 193u8, 98u8]);
+            out.extend_from_slice(&[175u8, 215u8, 144u8, 86u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(value));
             out
         }
         #[inline(always)]
         pub fn encode_get_value() -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4);
-            out.extend_from_slice(&[250u8, 196u8, 46u8, 228u8]);
+            out.extend_from_slice(&[194u8, 104u8, 19u8, 211u8]);
             out
         }
         #[inline(always)]
         pub fn encode_get_value_option() -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4);
-            out.extend_from_slice(&[153u8, 77u8, 40u8, 115u8]);
+            out.extend_from_slice(&[133u8, 229u8, 227u8, 189u8]);
             out
         }
         #[inline(always)]
         pub fn encode_get_cluster() -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4);
-            out.extend_from_slice(&[6u8, 181u8, 211u8, 133u8]);
+            out.extend_from_slice(&[133u8, 16u8, 101u8, 115u8]);
             out
         }
         #[inline(always)]
         pub fn encode_set_cluster(cluster: &Cluster) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 32);
-            out.extend_from_slice(&[219u8, 187u8, 215u8, 8u8]);
+            out.extend_from_slice(&[192u8, 156u8, 36u8, 6u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(cluster));
             out
         }
         #[inline(always)]
         pub fn encode_set_owner(new_owner: &Address) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 32);
-            out.extend_from_slice(&[48u8, 199u8, 36u8, 15u8]);
+            out.extend_from_slice(&[85u8, 63u8, 115u8, 79u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(new_owner));
             out
         }
         #[inline(always)]
         pub fn encode_get_owner() -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4);
-            out.extend_from_slice(&[207u8, 137u8, 86u8, 83u8]);
+            out.extend_from_slice(&[171u8, 238u8, 11u8, 250u8]);
             out
         }
         #[inline(always)]
         pub fn encode_set_balance(user: &Address, balance: &u64) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 64);
-            out.extend_from_slice(&[185u8, 5u8, 240u8, 118u8]);
+            out.extend_from_slice(&[139u8, 160u8, 143u8, 72u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(&(user, balance)));
             out
         }
         #[inline(always)]
         pub fn encode_get_balance(user: &Address) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 32);
-            out.extend_from_slice(&[177u8, 6u8, 182u8, 251u8]);
+            out.extend_from_slice(&[59u8, 158u8, 17u8, 212u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(user));
             out
         }
@@ -1526,7 +1528,7 @@ pub mod contract {
             value: &u32,
         ) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 64);
-            out.extend_from_slice(&[32u8, 151u8, 92u8, 111u8]);
+            out.extend_from_slice(&[26u8, 219u8, 49u8, 73u8]);
             out.extend_from_slice(
                 &wrevive_api::Encode::encode(&(user, info_type, value)),
             );
@@ -1538,7 +1540,7 @@ pub mod contract {
             info_type: &u8,
         ) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 64);
-            out.extend_from_slice(&[148u8, 233u8, 37u8, 59u8]);
+            out.extend_from_slice(&[214u8, 123u8, 63u8, 111u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(&(user, info_type)));
             out
         }
@@ -1549,34 +1551,34 @@ pub mod contract {
             amount: &u64,
         ) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 64);
-            out.extend_from_slice(&[162u8, 224u8, 122u8, 104u8]);
+            out.extend_from_slice(&[194u8, 123u8, 18u8, 13u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(&(from, to, amount)));
             out
         }
         #[inline(always)]
         pub fn encode_records_push(value: &u64) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 32);
-            out.extend_from_slice(&[26u8, 77u8, 125u8, 164u8]);
+            out.extend_from_slice(&[202u8, 189u8, 107u8, 75u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(value));
             out
         }
         #[inline(always)]
         pub fn encode_records_get(id: &u32) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 32);
-            out.extend_from_slice(&[203u8, 234u8, 201u8, 127u8]);
+            out.extend_from_slice(&[23u8, 71u8, 137u8, 114u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(id));
             out
         }
         #[inline(always)]
         pub fn encode_records_len() -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4);
-            out.extend_from_slice(&[144u8, 209u8, 249u8, 22u8]);
+            out.extend_from_slice(&[172u8, 119u8, 101u8, 90u8]);
             out
         }
         #[inline(always)]
         pub fn encode_records_list(start: &u32, size: &u32) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 64);
-            out.extend_from_slice(&[101u8, 150u8, 99u8, 168u8]);
+            out.extend_from_slice(&[170u8, 210u8, 99u8, 200u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(&(start, size)));
             out
         }
@@ -1586,21 +1588,21 @@ pub mod contract {
             value: &u32,
         ) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 64);
-            out.extend_from_slice(&[166u8, 210u8, 235u8, 63u8]);
+            out.extend_from_slice(&[101u8, 75u8, 63u8, 57u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(&(user, value)));
             out
         }
         #[inline(always)]
         pub fn encode_user_items_get(user: &Address, k2: &u32) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 64);
-            out.extend_from_slice(&[118u8, 109u8, 134u8, 50u8]);
+            out.extend_from_slice(&[229u8, 213u8, 98u8, 35u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(&(user, k2)));
             out
         }
         #[inline(always)]
         pub fn encode_user_items_len(user: &Address) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 32);
-            out.extend_from_slice(&[26u8, 95u8, 146u8, 66u8]);
+            out.extend_from_slice(&[252u8, 81u8, 7u8, 18u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(user));
             out
         }
@@ -1611,7 +1613,7 @@ pub mod contract {
             size: &u32,
         ) -> alloc::vec::Vec<u8> {
             let mut out = alloc::vec::Vec::with_capacity(4 + 64);
-            out.extend_from_slice(&[233u8, 127u8, 22u8, 239u8]);
+            out.extend_from_slice(&[51u8, 226u8, 110u8, 199u8]);
             out.extend_from_slice(&wrevive_api::Encode::encode(&(user, start, size)));
             out
         }
@@ -1855,35 +1857,43 @@ pub mod contract {
                 .map_err(|_| ReturnErrorCode::CalleeTrapped)
         }
         /// Constructor parameter encoding functions
-        /// Encode constructor parameters (without selector), used for env::instantiate input_data.
+        /// Encode constructor call data: 4-byte selector + SCALE args (matches `deploy()` input after `#[revive_contract]` codegen).
         #[inline(always)]
         pub fn encode_deploy(initial_value: &u32) -> alloc::vec::Vec<u8> {
-            wrevive_api::Encode::encode(initial_value)
+            let mut out = alloc::vec::Vec::new();
+            out.extend_from_slice(&[244u8, 230u8, 84u8, 160u8]);
+            out.extend_from_slice(&wrevive_api::Encode::encode(initial_value));
+            out
         }
         /// Contract instantiation functions
         ///
         /// Used to deploy new contract instances, handling constructor calls and return value decoding
         /// Instantiate contract (call constructor), returns (new contract address, decoded constructor return value).
+        ///
+        /// Note: `deposit_limit` is the storage deposit limit. Pass `U256::MAX` for "no specific limit" (recommended default),
+        /// aligning with pallet-revive examples.
         #[inline(always)]
         pub fn instantiate_deploy(
             __instantiate_code_hash: &wrevive_api::H256,
             initial_value: &u32,
+            deposit_limit: &wrevive_api::U256,
             value: &wrevive_api::U256,
-            deposit: &wrevive_api::U256,
         ) -> Result<(wrevive_api::Address, Result<(), Error>), ReturnErrorCode> {
             let input_data = encode_deploy(initial_value);
             let mut addr = [0u8; 20];
             let mut out_buf = [0u8; 256];
             let mut out_slice = out_buf.as_mut_slice();
             let mut cursor = &mut out_slice;
+            let __deposit_bytes = deposit_limit.as_bytes(wrevive_api::CallMode::Sol);
+            let __value_bytes = value.as_bytes(wrevive_api::CallMode::Sol);
             wrevive_api::env()
                 .instantiate(
                     pallet_revive_uapi::CallFlags::empty(),
                     __instantiate_code_hash.as_bytes(),
-                    10_000_000,
-                    10_000_000,
-                    deposit.as_bytes(),
-                    value.as_bytes(),
+                    u64::MAX,
+                    u64::MAX,
+                    &__deposit_bytes,
+                    &__value_bytes,
                     &input_data,
                     &mut addr,
                     Some(&mut cursor),
@@ -1912,6 +1922,7 @@ pub mod contract {
 /// - Success: SCALE encoded constructor return value
 /// - Failure: REVERT flag + error information
 pub fn deploy() {
+    wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
     let __input_len = wrevive_api::env().call_data_size().min(1024) as usize;
     let __input_vec = if __input_len > 0 {
         wrevive_api::env().call_data_copy(0, __input_len)
@@ -1961,7 +1972,7 @@ pub fn deploy() {
 ///
 /// # Selector Dispatch Logic
 /// - Each message function has a unique 4-byte selector
-/// - Selector is generated using first 4 bytes of BLAKE2s256 hash of function name
+/// - Selector is generated using first 4 bytes of Keccak-256 hash of function name
 /// - Supports explicit selector specification: `#[revive(message, selector = 0x...)]`
 ///
 /// # Return Values
@@ -1982,7 +1993,8 @@ pub fn call() {
     }
     let __sel = u32::from_be_bytes([__input[0], __input[1], __input[2], __input[3]]);
     match __sel {
-        717209954u32 => {
+        2950139990u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let value: u32 = match <u32 as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2002,25 +2014,40 @@ pub fn call() {
             };
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        4207161060u32 => {
+        3261600723u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let __ret = contract::get_value();
             let __encoded = wrevive_api::Encode::encode(&__ret);
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        2571970675u32 => {
+        2246435773u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let __ret = contract::get_value_option();
             let __encoded = wrevive_api::Encode::encode(&__ret);
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        3592484494u32 => {
+        4207312817u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Sol);
             let mut __sol_off: usize = 0;
-            let value: u32 = <u32 as pvm_contract_types::SolDecode>::decode_at(
+            let value: u32 = match <u32 as pvm_contract_types::SolDecode>::decode_at(
                 &__input[4..],
                 __sol_off,
-            );
-            __sol_off += pvm_contract_types::SolEncode::encode_len(&value);
+            ) {
+                Ok(val) => val,
+                Err(_) => {
+                    wrevive_api::env()
+                        .return_value(wrevive_api::ReturnFlags::REVERT, &[]);
+                    return;
+                }
+            };
+            __sol_off
+                += if <u32 as pvm_contract_types::SolEncode>::IS_DYNAMIC {
+                    32
+                } else {
+                    pvm_contract_types::SolEncode::encode_len(&value)
+                };
             let __ret = contract::set_value_sol(value);
             match &__ret {
                 Ok(ok_val) => {
@@ -2033,7 +2060,8 @@ pub fn call() {
                 }
             }
         }
-        1371843149u32 => {
+        1848507827u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Sol);
             let __ret = contract::get_value_sol();
             let __len = pvm_contract_types::SolEncode::encode_len(&__ret);
             let mut __buf = ::alloc::vec::from_elem(0u8, __len);
@@ -2041,13 +2069,15 @@ pub fn call() {
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__buf);
         }
-        112579461u32 => {
+        2232444275u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let __ret = contract::get_cluster();
             let __encoded = wrevive_api::Encode::encode(&__ret);
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        3686520584u32 => {
+        3231458310u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let cluster: Cluster = match <Cluster as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2067,7 +2097,8 @@ pub fn call() {
             };
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        818357263u32 => {
+        1430221647u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let new_owner: Address = match <Address as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2087,13 +2118,15 @@ pub fn call() {
             };
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        3481884243u32 => {
+        2884504570u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let __ret = contract::get_owner();
             let __encoded = wrevive_api::Encode::encode(&__ret);
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        3104174198u32 => {
+        2342555464u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let user: Address = match <Address as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2123,7 +2156,8 @@ pub fn call() {
             };
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        2970007291u32 => {
+        1000214996u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let user: Address = match <Address as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2140,7 +2174,8 @@ pub fn call() {
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        546790511u32 => {
+        450572617u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let user: Address = match <Address as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2180,7 +2215,8 @@ pub fn call() {
             };
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        2498307387u32 => {
+        3598401391u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let user: Address = match <Address as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2207,7 +2243,8 @@ pub fn call() {
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        2732620392u32 => {
+        3262845453u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let from: Address = match <Address as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2247,7 +2284,8 @@ pub fn call() {
             };
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        441286052u32 => {
+        3401411403u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let value: u64 = match <u64 as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2264,7 +2302,8 @@ pub fn call() {
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        3421161855u32 => {
+        390564210u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let id: u32 = match <u32 as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2281,13 +2320,15 @@ pub fn call() {
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        2429679894u32 => {
+        2893505882u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let __ret = contract::records_len();
             let __encoded = wrevive_api::Encode::encode(&__ret);
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        1704354728u32 => {
+        2865914824u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let start: u32 = match <u32 as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2314,7 +2355,8 @@ pub fn call() {
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        2798840639u32 => {
+        1699430201u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let user: Address = match <Address as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2341,7 +2383,8 @@ pub fn call() {
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        1986889266u32 => {
+        3855966755u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let user: Address = match <Address as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2368,7 +2411,8 @@ pub fn call() {
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        442470978u32 => {
+        4233168658u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let user: Address = match <Address as wrevive_api::Decode>::decode(
                 &mut __scale_input,
@@ -2385,7 +2429,8 @@ pub fn call() {
             let __flags = wrevive_api::ReturnFlags::empty();
             wrevive_api::env().return_value(__flags, &__encoded);
         }
-        3917420271u32 => {
+        870477511u32 => {
+            wrevive_api::env().set_call_mode(wrevive_api::CallMode::Codec);
             let mut __scale_input = &__input[4..];
             let user: Address = match <Address as wrevive_api::Decode>::decode(
                 &mut __scale_input,

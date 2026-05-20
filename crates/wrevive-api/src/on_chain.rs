@@ -7,7 +7,7 @@
 //! 单次读取最多 256 字节。set_storage 拒绝 value.len() > 16K 的写入。
 
 use crate::buffer::{ScopedBuffer, StaticBuffer};
-use crate::env::{CallResult, Env};
+use crate::env::{CallMode, CallResult, Env};
 use crate::traits::Storable;
 use crate::types::{Address, BlockNumber, H256, U256};
 use alloc::vec::Vec;
@@ -29,6 +29,7 @@ use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 /// 链上环境实现，将所有操作委托给 PolkaVM 主机函数。
 pub struct OnChainEnv {
     buffer: StaticBuffer,
+    call_mode: CallMode,
 }
 
 impl OnChainEnv {
@@ -43,6 +44,7 @@ impl OnChainEnv {
     pub const fn new() -> Self {
         Self {
             buffer: StaticBuffer::new(),
+            call_mode: CallMode::Codec,
         }
     }
 
@@ -151,14 +153,14 @@ impl Env for OnChainEnv {
     fn balance(&self) -> U256 {
         let mut output = [0u8; 32];
         HostFnImpl::balance(&mut output);
-        U256::from_be_bytes(output)
+        U256::from_le_bytes(output)
     }
 
     #[inline(always)]
     fn balance_of(&self, addr: &[u8; 20]) -> U256 {
         let mut output = [0u8; 32];
         HostFnImpl::balance_of(addr, &mut output);
-        U256::from_be_bytes(output)
+        U256::from_le_bytes(output)
     }
 
     #[inline(always)]
@@ -177,7 +179,7 @@ impl Env for OnChainEnv {
     fn base_fee(&self) -> U256 {
         let mut output = [0u8; 32];
         HostFnImpl::base_fee(&mut output);
-        U256::from_be_bytes(output)
+        U256::from_le_bytes(output)
     }
 
     #[inline(always)]
@@ -216,8 +218,8 @@ impl Env for OnChainEnv {
             callee.as_ref(),
             ref_time_limit,
             proof_size_limit,
-            deposit.as_bytes(),
-            value.as_bytes(),
+            &deposit.as_bytes(CallMode::Codec),
+            &value.as_bytes(CallMode::Codec),
             input_data,
             output,
         )
@@ -239,10 +241,10 @@ impl Env for OnChainEnv {
         HostFnImpl::call(
             CallFlags::empty(),
             to.as_ref(),
-            10_000_000,
-            10_000_000,
-            deposit.as_bytes(),
-            value.as_bytes(),
+            u64::MAX,
+            u64::MAX,
+            &deposit.as_bytes(CallMode::Codec),
+            &value.as_bytes(CallMode::Codec),
             &[],
             None,
         )
@@ -264,7 +266,7 @@ impl Env for OnChainEnv {
             address.as_ref(),
             ref_time_limit,
             proof_size_limit,
-            deposit_limit.as_bytes(),
+            &deposit_limit.as_bytes(CallMode::Codec),
             input_data,
             output,
         )
@@ -358,7 +360,7 @@ impl Env for OnChainEnv {
     fn value_transferred(&self) -> U256 {
         let mut output = [0u8; 32];
         HostFnImpl::value_transferred(&mut output);
-        U256::from_be_bytes(output)
+        U256::from_le_bytes(output)
     }
 
     #[inline(always)]
@@ -380,7 +382,7 @@ impl Env for OnChainEnv {
             flags,
             callee.as_ref(),
             gas,
-            value.as_bytes(),
+            &value.as_bytes(CallMode::Sol),
             input_data,
             output,
         )
@@ -439,6 +441,16 @@ impl Env for OnChainEnv {
     #[inline(always)]
     fn terminate(&self, beneficiary: &[u8; 20]) -> ! {
         HostFnImpl::terminate(beneficiary)
+    }
+
+    #[inline(always)]
+    fn set_call_mode(&mut self, mode: CallMode) {
+        self.call_mode = mode;
+    }
+
+    #[inline(always)]
+    fn call_mode(&self) -> CallMode {
+        self.call_mode
     }
 }
 
@@ -620,6 +632,12 @@ impl Env for OnChainEnv {
     }
     fn terminate(&self, _beneficiary: &[u8; 20]) -> ! {
         unimplemented!("on_chain Env only available on riscv64")
+    }
+    fn set_call_mode(&mut self, mode: CallMode) {
+        self.call_mode = mode;
+    }
+    fn call_mode(&self) -> CallMode {
+        self.call_mode
     }
 }
 

@@ -13,14 +13,14 @@ fn to_selector_constant_name(name: &str) -> String {
 /// 生成合约间调用的 interface 子模块：SELECTOR_*、encode_*、call_raw、call_*、constructor 的 encode_* / instantiate_*。
 /// 仅对 encoding 为 Codec 的 message/constructor 生成 encode 与调用封装。
 pub fn gen_interface_module(
-    message_fns: &[(ItemFn, [u8; 4], EncodingMode, bool)],
+    message_fns: &[(ItemFn, [u8; 4], EncodingMode, bool, bool)],
     constructor_fn: Option<(&ItemFn, EncodingMode)>,
 ) -> TokenStream2 {
     // 构造函数 encode_* 必须与 deploy() 一致：4 字节 selector + SCALE 参数（contract.rs 跳过 __input[..4]）。
     let mut ctor_selector_const: TokenStream2 = quote! {};
     let selector_consts: Vec<TokenStream2> = message_fns
         .iter()
-        .map(|(f, sel, _, _)| {
+        .map(|(f, sel, _, _, _)| {
             let name = f.sig.ident.to_string();
             let const_name = syn::Ident::new(
                 &format!("SELECTOR_{}", to_selector_constant_name(&name)),
@@ -35,8 +35,8 @@ pub fn gen_interface_module(
 
     let encode_fns: Vec<TokenStream2> = message_fns
         .iter()
-        .filter(|(_, _, enc, _)| *enc == EncodingMode::Codec)
-        .map(|(f, sel, _, _)| {
+        .filter(|(_, _, enc, _, _)| *enc == EncodingMode::Codec)
+        .map(|(f, sel, _, _, _)| {
             let fn_name = &f.sig.ident;
             let mut input_vars = Vec::new();
             let mut arg_tys = Vec::new();
@@ -96,8 +96,8 @@ pub fn gen_interface_module(
     // 与 message 同名的调用函数：封装 encode + call_raw + decode，返回已解码的 message 返回值
     let call_fns: Vec<TokenStream2> = message_fns
         .iter()
-        .filter(|(_, _, enc, _)| *enc == EncodingMode::Codec)
-        .map(|(f, _, _, _)| {
+        .filter(|(_, _, enc, _, _)| *enc == EncodingMode::Codec)
+        .map(|(f, _, _, _, _)| {
             let fn_name = &f.sig.ident;
             let encode_fn_ident = format_ident!("encode_{}", fn_name);
             let mut input_vars = Vec::new();
@@ -272,13 +272,15 @@ pub fn gen_interface_module(
                     let mut out_buf = [0u8; 256];
                     let mut out_slice = out_buf.as_mut_slice();
                     let mut cursor = &mut out_slice;
+                    let __deposit_bytes = deposit_limit.as_bytes(wrevive_api::CallMode::Sol);
+                    let __value_bytes = value.as_bytes(wrevive_api::CallMode::Sol);
                     wrevive_api::env().instantiate(
                         pallet_revive_uapi::CallFlags::empty(),
                         #instantiate_code_hash.as_bytes(),
                         u64::MAX,
                         u64::MAX,
-                        deposit_limit.as_bytes(),
-                        value.as_bytes(),
+                        &__deposit_bytes,
+                        &__value_bytes,
                         &input_data,
                         &mut addr,
                         Some(&mut cursor),

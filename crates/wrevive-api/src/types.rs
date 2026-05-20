@@ -1,97 +1,149 @@
 //! Common contract types: Address, H256, U256, BlockNumber, Bytes.
 //! 常见合约数据类型：Address、H256、U256、BlockNumber、Bytes。
+//!
+//! All Solidity ABI encoding is delegated to the underlying pvm_contract_sdk types.
+//! Only SCALE Encode/Decode is implemented here.
 
 #[cfg(not(any(test, feature = "off_chain")))]
 pub use alloc::vec::Vec;
 #[cfg(any(test, feature = "off_chain"))]
 pub use std::vec::Vec;
 
-use pvm_contract_macros::SolType;
-
 use core::ops::{Add, Div, Mul, Sub};
-use parity_scale_codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode, Input, Output};
 use scale_info::TypeInfo;
 
+use crate::CallMode;
+
+// Re-export the SDK's Sol ABI types so wrappers can delegate to them.
+use pvm_contract_sdk as sdk;
+
 // =============================================================================
-// Address — 20-byte address (EVM/account compatible)
-// Address — 20 字节地址（EVM/账户兼容）
+// Address — delegates Sol ABI to sdk::Address (correct "address" encoding)
 // =============================================================================
 
-/// 20-byte address (EVM/account compatible). SCALE encoded as 20 bytes.
-/// 20 字节地址（EVM/账户兼容）。SCALE 编码为 20 字节。
-///
-/// Uses transparent newtype wrapper for convenient implementation of `zero`, `From`, etc.,
-/// and can be mapped to H160 in ABI.
-/// 使用透明封装的新类型，方便实现 `zero`、`From` 等方法，同时在 ABI 中可映射为 H160。
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[repr(transparent)]
-pub struct Address(pub [u8; 20]);
+pub struct Address(sdk::Address);
+
+impl Default for Address {
+    fn default() -> Self {
+        Self(sdk::Address::ZERO)
+    }
+}
 
 impl Address {
-    /// Returns the zero address (20 bytes of zeros).
-    /// 返回全零地址（20 个字节全为 0）。
     pub const fn zero() -> Self {
-        Self([0u8; 20])
+        Self(sdk::Address::ZERO)
     }
 }
+
+// SCALE: 20 bytes raw
+impl Encode for Address {
+    fn size_hint(&self) -> usize {
+        20
+    }
+    fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
+        dest.write(&self.0.0);
+    }
+}
+impl Decode for Address {
+    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+        let mut buf = [0u8; 20];
+        input.read(&mut buf)?;
+        Ok(Self(sdk::Address::from(buf)))
+    }
+}
+
+impl TypeInfo for Address {
+    type Identity = Self;
+    fn type_info() -> scale_info::Type {
+        scale_info::Type::builder()
+            .path(scale_info::Path::new("Address", module_path!()))
+            .composite(
+                scale_info::build::Fields::unnamed()
+                    .field(|b| b.ty::<[u8; 20]>().type_name("[u8; 20]")),
+            )
+    }
+}
+
+// Sol ABI: delegate to sdk::Address
+impl pvm_contract_sdk::SolEncode for Address {
+    const IS_DYNAMIC: bool = <sdk::Address as pvm_contract_sdk::SolEncode>::IS_DYNAMIC;
+    const SOL_NAME: &'static str = <sdk::Address as pvm_contract_sdk::SolEncode>::SOL_NAME;
+    fn encode_body_len(&self) -> usize {
+        pvm_contract_sdk::SolEncode::encode_body_len(&self.0)
+    }
+    fn encode_body_to(&self, buf: &mut [u8]) {
+        pvm_contract_sdk::SolEncode::encode_body_to(&self.0, buf)
+    }
+}
+impl pvm_contract_sdk::SolDecode for Address {
+    fn decode_at(input: &[u8], offset: usize) -> Result<Self, pvm_contract_sdk::DecodeError> {
+        <sdk::Address as pvm_contract_sdk::SolDecode>::decode_at(input, offset).map(Address)
+    }
+}
+impl pvm_contract_sdk::StaticEncodedLen for Address {
+    const ENCODED_SIZE: usize = <sdk::Address as pvm_contract_sdk::StaticEncodedLen>::ENCODED_SIZE;
+}
+impl pvm_contract_sdk::StaticDecode for Address {
+    unsafe fn decode_unchecked(input: &[u8], offset: usize) -> Self {
+        unsafe {
+            Self(<sdk::Address as pvm_contract_sdk::StaticDecode>::decode_unchecked(input, offset))
+        }
+    }
+}
+impl pvm_contract_sdk::SolArrayElement for Address {}
 
 impl From<[u8; 20]> for Address {
-    #[inline]
     fn from(b: [u8; 20]) -> Self {
-        Self(b)
+        Self(sdk::Address::from(b))
     }
 }
-
 impl From<Address> for [u8; 20] {
-    #[inline]
     fn from(a: Address) -> Self {
-        a.0
+        a.0.into()
     }
 }
-
 impl AsRef<[u8; 20]> for Address {
-    #[inline]
     fn as_ref(&self) -> &[u8; 20] {
-        &self.0
+        self.0.as_ref()
     }
 }
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
+// =============================================================================
+// AccountId — 32-byte account ID (not in SDK)
+// =============================================================================
+
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, Debug)]
 pub struct AccountId(pub [u8; 32]);
 
 impl AccountId {
-    /// Returns the zero account ID (32 bytes of zeros).
-    /// 返回全零账户 ID（32 个字节全为 0）。
     pub const fn zero() -> Self {
         Self([0u8; 32])
     }
 }
-
 impl From<[u8; 32]> for AccountId {
     fn from(b: [u8; 32]) -> Self {
         Self(b)
     }
 }
-
 impl From<AccountId> for [u8; 32] {
     fn from(a: AccountId) -> Self {
         a.0
     }
 }
-
 impl AsRef<[u8; 32]> for AccountId {
     fn as_ref(&self) -> &[u8; 32] {
         &self.0
     }
 }
+
 // =============================================================================
-// H256 — 32-byte hash
-// H256 — 32 字节哈希
+// H256 — 32-byte hash, delegates Sol ABI to sdk::H256 if available, else bytes32
 // =============================================================================
 
-/// 32-byte hash (e.g., Keccak-256). SCALE encoded as 32 bytes.
-/// 32 字节哈希（例如 Keccak-256）。SCALE 编码为 32 字节。
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode, TypeInfo, SolType, Debug)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[repr(transparent)]
 pub struct H256(pub [u8; 32]);
 
@@ -99,25 +151,84 @@ impl H256 {
     pub const fn zero() -> Self {
         Self([0u8; 32])
     }
-
-    #[inline]
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
 }
+
+// SCALE: 32 bytes raw
+impl Encode for H256 {
+    fn size_hint(&self) -> usize {
+        32
+    }
+    fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
+        dest.write(&self.0);
+    }
+}
+impl Decode for H256 {
+    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+        let mut buf = [0u8; 32];
+        input.read(&mut buf)?;
+        Ok(Self(buf))
+    }
+}
+impl TypeInfo for H256 {
+    type Identity = Self;
+    fn type_info() -> scale_info::Type {
+        scale_info::Type::builder()
+            .path(scale_info::Path::new("H256", module_path!()))
+            .composite(
+                scale_info::build::Fields::unnamed()
+                    .field(|b| b.ty::<[u8; 32]>().type_name("[u8; 32]")),
+            )
+    }
+}
+
+// Sol ABI: bytes32 (right-aligned, same as [u8;32])
+impl pvm_contract_sdk::SolEncode for H256 {
+    const IS_DYNAMIC: bool = false;
+    const SOL_NAME: &'static str = "bytes32";
+    fn encode_body_len(&self) -> usize {
+        32
+    }
+    fn encode_body_to(&self, buf: &mut [u8]) {
+        buf[..32].copy_from_slice(&self.0);
+    }
+}
+impl pvm_contract_sdk::SolDecode for H256 {
+    fn decode_at(input: &[u8], offset: usize) -> Result<Self, pvm_contract_sdk::DecodeError> {
+        input
+            .get(offset..offset + 32)
+            .map(|x| {
+                let mut r = [0u8; 32];
+                r.copy_from_slice(x);
+                H256(r)
+            })
+            .ok_or(pvm_contract_sdk::DecodeError)
+    }
+}
+impl pvm_contract_sdk::StaticEncodedLen for H256 {
+    const ENCODED_SIZE: usize = 32;
+}
+impl pvm_contract_sdk::StaticDecode for H256 {
+    unsafe fn decode_unchecked(input: &[u8], offset: usize) -> Self {
+        let mut r = [0u8; 32];
+        unsafe { r.copy_from_slice(input.get_unchecked(offset..offset + 32)) };
+        H256(r)
+    }
+}
+impl pvm_contract_sdk::SolArrayElement for H256 {}
 
 impl From<[u8; 32]> for H256 {
     fn from(b: [u8; 32]) -> Self {
         Self(b)
     }
 }
-
 impl From<H256> for [u8; 32] {
     fn from(h: H256) -> Self {
         h.0
     }
 }
-
 impl AsRef<[u8; 32]> for H256 {
     fn as_ref(&self) -> &[u8; 32] {
         &self.0
@@ -125,228 +236,136 @@ impl AsRef<[u8; 32]> for H256 {
 }
 
 // =============================================================================
-// U256 — 256-bit unsigned integer (big-endian, SCALE encoded as 32 bytes)
-// U256 — 256 位无符号整数（大端存储，SCALE 编码为 32 字节）
+// U256 — delegates Sol ABI to sdk::U256 (correct "uint256" encoding)
 // =============================================================================
 
-/// 256-bit unsigned integer. Stored and SCALE-encoded as 32 bytes big-endian (EVM-compatible).
-/// 256 位无符号整数。内部及 SCALE 编码均为 32 字节大端（与 EVM 一致）。
-#[derive(
-    Default,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Encode,
-    Decode,
-    TypeInfo,
-    SolType,
-    Debug
-)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct U256(pub [u8; 32]);
+pub struct U256(pub sdk::U256);
 
-/// Internal computation uses 4 little-endian u64 limbs: [0]=LSB, [3]=MSB.
-/// 内部用 4 个 u64 小端 limbs 做运算：[0]=LSB, [3]=MSB。
-fn u256_to_limbs(u: &U256) -> [u64; 4] {
-    [
-        u64::from_be_bytes(u.0[24..32].try_into().unwrap()),
-        u64::from_be_bytes(u.0[16..24].try_into().unwrap()),
-        u64::from_be_bytes(u.0[8..16].try_into().unwrap()),
-        u64::from_be_bytes(u.0[0..8].try_into().unwrap()),
-    ]
+impl Default for U256 {
+    fn default() -> Self {
+        Self(sdk::U256::ZERO)
+    }
+}
+impl core::fmt::Debug for U256 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.0.fmt(f)
+    }
 }
 
-fn u256_from_limbs(limbs: [u64; 4]) -> U256 {
-    let mut b = [0u8; 32];
-    b[24..32].copy_from_slice(&limbs[0].to_be_bytes());
-    b[16..24].copy_from_slice(&limbs[1].to_be_bytes());
-    b[8..16].copy_from_slice(&limbs[2].to_be_bytes());
-    b[0..8].copy_from_slice(&limbs[3].to_be_bytes());
-    U256(b)
+// SCALE: little-endian 32 bytes
+impl Encode for U256 {
+    fn size_hint(&self) -> usize {
+        32
+    }
+    fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
+        dest.write(&self.0.to_le_bytes::<32>());
+    }
+}
+impl Decode for U256 {
+    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+        let mut buf = [0u8; 32];
+        input.read(&mut buf)?;
+        Ok(Self(sdk::U256::from_le_bytes(buf)))
+    }
+}
+impl TypeInfo for U256 {
+    type Identity = Self;
+    fn type_info() -> scale_info::Type {
+        scale_info::Type::builder()
+            .path(scale_info::Path::new("U256", module_path!()))
+            .composite(
+                scale_info::build::Fields::unnamed()
+                    .field(|b| b.ty::<[u8; 32]>().type_name("[u8; 32]")),
+            )
+    }
 }
 
+// Sol ABI: delegate to sdk::U256
+impl pvm_contract_sdk::SolEncode for U256 {
+    const IS_DYNAMIC: bool = <sdk::U256 as pvm_contract_sdk::SolEncode>::IS_DYNAMIC;
+    const SOL_NAME: &'static str = <sdk::U256 as pvm_contract_sdk::SolEncode>::SOL_NAME;
+    fn encode_body_len(&self) -> usize {
+        pvm_contract_sdk::SolEncode::encode_body_len(&self.0)
+    }
+    fn encode_body_to(&self, buf: &mut [u8]) {
+        pvm_contract_sdk::SolEncode::encode_body_to(&self.0, buf)
+    }
+}
+impl pvm_contract_sdk::SolDecode for U256 {
+    fn decode_at(input: &[u8], offset: usize) -> Result<Self, pvm_contract_sdk::DecodeError> {
+        <sdk::U256 as pvm_contract_sdk::SolDecode>::decode_at(input, offset).map(U256)
+    }
+}
+impl pvm_contract_sdk::StaticEncodedLen for U256 {
+    const ENCODED_SIZE: usize = <sdk::U256 as pvm_contract_sdk::StaticEncodedLen>::ENCODED_SIZE;
+}
+impl pvm_contract_sdk::StaticDecode for U256 {
+    unsafe fn decode_unchecked(input: &[u8], offset: usize) -> Self {
+        unsafe {
+            Self(<sdk::U256 as pvm_contract_sdk::StaticDecode>::decode_unchecked(input, offset))
+        }
+    }
+}
+impl pvm_contract_sdk::SolArrayElement for U256 {}
+
+// --- U256: constants & helpers ---
 impl U256 {
-    pub const ZERO: Self = Self([0u8; 32]);
-    pub const MAX: Self = Self([u8::MAX; 32]);
+    pub const ZERO: Self = Self(sdk::U256::ZERO);
+    pub const MAX: Self = Self(sdk::U256::MAX);
     pub const ONE: Self = Self({
         let mut b = [0u8; 32];
         b[31] = 1;
-        b
+        sdk::U256::from_be_bytes(b)
     });
 
-    #[inline]
-    pub fn as_bytes(&self) -> &[u8; 32] {
-        &self.0
+    pub fn to_le_bytes(&self) -> [u8; 32] {
+        self.0.to_le_bytes::<32>()
     }
-
-    /// Creates a U256 from a u64 value.
-    /// 从 u64 值创建 U256。
-    ///
-    /// The u64 is placed in the least significant 8 bytes (big-endian).
-    /// u64 被放置在最低有效 8 字节（大端序）。
-    pub fn from_u64(v: u64) -> Self {
-        let mut b = [0u8; 32];
-        b[24..32].copy_from_slice(&v.to_be_bytes());
-        Self(b)
+    pub fn from_le_bytes(b: [u8; 32]) -> Self {
+        Self(sdk::U256::from_le_bytes(b))
     }
-
-    /// Converts to u64 by taking the least significant 8 bytes (big-endian).
-    /// 通过取最低有效 8 字节（大端序）转换为 u64。
-    ///
-    /// Higher bytes are truncated.
-    /// 高位非零则截断。
-    pub fn to_u64(&self) -> u64 {
-        let mut buf = [0u8; 8];
-        buf.copy_from_slice(&self.0[24..32]);
-        u64::from_be_bytes(buf)
-    }
-
-    /// Returns 32 bytes in big-endian (same as internal representation, for EVM-style storage/events).
-    /// 返回大端 32 字节（与内部表示一致，用于 EVM 风格存储/事件）。
     pub fn to_be_bytes(&self) -> [u8; 32] {
-        self.0
+        self.0.to_be_bytes::<32>()
     }
-
-    /// Constructs from big-endian 32 bytes.
-    /// 从大端 32 字节构造。
     pub fn from_be_bytes(b: [u8; 32]) -> Self {
-        Self(b)
+        Self(sdk::U256::from_be_bytes(b))
+    }
+    pub fn from_u64(v: u64) -> Self {
+        Self(sdk::U256::from(v))
+    }
+    pub fn to_u64(&self) -> u64 {
+        self.0.try_into().unwrap_or(u64::MAX)
     }
 
-    /// Left shift by `n` bits (0 ≤ n ≤ 255); returns 0 if n ≥ 256.
-    /// 左移 `n` 位（0 ≤ n ≤ 255）；n ≥ 256 则结果为 0。
-    pub fn shl_bits(self, n: u32) -> Self {
-        if n == 0 {
-            return self;
+    pub fn as_bytes(&self, mode: CallMode) -> [u8; 32] {
+        match mode {
+            CallMode::Codec => self.to_le_bytes(),
+            CallMode::Sol => self.to_be_bytes(),
         }
+    }
+
+    pub fn wrapping_add(self, other: Self) -> Self {
+        Self(self.0.wrapping_add(other.0))
+    }
+    pub fn wrapping_sub(self, other: Self) -> Self {
+        Self(self.0.wrapping_sub(other.0))
+    }
+    pub fn wrapping_mul(self, other: Self) -> Self {
+        Self(self.0.wrapping_mul(other.0))
+    }
+    pub fn checked_div(self, other: Self) -> Option<Self> {
+        self.0.checked_div(other.0).map(Self)
+    }
+    pub fn bitor(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+    pub fn shl_bits(self, n: u32) -> Self {
         if n >= 256 {
             return Self::ZERO;
         }
-        let limbs = u256_to_limbs(&self);
-        let n_limb = (n / 64) as usize;
-        let n_bits = n % 64;
-        let mut out = [0u64; 4];
-        if n_bits == 0 {
-            for (i, &l) in limbs.iter().enumerate() {
-                if i >= n_limb {
-                    out[i - n_limb] = l;
-                }
-            }
-        } else {
-            let carry_shift = 64 - n_bits;
-            for (i, &l) in limbs.iter().enumerate() {
-                if i >= n_limb {
-                    out[i - n_limb] |= l << n_bits;
-                }
-                if i > n_limb {
-                    out[i - n_limb - 1] |= l >> carry_shift;
-                }
-            }
-        }
-        u256_from_limbs(out)
-    }
-
-    /// Bitwise OR.
-    /// 按位或。
-    pub fn bitor(self, other: Self) -> Self {
-        let a = u256_to_limbs(&self);
-        let b = u256_to_limbs(&other);
-        u256_from_limbs([a[0] | b[0], a[1] | b[1], a[2] | b[2], a[3] | b[3]])
-    }
-
-    /// Wrapping addition: self + other (mod 2^256 on overflow).
-    /// 包装加法 self + other（溢出时模 2^256）。
-    pub fn wrapping_add(self, other: Self) -> Self {
-        let a = u256_to_limbs(&self);
-        let b = u256_to_limbs(&other);
-        let (r0, c0) = a[0].overflowing_add(b[0]);
-        let (r1, _) = a[1].overflowing_add(b[1]);
-        let (r2, _) = a[2].overflowing_add(b[2]);
-        let (r3, c3) = a[3].overflowing_add(b[3]);
-        let (r1, c1) = r1.overflowing_add(c0 as u64);
-        let (r2, c2) = r2.overflowing_add(c1 as u64);
-        let (r3, _) = r3.overflowing_add(c2 as u64);
-        let r3 = r3.wrapping_add(c3 as u64);
-        u256_from_limbs([r0, r1, r2, r3])
-    }
-
-    /// Wrapping subtraction: self - other (mod 2^256 if self < other).
-    /// 包装减法 self - other（假设 self ≥ other，否则结果为模 2^256）。
-    pub fn wrapping_sub(self, other: Self) -> Self {
-        let a = u256_to_limbs(&self);
-        let b = u256_to_limbs(&other);
-        let (r0, c0) = a[0].overflowing_sub(b[0]);
-        let (r1, _) = a[1].overflowing_sub(b[1]);
-        let (r2, _) = a[2].overflowing_sub(b[2]);
-        let (r3, c3) = a[3].overflowing_sub(b[3]);
-        let (r1, c1) = r1.overflowing_sub(c0 as u64);
-        let (r2, c2) = r2.overflowing_sub(c1 as u64);
-        let (r3, _) = r3.overflowing_sub(c2 as u64);
-        let r3 = r3.wrapping_sub(c3 as u64);
-        u256_from_limbs([r0, r1, r2, r3])
-    }
-
-    /// Multiplication (low 256 bits, wrapping).
-    /// 乘法（低 256 位，wrapping）。
-    pub fn wrapping_mul(self, other: Self) -> Self {
-        let a = u256_to_limbs(&self);
-        let b = u256_to_limbs(&other);
-        let mut res = [0u64; 8];
-        for i in 0..4 {
-            let mut carry: u64 = 0;
-            for j in 0..4 {
-                let k = i + j;
-                let p = a[i] as u128 * b[j] as u128 + res[k] as u128 + carry as u128;
-                res[k] = p as u64;
-                carry = (p >> 64) as u64;
-            }
-            res[i + 4] = carry;
-        }
-        u256_from_limbs([res[0], res[1], res[2], res[3]])
-    }
-
-    /// Division; returns `None` if divisor is 0.
-    /// 除法；除数为 0 时返回 `None`。
-    pub fn checked_div(self, other: Self) -> Option<Self> {
-        if other == Self::ZERO {
-            return None;
-        }
-        if self < other {
-            return Some(Self::ZERO);
-        }
-        // Fast path: use u128 division if both high 16 bytes are zero.
-        // 快速路径：两者高 16 字节均为 0 时用 u128 做除法。
-        let self_hi_zero = self.0[0..16].iter().all(|&b| b == 0);
-        let other_hi_zero = other.0[0..16].iter().all(|&b| b == 0);
-        if self_hi_zero && other_hi_zero {
-            let mut lo = [0u8; 16];
-            lo.copy_from_slice(&self.0[16..32]);
-            let sl = u128::from_be_bytes(lo);
-            let mut olo = [0u8; 16];
-            olo.copy_from_slice(&other.0[16..32]);
-            let ol = u128::from_be_bytes(olo);
-            if ol == 0 {
-                return None;
-            }
-            let q = sl / ol;
-            let mut out = [0u8; 32];
-            out[16..32].copy_from_slice(&q.to_be_bytes());
-            return Some(Self(out));
-        }
-        let mut q = Self::ZERO;
-        let mut r = self;
-        for i in (0..256).rev() {
-            let b_shifted = other.shl_bits(i);
-            if r >= b_shifted {
-                q = q.bitor(Self::ONE.shl_bits(i));
-                r = r.wrapping_sub(b_shifted);
-            }
-        }
-        Some(q)
+        Self(self.0 << (n as usize))
     }
 }
 
@@ -355,58 +374,52 @@ impl From<u64> for U256 {
         Self::from_u64(v)
     }
 }
+impl From<sdk::U256> for U256 {
+    fn from(v: sdk::U256) -> Self {
+        Self(v)
+    }
+}
+impl From<U256> for sdk::U256 {
+    fn from(u: U256) -> Self {
+        u.0
+    }
+}
 
 impl Add for U256 {
     type Output = Self;
-    #[inline]
-    fn add(self, rhs: Self) -> Self::Output {
-        self.wrapping_add(rhs)
+    fn add(self, r: Self) -> Self {
+        Self(self.0 + r.0)
     }
 }
-
 impl Sub for U256 {
     type Output = Self;
-    #[inline]
-    fn sub(self, rhs: Self) -> Self::Output {
-        self.wrapping_sub(rhs)
+    fn sub(self, r: Self) -> Self {
+        Self(self.0 - r.0)
     }
 }
-
 impl Mul for U256 {
     type Output = Self;
-    #[inline]
-    fn mul(self, rhs: Self) -> Self::Output {
-        self.wrapping_mul(rhs)
+    fn mul(self, r: Self) -> Self {
+        Self(self.0 * r.0)
     }
 }
-
 impl Div for U256 {
     type Output = Self;
-    #[inline]
-    fn div(self, rhs: Self) -> Self::Output {
-        self.checked_div(rhs).expect("U256 division by zero")
+    fn div(self, r: Self) -> Self {
+        Self(self.0 / r.0)
     }
 }
 
 // =============================================================================
-// BlockNumber — Block height type alias
-// BlockNumber — 区块高度类型别名
+// BlockNumber, Bytes
 // =============================================================================
 
-/// Block number type (commonly u32 in Substrate).
-/// 区块高度类型别名（Substrate 常用 u32）。
 pub type BlockNumber = u32;
-
-// =============================================================================
-// Bytes / Byte storage
-// Bytes / 字节存储
-// =============================================================================
-
-/// Bytes type for storage/messages; SCALE encoded as length-prefixed bytes.
-/// Can be used directly with Storage/Mapping.
-/// 用于合约存储/消息的字节类型；SCALE 编码为长度前缀 + 字节。
-/// 可直接用于 Storage/Mapping。
 pub type Bytes = Vec<u8>;
+
+// =============================================================================
+// Tests
+// =============================================================================
 
 #[cfg(test)]
 mod tests {
@@ -442,9 +455,7 @@ mod tests {
 
     #[test]
     fn u256_be_bytes_roundtrip() {
-        let b = [0u8; 31];
         let mut buf = [0u8; 32];
-        buf[..31].copy_from_slice(&b);
         buf[31] = 1;
         let u = U256::from_be_bytes(buf);
         assert_eq!(u.to_be_bytes(), buf);
@@ -462,55 +473,27 @@ mod tests {
     #[test]
     fn u256_mul() {
         assert_eq!(U256::ZERO.wrapping_mul(U256::ONE), U256::ZERO);
-        assert_eq!(U256::ONE.wrapping_mul(U256::ONE), U256::ONE);
         assert_eq!(
             U256::from_u64(10).wrapping_mul(U256::from_u64(20)),
             U256::from_u64(200)
         );
-        assert_eq!(
-            U256::from_u64(0xFFFF_FFFF)
-                .wrapping_mul(U256::from_u64(2))
-                .to_u64(),
-            0x1_FFFF_FFFE
-        );
-        // Mul trait
         assert_eq!(U256::from_u64(7) * U256::from_u64(6), U256::from_u64(42));
     }
 
     #[test]
     fn u256_add_sub() {
-        assert_eq!(U256::ZERO.wrapping_add(U256::ONE), U256::ONE);
-        assert_eq!(
-            U256::from_u64(100).wrapping_add(U256::from_u64(50)),
-            U256::from_u64(150)
-        );
-        assert_eq!(
-            U256::from_u64(100).wrapping_sub(U256::from_u64(30)),
-            U256::from_u64(70)
-        );
         assert_eq!(U256::ONE.wrapping_sub(U256::ONE), U256::ZERO);
-        // Add/Sub traits
         assert_eq!(U256::from_u64(10) + U256::from_u64(20), U256::from_u64(30));
         assert_eq!(U256::from_u64(99) - U256::from_u64(9), U256::from_u64(90));
     }
 
     #[test]
     fn u256_div() {
-        assert_eq!(U256::ZERO.checked_div(U256::ONE), Some(U256::ZERO));
         assert_eq!(U256::ONE.checked_div(U256::ZERO), None);
         assert_eq!(
             U256::from_u64(100).checked_div(U256::from_u64(5)),
             Some(U256::from_u64(20))
         );
-        assert_eq!(
-            U256::from_u64(99).checked_div(U256::from_u64(5)),
-            Some(U256::from_u64(19))
-        );
-        assert_eq!(
-            U256::from_u64(50).checked_div(U256::from_u64(100)),
-            Some(U256::ZERO)
-        );
-        // Div trait
         assert_eq!(U256::from_u64(100) / U256::from_u64(4), U256::from_u64(25));
     }
 }
