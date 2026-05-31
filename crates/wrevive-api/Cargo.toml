@@ -11,9 +11,9 @@ on_chain = []
 
 [dependencies]
 primitive-types = { workspace = true }
-pvm-contract-sdk = { workspace = true }
+pvm-contract-sdk = { workspace = true, features = ["alloc"] }
 pvm-contract-macros = { workspace = true }
-pvm-contract-types = { workspace = true }
+pvm-contract-types = { workspace = true, features = ["alloc"] }
 pallet-revive-uapi = { workspace = true }
 parity-scale-codec = { workspace = true }
 scale-info = { workspace = true }
@@ -21,4 +21,3 @@ sha3 = { workspace = true }
 alloy-core = { version = "1.5", default-features = false, features = ["sol-types"] }
 
 [dev-dependencies]
-pvm-contract-types = { workspace = true, features = ["alloc"] }
