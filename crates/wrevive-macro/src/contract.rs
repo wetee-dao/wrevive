@@ -228,6 +228,7 @@ pub fn revive_contract_impl(attr: TokenStream, item: TokenStream) -> TokenStream
         constructor_encoding,
         &sol_abi_fns,
         fallback_fn.as_ref(),
+        mod_content,
     ) {
         return syn::Error::new_spanned(
             &module,

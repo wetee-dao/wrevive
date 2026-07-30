@@ -603,6 +603,7 @@ pub fn emit_sol_abi(
     constructor_encoding: EncodingMode,
     message_fns: &[(ItemFn, [u8; 4], EncodingMode, bool, bool)],
     fallback_fn: Option<&ItemFn>,
+    mod_items: &[Item],
 ) -> Result<(), String> {
     // Only generate Sol ABI if at least one function uses Sol encoding
     let any_sol = constructor_encoding == EncodingMode::Sol
@@ -646,6 +647,10 @@ pub fn emit_sol_abi(
         }
     };
 
+    // Collect struct definitions for custom type resolution
+    let (struct_defs, _enum_defs, _aliases, _enum_fields, _generic) =
+        collect_struct_defs(&manifest_abs, mod_items);
+
     let out_dir = base_dir.join("target");
     fs::create_dir_all(&out_dir)
         .map_err(|e| format!("创建目录 {} 失败: {}", out_dir.display(), e))?;
@@ -670,18 +675,106 @@ pub fn emit_sol_abi(
         } else if sol_type.ends_with("[]") {
             let base = &sol_type[..sol_type.len() - 2];
             let inner = param_to_json("", base.to_string());
-            serde_json::json!({
+            let inner_type = inner["type"].as_str().unwrap_or("");
+            let mut obj = serde_json::json!({
                 "name": name,
-                "type": format!("{}[]", inner["type"]),
-                "components": inner.get("components").cloned().unwrap_or(serde_json::json!([]))
-            })
+                "type": format!("{}[]", inner_type),
+            });
+            // Only include components for tuple arrays (e.g. (address,bool)[])
+            if let Some(comps) = inner.get("components") {
+                if comps.as_array().map_or(false, |a| !a.is_empty()) {
+                    obj["components"] = comps.clone();
+                }
+            }
+            obj
         } else {
             serde_json::json!({
                 "name": name,
                 "type": sol_type,
-                "components": []
             })
         }
+    }
+
+    /// Build a Sol ABI param for a custom struct type, using the struct's field names.
+    /// Returns None if `type_name` is not a known struct.
+    fn build_struct_param(
+        outer_name: &str,
+        type_name: &str,
+        struct_defs: &HashMap<String, Vec<(String, Type)>>,
+    ) -> Option<serde_json::Value> {
+        let fields = struct_defs.get(type_name)?;
+        let components: Vec<serde_json::Value> = fields
+            .iter()
+            .map(|(field_name, field_ty)| {
+                let sol_type = attrs::rust_type_to_solidity(field_ty);
+                let sol_type = resolve_sol_type(&sol_type, struct_defs);
+                param_to_json(field_name, sol_type)
+            })
+            .collect();
+        Some(serde_json::json!({
+            "name": outer_name,
+            "type": "tuple",
+            "components": components
+        }))
+    }
+
+    /// Resolve a custom Solidity type name to its tuple representation using struct definitions.
+    /// e.g. "PendingWithdrawal" → "(address,uint256,uint64,...)"
+    fn resolve_sol_type(
+        sol_type: &str,
+        struct_defs: &HashMap<String, Vec<(String, Type)>>,
+    ) -> String {
+        let known = [
+            "address", "bool", "string", "bytes", "uint8", "uint16", "uint32", "uint64", "uint128",
+            "uint256", "int8", "int16", "int32", "int64", "int128", "int256", "bytes1", "bytes2",
+            "bytes3", "bytes4", "bytes5", "bytes6", "bytes7", "bytes8", "bytes9", "bytes10",
+            "bytes11", "bytes12", "bytes13", "bytes14", "bytes15", "bytes16", "bytes17", "bytes18",
+            "bytes19", "bytes20", "bytes21", "bytes22", "bytes23", "bytes24", "bytes25", "bytes26",
+            "bytes27", "bytes28", "bytes29", "bytes30", "bytes31", "bytes32",
+        ];
+        if known.contains(&sol_type) || sol_type.starts_with('(') {
+            return sol_type.to_string();
+        }
+        if sol_type.ends_with("[]") {
+            let base = &sol_type[..sol_type.len() - 2];
+            let resolved_base = resolve_sol_type(base, struct_defs);
+            return format!("{}[]", resolved_base);
+        }
+        if let Some(fields) = struct_defs.get(sol_type) {
+            let inner_types: Vec<String> = fields
+                .iter()
+                .map(|(_, ty)| attrs::rust_type_to_solidity(ty))
+                .map(|t| resolve_sol_type(&t, struct_defs))
+                .collect();
+            return format!("({})", inner_types.join(","));
+        }
+        sol_type.to_string()
+    }
+
+    /// Build a Sol ABI output param from a Rust return type, handling custom structs with field names.
+    /// For known struct types, uses the struct's field names; otherwise falls back to param_to_json.
+    fn build_output_param(
+        sol_type: &str,
+        struct_defs: &HashMap<String, Vec<(String, Type)>>,
+    ) -> serde_json::Value {
+        if let Some(p) = build_struct_param("", sol_type, struct_defs) {
+            return p;
+        }
+        let resolved = resolve_sol_type(sol_type, struct_defs);
+        param_to_json("", resolved)
+    }
+
+    /// Build Sol ABI input params from Rust function args, handling custom structs with field names.
+    fn build_input_param(
+        name: &str,
+        sol_type: &str,
+        struct_defs: &HashMap<String, Vec<(String, Type)>>,
+    ) -> serde_json::Value {
+        if let Some(p) = build_struct_param(name, sol_type, struct_defs) {
+            return p;
+        }
+        let resolved = resolve_sol_type(sol_type, struct_defs);
+        param_to_json(name, resolved)
     }
 
     // Constructor
@@ -694,7 +787,7 @@ pub fn emit_sol_abi(
                 _ => continue,
             };
             let sol_type = attrs::rust_type_to_solidity(pt.ty.as_ref());
-            inputs.push(param_to_json(&arg_name, sol_type));
+            inputs.push(build_input_param(&arg_name, &sol_type, &struct_defs));
         }
         items.push(serde_json::json!({
             "type": "constructor",
@@ -718,14 +811,13 @@ pub fn emit_sol_abi(
                 _ => continue,
             };
             let sol_type = attrs::rust_type_to_solidity(pt.ty.as_ref());
-            inputs.push(param_to_json(&arg_name, sol_type));
+            inputs.push(build_input_param(&arg_name, &sol_type, &struct_defs));
         }
 
         // Outputs: extract the return type, unwrapping Result<T,E> → T
         let mut outputs = Vec::new();
         if let ReturnType::Type(_, ty) = &f.sig.output {
             let sol_type = attrs::rust_type_to_solidity(ty);
-            // Unwrap Result<T,E> → T
             let inner = if sol_type.starts_with("Result<") && sol_type.ends_with('>') {
                 let s = &sol_type[7..sol_type.len() - 1];
                 if let Some(c) = s.find(',') {
@@ -737,7 +829,7 @@ pub fn emit_sol_abi(
                 sol_type
             };
             if inner != "()" {
-                outputs.push(param_to_json("", inner));
+                outputs.push(build_output_param(&inner, &struct_defs));
             }
         }
 
@@ -766,6 +858,49 @@ pub fn emit_sol_abi(
             "type": "fallback",
             "stateMutability": if is_payable { "payable" } else { "nonpayable" }
         }));
+    }
+
+    /// Give synthetic names to tuples where ALL components have empty names.
+    /// abigen rejects "purely anonymous" struct fields. Named structs (with at
+    /// least one named field) are left untouched — those carry real field names.
+    fn ensure_tuple_names(params: &mut Vec<serde_json::Value>) {
+        let mut anon = 0u64;
+        fn walk(params: &mut Vec<serde_json::Value>, anon: &mut u64) {
+            for p in params {
+                // Recurse into nested components first
+                if let Some(comps) = p.get_mut("components").and_then(|c| c.as_array_mut()) {
+                    if !comps.is_empty() {
+                        walk(comps, anon);
+                    }
+                }
+                // Check if this is a tuple with all-empty component names
+                let is_tuple = p["type"].as_str().map_or(false, |t| t.starts_with("tuple"));
+                if is_tuple {
+                    if let Some(comps) = p.get_mut("components").and_then(|c| c.as_array_mut()) {
+                        if !comps.is_empty()
+                            && comps
+                                .iter()
+                                .all(|c| c["name"].as_str().map_or(true, |n| n.is_empty()))
+                        {
+                            for c in comps.iter_mut() {
+                                *anon += 1;
+                                c["name"] = serde_json::json!(format!("arg{}", anon));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        walk(params, &mut anon);
+    }
+
+    for item in &mut items {
+        if let Some(inputs) = item.get_mut("inputs").and_then(|i| i.as_array_mut()) {
+            ensure_tuple_names(inputs);
+        }
+        if let Some(outputs) = item.get_mut("outputs").and_then(|o| o.as_array_mut()) {
+            ensure_tuple_names(outputs);
+        }
     }
 
     let json_str = serde_json::to_string_pretty(&items)
